@@ -1,0 +1,23 @@
+python demo_min3d_dyn.py `
+  --left-id 0 --right-id 2 `
+  --width 1280 --height 720 --fps 30 --max-pair-dt-ms 30 `
+  --calib "stereo_pairs\calib_charuco_stereo.npz" `
+  --alpha 0.7 --min-conf 0.45 `
+  --detect-scale 1.0 --detect-every 1 `
+  --max-interp-ms 150 `
+  --max-pair-dt-ms 30 `
+  --jump-thresh-m 0.40 `
+  --emit-invalid `
+  --thc "stereo_pairs\T_HC.json" `
+  --udp 192.168.50.212:33333 `
+  --hz 30 `
+  --gesture `
+  --gesture-every 1 `
+  --vis-scale 0.5 `
+  --z-log-interval 1.0 `
+  --mp-det-conf 0.30 `
+  --mp-track-conf 0.50 `
+  --mp-model-complexity 0 `
+  --mp-max-hands 1 `
+  --rect-alpha 0.75 `
+  --show --no-epi --quiet

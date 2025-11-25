@@ -1,0 +1,25 @@
+T_H<-C package summary
+======================
+
+[Units / Convention]
+- Units: meters (m)
+- Input  X_C : camera (OpenCV: x-right, y-down, z-forward), column-vector
+- Mapping   : X_H = R * (S * X_C) + t,  S = diag(1,-1,1)
+- Output X_H : HoloLens world (anchor-fixed), column-vector
+
+[Matrix sanity]
+- det(R_raw)   = -1.000001
+- det(R_final) =  1.000000  (SO(3) projected)
+
+[Alignment (input-side/right-multiply)]
+- align mode   : zx
+- z  : make (R@A) * +Z_C  ->  +Z_H
+- zx : then yaw within XY so (R@A) * +X_C -> +X_H
+
+[Translation t (m)]
+- t = [ 0.334513,  1.778771,  0.103183]
+
+[Note] align=zx; 
+
+[Quick test]
+python ./calib/test_apply_thc.py

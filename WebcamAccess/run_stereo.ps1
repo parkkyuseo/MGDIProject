@@ -1,0 +1,20 @@
+python .\stereo_capture_charuco.py `
+  --left-id 0 `
+  --right-id 2 `
+  --backend dshow `
+  --width 1280 `
+  --height 720 `
+  --fps 30 `
+  --fourcc MJPG `
+  --charuco-dict 4x4_50 `
+  --squares-x 7 `
+  --squares-y 5 `
+  --square-length 0.017 `
+  --marker-length 0.013 `
+  --min-charuco 12 `
+  --coverage-min 1.5 `
+  --coverage-max 90 `
+  --min-interval 0.6 `
+  --save-dir .\stereo_pairs `
+  --pairs 40 `
+  --calibrate-now

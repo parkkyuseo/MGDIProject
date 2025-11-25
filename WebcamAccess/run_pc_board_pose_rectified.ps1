@@ -1,0 +1,11 @@
+python .\pc_board_pose_rectified.py `
+  --left-id 0 --right-id 2 `
+  --width 1280 --height 720 --fps 24 `
+  --calib .\stereo_pairs\calib_charuco_stereo.npz `
+  --rectify-maps .\stereo_pairs\rectify_maps.npz `
+  --alpha 0.0 `
+  --shots 8 `
+  --min-charuco 12 `
+  --out .\stereo_pairs\T_C_from_B.npz `
+  --log-json .\stereo_pairs\T_C_from_B_log.json `
+  --backend dshow

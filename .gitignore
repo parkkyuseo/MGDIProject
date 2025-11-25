@@ -1,0 +1,84 @@
+#############################
+# Unity - 기본 캐시/빌드 폴더
+#############################
+
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild*/
+[Bb]uilds*/
+[Ll]ogs/
+[Uu]serSettings/
+[Mm]emoryCaptures/
+
+# Addressables / StreamingAssets (필요하면 주석 해제해서 사용)
+# /Assets/StreamingAssets/aa/*
+# /Assets/AddressableAssetsData/*
+
+#############################
+# Unity - 자동 생성 파일
+#############################
+
+*.unityproj
+*.pidb
+*.suo
+*.user
+*.userprefs
+*.tmp
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.stacktrace
+
+#############################
+# IDE / 에디터 관련
+#############################
+
+# Visual Studio / Rider / 기타
+.vs/
+.idea/
+*.csproj
+*.sln
+*~
+
+# VS Code 설정 폴더
+.vscode/
+
+#############################
+# OS 잡파일
+#############################
+
+.DS_Store
+Thumbs.db
+
+#############################
+# Python / WebcamAccess 관련
+#############################
+
+# 가상환경
+.venv/
+.venv311/
+venv/
+env/
+
+# 컴파일된 파이썬 파일
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 로그 / 임시 파일
+*.log
+*.tmp
+
+#############################
+# 기타 빌드 아티팩트 (필요 시 추가)
+#############################
+
+# 실행 파일 / 패키지 (원하면 주석 해제)
+# *.exe
+# *.apk
+# *.aab
+# *.unitypackage
+
