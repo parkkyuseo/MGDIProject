@@ -2174,7 +2174,7 @@ MonoBehaviour:
     m_SourceObjects:
       m_Length: 1
       m_Item0:
-        transform: {fileID: 178076531}
+        transform: {fileID: 419367364}
         weight: 1
       m_Item1:
         transform: {fileID: 0}
@@ -2541,7 +2541,7 @@ MonoBehaviour:
   splayRing: 0.01
   splayPinky: 0.012
   cutoffHzTips: 5
-  maxStepTips: 0.012
+  maxStepTips: 0.01
   tipRotLerp: 0.18
   computePalmFrame: 0
   stabilizeWrist: 0
@@ -2555,7 +2555,7 @@ MonoBehaviour:
   aimPositionOnly: 1
   aimFromVelocity: 0
   aimVelMinSpeed: 0.05
-  aimDirLerp: 0.18
+  aimDirLerp: 0.25
   remoteWrist: {fileID: 1050038128}
   proxyRoot: {fileID: 4217352218302390349}
   rightHand: {fileID: 2547293117679861373}

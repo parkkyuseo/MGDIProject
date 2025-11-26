@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class RemoteHandRuntime : MonoBehaviour
 {
@@ -10,64 +10,64 @@ public class RemoteHandRuntime : MonoBehaviour
     public Transform palmUp;  // Remote_PALM_UP
 
     [Header("Wrist Aim helper")]
-    [Tooltip("Wrist에서 손끝 방향으로 띄울 거리(m)")]
-    public float palmAimDistance = 0.08f; // 5~10cm 권장
+    [Tooltip("Distance from wrist to aim target (m)")]
+    public float palmAimDistance = 0.08f; // ~5-10cm recommended
 
     [Header("Options")]
-    public bool isLeft = false;          // 송신부에서 true/false 세팅 유지
-    public bool manualTestMode = false;  // 테스트 모드(외부 입력 무시)
+    public bool isLeft = false;          // left/right hand flag (from sender)
+    public bool manualTestMode = false;  // ignore incoming data when true
 
     [Header("Smoothing (positions)")]
-    public float cutoffHz = 10f;         // 8~12 권장
-    public float maxStepMeters = 0.08f;  // 프레임당 최대 이동 제한(스파이크 컷)
+    public float cutoffHz = 10f;         // LPF cutoff (8~12 recommended)
+    public float maxStepMeters = 0.08f;  // per-frame position clamp
 
-    [Header("Rig arming (0→1) — 필요 없으면 autoArm=false")]
+    [Header("Rig arming (0→1) — set autoArm=false to arm manually")]
     public HandRigArmer armer;
     public float firstValidDistance = 0.02f;
-    public bool autoArm = false;         // false면 절대 ArmNow 호출 안 함(디버그용)
+    public bool autoArm = false;         // false means you will call ArmNow() manually
 
-    // ====== 전처리/정렬/게이트 ======
+    // ====== Preprocess / alignment / gating ======
     [Header("Preprocess (toggle as needed)")]
-    public bool mmToMeters = false;      // 수신 값이 mm라면 true
-    public bool flipZ = false;           // RH↔LH 교정(자주 사용)
-    public bool flipY = false;           // 드물게 Y 반전 필요시
-    public Transform hToUnity = null;    // (선택) H-world→Unity-world 정렬 트랜스폼
-    public bool yaw180 = false;          // Y축 180° 회전(= X,Z 반전)
-    public bool flipX = false;           // X만 단독 반전
+    public bool mmToMeters = false;      // true if incoming data is in millimeters
+    public bool flipZ = false;           // swap RH/LH by flipping Z
+    public bool flipY = false;           // flip Y axis
+    public Transform hToUnity = null;    // optional H-world → Unity transform
+    public bool yaw180 = false;          // rotate 180° around Y (flip X/Z)
+    public bool flipX = false;           // flip X axis only
 
     [Header("Validation / Gating")]
-    public bool gateUntilSane = true;    // 첫 유효 좌표 전에는 적용 안 함
+    public bool gateUntilSane = true;    // block until first sane wrist arrives
     public float saneMinRadius = 0.05f;
     public float saneMaxRadius = 10.0f;
     public float saneMinY = -1.0f;
     public float saneMaxY = 3.0f;
 
     [Header("Initial Offset (Option B) — keep proxy fixed")]
-    public bool addInitialOffset = true; // 첫 유효 프레임에 오프셋 캡처하여 이후 모든 점에 더함
-    public Transform rWrist;             // ProxyHandR/R_Wrist (본 루트) — 반드시 할당
+    public bool addInitialOffset = true; // capture initial offset on first valid frame
+    public Transform rWrist;             // ProxyHandR/R_Wrist anchor (required)
     bool offsetCaptured = false;
     Vector3 initialOffset = Vector3.zero;
-    Vector3 lastPreOffsetWrist = Vector3.zero; // 전처리 후, 오프셋 적용 전의 WRIST(참조용)
+    Vector3 lastPreOffsetWrist = Vector3.zero; // wrist after preprocess, before offset
 
     [Header("Hand Scale (radial, from WRIST)")]
-    public bool applyHandScale = false;  // 실제 적용할지 여부(기본 Off)
-    public bool autoScaleOnce = false;   // true면 첫 유효 프레임에 자동 캡처
-    public Transform[] skeletonByIndex = null; // 0..20 → 실제 본 매핑(있으면 자동 스케일에 사용)
-    public float manualHandScale = 1.0f; // 수동 스케일(자동 미사용 시)
+    public bool applyHandScale = false;  // enable hand scaling (default Off)
+    public bool autoScaleOnce = false;   // auto capture on first valid frame
+    public Transform[] skeletonByIndex = null; // 0..20 skeleton joints for auto scale
+    public float manualHandScale = 1.0f; // manual scale if auto is off
     public float minHandScale = 0.5f, maxHandScale = 4.0f;
     bool scaleCaptured = false;
     float handScale = 1.0f;
 
     [Header("Extra offset from camera (for starting distance)")]
-    [Tooltip("홀로렌즈 머리 기준 앞으로 얼마나 더 당길지 (미터). 0이면 현재 rWrist 위치를 그대로 기준점으로 사용.")]
+    [Tooltip("Optional forward/up offset from camera before capturing initial offset.")]
     public bool useExtraCameraOffset = true;
-    public float extraForwardMeters = 0.25f;   // 25cm 정도 앞으로
-    public float extraUpMeters = 0.00f;   // 필요하면 위/아래로 조절
+    public float extraForwardMeters = 0.25f;   // ~25cm forward
+    public float extraUpMeters = 0.00f;        // vertical tweak
 
 
-    // ====== 팁 자동 회전/스플레이(기본 Off; 필요시만 On) ======
+    // ====== Tip auto look / splay (default Off; enable if needed) ======
     [Header("Tip Auto Look & Roll (optional)")]
-    public bool tipAutoLook = false;     // 기본 Off (리그 손가락 안 쓰면 보통 불필요)
+    public bool tipAutoLook = false;     // Off by default; rarely needed
     [Range(-60, 60)] public float rollThumb = -20f;
     [Range(-60, 60)] public float rollIndex = -10f;
     [Range(-60, 60)] public float rollMiddle = 0f;
@@ -78,7 +78,7 @@ public class RemoteHandRuntime : MonoBehaviour
     public bool applySplay = false;
     public float splayThumb = 0.010f;  // 10mm
     public float splayIndex = 0.005f;  // 5mm
-    public float splayRing = 0.005f;  // 5mm
+    public float splayRing = 0.005f;   // 5mm
     public float splayPinky = 0.010f;  // 10mm
 
     [Header("Jitter control (per-finger pos)")]
@@ -86,9 +86,9 @@ public class RemoteHandRuntime : MonoBehaviour
     public float maxStepTips = 0.015f;
     [Range(0f, 1f)] public float tipRotLerp = 0.18f;
 
-    [Header("Palm/Wrist stabilization (회전 안정화)")]
-    public bool computePalmFrame = true; // palmFwd/Up 계산 자체를 켜/끔
-    public bool stabilizeWrist = true;   // 아래 각속도/롤 캡/스무딩 적용 여부
+    [Header("Palm/Wrist stabilization (rotation)")]
+    public bool computePalmFrame = true; // compute palmFwd/Up transforms
+    public bool stabilizeWrist = true;   // apply angular clamps/smoothing
     [Range(0f, 1f)] public float palmSlerp = 0.18f;
     public float maxPalmDegPerSec = 540f;
     public float maxRollDegPerSec = 240f;
@@ -99,19 +99,19 @@ public class RemoteHandRuntime : MonoBehaviour
     public bool logFirstAfter = true;
     public int debugEveryNFrames = 0;
 
-    // === NEW: 회전 제거 모드(조준점만) ===
+    // === Aim (position-only) ===
     [Header("Aim (position-only; no roll/up)")]
-    [Tooltip("True면 palmFwd는 '위치'만 갱신. Wrist_Aim은 UpType=None으로 타깃 위치만 조준하게 함.")]
-    public bool aimPositionOnly = true;      // <- 기본 ON (요청 모드)
-    [Tooltip("True면 손목의 이동 방향(속도)으로 조준. False면 손 모양(WRIST→MIDDLE_MCP)로 조준.")]
-    public bool aimFromVelocity = true;      // 이동 방향 조준
-    public float aimVelMinSpeed = 0.05f;     // m/s 이상일 때만 속도 사용
-    [Range(0f, 1f)] public float aimDirLerp = 0.20f; // 조준 방향 저역 필터
+    [Tooltip("If true, palmFwd moves position only (UpType=None on Wrist_Aim).")]
+    public bool aimPositionOnly = true;      // default ON
+    [Tooltip("If true, aim from wrist velocity; else use WRIST→MIDDLE_MCP vector.")]
+    public bool aimFromVelocity = true;      // velocity-based aim
+    public float aimVelMinSpeed = 0.05f;     // m/s threshold for velocity aim
+    [Range(0f, 1f)] public float aimDirLerp = 0.20f; // aim direction smoothing
 
     Vector3 _wristPrev; bool _haveWristPrev = false;
     Vector3 _aimDirSm = Vector3.zero;
 
-    // ===== 내부 상태 =====
+    // ===== Internal state =====
     Quaternion[] _prevTipRot = new Quaternion[21];
     bool _tipRotInit = false;
     bool IsTip(int i) => (i == 4 || i == 8 || i == 12 || i == 16 || i == 20);
@@ -135,12 +135,12 @@ public class RemoteHandRuntime : MonoBehaviour
     bool firstAfterLogged = false;
     int dbgFrame = 0;
 
-    // ===== UDP 호출부 (그대로 사용) =====
+    // ===== Main entry: apply streamed joints =====
     public void ApplyWorldPositions(Vector3[] worldPos)
     {
         if (manualTestMode || worldPos == null || worldPos.Length < 21) return;
 
-        // (A) RAW 1회 로그
+        // (A) RAW first-frame logging
         if (logFirstRaw && !firstRawLogged)
         {
             firstRawLogged = true;
@@ -152,10 +152,10 @@ public class RemoteHandRuntime : MonoBehaviour
             //DebugHUD_LogSafe($"[DATA-RAW] WRIST:{w0}  span:{span:F3}m  camLocal:{camLocal}");
         }
 
-        // (B) 전처리(단위/축/세션 정렬)
+        // (B) Preprocess (units/axes/session)
         PreprocessInPlace(worldPos);
 
-        // (B-2) 손 스케일 결정(한 번만)
+        // (B-2) Hand scale capture (once)
         if (!scaleCaptured)
         {
             if (autoScaleOnce)
@@ -177,28 +177,28 @@ public class RemoteHandRuntime : MonoBehaviour
             }
         }
 
-        // (B-3) 스케일 적용(옵션)
+        // (B-3) Apply scale (optional)
         if (applyHandScale && scaleCaptured) ApplyHandScaleInPlace(worldPos, handScale);
 
-        // (C) 전처리 후 기준 WRIST 저장(오프셋 계산용)
+        // (C) Save wrist before offset
         lastPreOffsetWrist = worldPos[0];
 
-        // (D) 첫 유효 프레임 게이트
+        // (D) Gate on sanity
         if (gateUntilSane && !firstValid)
         {
             if (!IsSane(worldPos[0])) return;
             firstValid = true;
-            init = false; // 스무딩 기준 리셋
+            init = false; // reset smoothing
         }
 
-        // (E) 초기 오프셋 캡처
+        // (E) Capture initial offset
         if (addInitialOffset && !offsetCaptured)
         {
             if (!gateUntilSane || firstValid)
             {
                 if (rWrist != null)
                 {
-                    // ★ 기준점: rWrist.position에서 카메라 앞쪽으로 extraForwardMeters만큼 더 나간 위치
+                    // anchor = rWrist + optional camera forward/up offset
                     Vector3 anchorPos = rWrist.position;
 
                     if (useExtraCameraOffset && Camera.main != null)
@@ -211,7 +211,7 @@ public class RemoteHandRuntime : MonoBehaviour
                     initialOffset = anchorPos - lastPreOffsetWrist;
 
                     offsetCaptured = true;
-                    init = false; // 다음 프레임 스무딩 기준 재설정
+                    init = false; // reset smoothing after offset capture
                     //DebugHUD_LogSafe($"[OFFSET] captured {initialOffset}  anchorPos={anchorPos}");
 
                 }
@@ -222,11 +222,11 @@ public class RemoteHandRuntime : MonoBehaviour
             }
         }
 
-        // (F) 오프셋 적용
+        // (F) Apply offset
         if (addInitialOffset && offsetCaptured)
             for (int i = 0; i < 21; i++) worldPos[i] += initialOffset;
 
-        // (G) AFTER 1회 로그
+        // (G) AFTER first-frame logging
         if (logFirstAfter && !firstAfterLogged)
         {
             firstAfterLogged = true;
@@ -238,7 +238,7 @@ public class RemoteHandRuntime : MonoBehaviour
             //DebugHUD_LogSafe($"[DATA-AFTER] WRIST:{w0}  span:{span:F3}m  camLocal:{camLocal}");
         }
 
-        // (H) 연속 스트리밍 로그(선택)
+        // (H) Periodic debug (optional)
         if (debugEveryNFrames > 0 && ((dbgFrame++ % debugEveryNFrames) == 0))
         {
             var w0 = worldPos[0];
@@ -247,30 +247,30 @@ public class RemoteHandRuntime : MonoBehaviour
             // DebugHUD_LogSafe($"[DATA-STREAM] worldY:{w0.y:F3} camLocal:{camLocal}");
         }
 
-        // (I) TIP 벌림/정렬 등 (옵션)
+        // (I) Optional splay
         ApplySplayInPlace(worldPos);
 
-        // (J) 좌표 스무딩 + 스텝 캡 + 드라이버에 대입(= 오직 Remote_*에만!)
+        // (J) Smooth + step clamp + apply to Remote_* (positions only)
         SmoothAndApply(worldPos);
 
-        // (K) 손바닥 프레임(= Wrist_Aim 타깃)
+        // (K) Aim targets
         if (computePalmFrame)
         {
-            if (aimPositionOnly) UpdateAimPositionOnly();  // 회전 제거 모드
-            else UpdatePalmFrame_Full();   // 기존(회전 포함) 모드
+            if (aimPositionOnly) UpdateAimPositionOnly();  // position-only mode
+            else UpdatePalmFrame_Full();                   // full rotation mode
         }
 
-        // (L) 손가락 TIP 방향만(드라이버 회전) — 기본 Off
+        // (L) Optional tip rotations
         if (tipAutoLook) UpdateFingerTipFrames();
 
-        // (M) 첫 유효 프레임에 리그 켜기(원하면 사용)
+        // (M) Auto-arm once valid
         if (autoArm && !firstArmed && FrameLooksValid(worldPos) && (!gateUntilSane || firstValid))
         {
             if (armer) armer.ArmNow();
             firstArmed = true;
         }
 
-        // ===== TEST 로그 =====
+        // ===== TEST logging =====
         if (!remoteWrist || !rWrist || !proxyRoot || !rightHand) return;
 
         var d = remoteWrist.position;
@@ -288,14 +288,14 @@ public class RemoteHandRuntime : MonoBehaviour
         }
     }
 
-    // --- 내부: 스무딩 + 스텝 클램프 ---
+    // --- Smoothing + step clamp ---
     void SmoothAndApply(Vector3[] inPos)
     {
         float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
 
         for (int i = 0; i < 21; i++)
         {
-            // TIP엔 더 낮은 컷오프/작은 스텝캡
+            // tips use lower cutoff and tighter step clamp
             float cutoff = IsTip(i) ? cutoffHzTips : cutoffHz;
             float omega = 2f * Mathf.PI * cutoff;
             float alpha = omega * dt / (1f + omega * dt);
@@ -311,20 +311,20 @@ public class RemoteHandRuntime : MonoBehaviour
             float m = d.magnitude;
             if (m > stepCap) raw = prev[i] + d.normalized * stepCap;
 
-            // ★ 오직 Remote_* 드라이버에만 position을 씀 (본/메시는 절대 X)
+            // apply only to Remote_* driver transforms (positions only)
             remoteByIndex[i].position = raw;
             prev[i] = raw;
         }
         init = true;
     }
 
-    // === NEW: 회전 제거 모드 — 타깃 '위치'만 갱신 (UpType=None 가정) ===
+    // === Position-only aim: place forward target (UpType=None) ===
     void UpdateAimPositionOnly()
     {
-        Vector3 w = remoteByIndex[0].position; // WRIST (스무딩 후)
+        Vector3 w = remoteByIndex[0].position; // WRIST (smoothed)
         Vector3 dir;
 
-        // 1) 조준 방향 계산
+        // 1) derive direction
         if (aimFromVelocity)
         {
             if (!_haveWristPrev) { _wristPrev = w; _haveWristPrev = true; }
@@ -333,70 +333,83 @@ public class RemoteHandRuntime : MonoBehaviour
             _wristPrev = w;
 
             if (v.magnitude >= Mathf.Max(1e-4f, aimVelMinSpeed)) dir = v;
-            else dir = (remoteByIndex[9].position - w); // WRIST→MIDDLE_MCP 폴백
+            else dir = (remoteByIndex[9].position - w); // fallback WRIST→MIDDLE_MCP
         }
         else
         {
-            dir = (remoteByIndex[9].position - w); // 손 모양 기반
+            dir = (remoteByIndex[9].position - w); // pose-based
         }
 
         if (dir.sqrMagnitude < 1e-8f) return;
 
-        // 2) 방향 스무딩(선택)
+        // 2) normalize and keep aim in camera front hemisphere
         Vector3 dN = dir.normalized;
+        var cam = Camera.main;
+        if (cam != null)
+        {
+            Vector3 camFwd = cam.transform.forward;
+            float dot = Vector3.Dot(dN, camFwd);
+            if (dot < 0f)
+            {
+                if (_aimDirSm.sqrMagnitude > 1e-6f)
+                    dN = _aimDirSm.normalized; // keep previous aim to avoid flipping behind camera
+                else
+                    dN = camFwd;               // fallback to camera forward if no history
+            }
+        }
+
         if (_aimDirSm == Vector3.zero) _aimDirSm = dN;
         else _aimDirSm = Vector3.Slerp(_aimDirSm, dN, Mathf.Clamp01(aimDirLerp));
 
-        // 3) 타깃 '위치'만 갱신 (회전은 건드리지 않음)
+        // 3) place forward target (no roll/up)
         Vector3 aimPos = w + _aimDirSm * Mathf.Max(0.01f, palmAimDistance);
         palmFwd.position = aimPos;
 
-        // UpType=None이면 palmUp은 쓰이지 않지만, 디버깅용으로 올려 둠
+        // UpType=None: set palmUp to vertical for debug only
         if (palmUp) palmUp.position = w + Vector3.up * Mathf.Max(0.01f, palmAimDistance);
-        // 회전은 의도적으로 설정하지 않음(UpType=None에서 무시됨)
     }
 
-    // --- 기존: 손바닥 프레임 업데이트(회전 포함) ---
+    // --- Full palm frame with rotation stabilization ---
     void UpdatePalmFrame_Full()
     {
-        // 데이터
+        // joints
         Vector3 w = remoteByIndex[0].position;   // WRIST
         Vector3 i = remoteByIndex[5].position;   // INDEX_MCP
         Vector3 m = remoteByIndex[9].position;   // MIDDLE_MCP
         Vector3 p = remoteByIndex[17].position;  // PINKY_MCP
 
-        // 전방/업 후보
+        // forward/up candidates
         Vector3 fwd = (m - w);
         if (fwd.sqrMagnitude < 1e-10f) return;
         fwd.Normalize();
 
         Vector3 upC = isLeft ? Vector3.Cross(i - w, p - w) : Vector3.Cross(p - w, i - w);
-        if (upC.sqrMagnitude < 1e-10f) upC = prevPalmRot * Vector3.up; // 완전 휑하면 이전 업 사용
+        if (upC.sqrMagnitude < 1e-10f) upC = prevPalmRot * Vector3.up; // fallback if degenerate
         upC.Normalize();
 
-        // 직교기저 재구성
+        // orthonormal basis
         Vector3 side = Vector3.Cross(upC, fwd);
         if (side.sqrMagnitude < 1e-10f && palmInit)
             side = Vector3.Cross(prevPalmRot * Vector3.up, fwd);
         side.Normalize();
         Vector3 up = Vector3.Cross(fwd, side).normalized;
 
-        // 목표 회전
+        // target rotation
         Quaternion target = Quaternion.LookRotation(fwd, up);
 
         if (stabilizeWrist && palmInit)
         {
-            // 쿼터니언 부호 정리
+            // avoid 180 flips
             if (Quaternion.Dot(prevPalmRot, target) < 0f)
                 target = new Quaternion(-target.x, -target.y, -target.z, -target.w);
 
-            // 전체 각속도 제한
+            // clamp angular speed
             float ang = Quaternion.Angle(prevPalmRot, target);
             float maxStep = maxPalmDegPerSec * Mathf.Max(Time.deltaTime, 1f / 120f);
             float tStep = (ang > 1e-5f) ? Mathf.Clamp01(maxStep / ang) : 1f;
             Quaternion clamped = Quaternion.Slerp(prevPalmRot, target, tStep);
 
-            // 롤 제한
+            // clamp roll drift
             if (maxRollDegPerSec > 0f)
             {
                 Vector3 prevUpProj = Vector3.ProjectOnPlane(prevPalmRot * Vector3.up, fwd).normalized;
@@ -411,56 +424,56 @@ public class RemoteHandRuntime : MonoBehaviour
                 }
             }
 
-            // 저주파 스무딩
+            // final smoothing
             target = Quaternion.Slerp(prevPalmRot, clamped, Mathf.Clamp01(palmSlerp));
         }
 
         prevPalmRot = target;
         palmInit = true;
 
-        // Wrist_Aim이 "위치"를 조준할 수 있게, 손목 기준으로 살짝 띄워 배치
+        // place palmFwd/palmUp relative to wrist
         palmFwd.SetPositionAndRotation(w + fwd * palmAimDistance, target);
         palmUp.SetPositionAndRotation(w + (prevPalmRot * Vector3.up) * palmAimDistance, target);
     }
 
-    // --- 내부: 첫 프레임 유효성 체크(간단) ---
+    // --- Gating helper ---
     bool FrameLooksValid(Vector3[] pos)
     {
-        float d1 = Vector3.Distance(pos[0], pos[5]);  // WRIST↔INDEX_MCP
-        float d2 = Vector3.Distance(pos[0], pos[9]);  // WRIST↔MIDDLE_MCP
+        float d1 = Vector3.Distance(pos[0], pos[5]);  // WRIST→INDEX_MCP
+        float d2 = Vector3.Distance(pos[0], pos[9]);  // WRIST→MIDDLE_MCP
         return (d1 > firstValidDistance && d2 > firstValidDistance);
     }
 
-    // === 전처리 (mm→m, 축 반전, 세션 정렬) ===
+    // === Preprocess (mm→m, flips, transform) ===
     void PreprocessInPlace(Vector3[] a)
     {
-        // 1) 단위
+        // 1) units
         if (mmToMeters) for (int i = 0; i < 21; i++) a[i] *= 0.001f;
 
-        // 2) 축 반전/회전
+        // 2) flips
         if (yaw180 || flipX || flipY || flipZ)
         {
             for (int i = 0; i < 21; i++)
             {
                 var p = a[i];
-                if (yaw180) { p.x = -p.x; p.z = -p.z; }  // Yaw 180°(세계 Y 축 기준)
+                if (yaw180) { p.x = -p.x; p.z = -p.z; }  // Yaw 180°
                 else
                 {
-                    if (flipX) p.x = -p.x;              // 좌↔우
-                    if (flipZ) p.z = -p.z;              // 앞↔뒤 (RH↔LH 전환 대표)
+                    if (flipX) p.x = -p.x;              // flip X
+                    if (flipZ) p.z = -p.z;              // flip Z (swap handedness)
                 }
-                if (flipY) p.y = -p.y;                  // 위↔아래
+                if (flipY) p.y = -p.y;                  // flip Y
                 a[i] = p;
             }
         }
 
-        // 3) 세션 정렬(H→Unity)
+        // 3) transform H→Unity
         if (hToUnity)
             for (int i = 0; i < 21; i++)
                 a[i] = hToUnity.TransformPoint(a[i]);
     }
 
-    // === 좌표 sanity 검사 ===
+    // === Basic sanity check ===
     bool IsSane(Vector3 p)
     {
         if (!IsFinite(p)) return false;
@@ -472,7 +485,7 @@ public class RemoteHandRuntime : MonoBehaviour
     static bool IsFinite(Vector3 v) => IsFinite(v.x) && IsFinite(v.y) && IsFinite(v.z);
     static bool IsFinite(float f) => !(float.IsNaN(f) || float.IsInfinity(f));
 
-    // === 편의 기능: 오프셋 재설정 ===
+    // === Context menu helpers: offsets ===
     [ContextMenu("Offset/Clear & Re-arm")]
     public void ContextClearAndRearm()
     {
@@ -498,7 +511,7 @@ public class RemoteHandRuntime : MonoBehaviour
         //DebugHUD_LogSafe($"[OFFSET] recaptured {initialOffset}");
     }
 
-    // 리모트(수신) 손목→팁 평균 거리
+    // Average remote span (wrist→tips)
     float RemoteAvgSpan(Vector3[] a)
     {
         int[] tips = { 4, 8, 12, 16, 20 }; // THUMB_TIP, INDEX_TIP, MIDDLE_TIP, RING_TIP, PINKY_TIP
@@ -507,7 +520,7 @@ public class RemoteHandRuntime : MonoBehaviour
         return n > 0 ? s / n : 0f;
     }
 
-    // 스켈레톤 손목→팁 평균 거리(옵션)
+    // Average skeleton span (optional)
     float SkelAvgSpan()
     {
         if (skeletonByIndex == null || skeletonByIndex.Length < 21) return 0f;
@@ -525,7 +538,7 @@ public class RemoteHandRuntime : MonoBehaviour
         return n > 0 ? s / n : 0f;
     }
 
-    // 손 스케일 적용(손목을 기준으로 방사형 스케일)
+    // Apply radial hand scale around wrist
     void ApplyHandScaleInPlace(Vector3[] a, float s)
     {
         if (Mathf.Abs(s - 1f) < 1e-4f) return;
@@ -559,7 +572,7 @@ public class RemoteHandRuntime : MonoBehaviour
             Quaternion smoothed = Quaternion.Slerp(_prevTipRot[tip], target, Mathf.Clamp01(tipRotLerp));
             _prevTipRot[tip] = smoothed;
 
-            // ★ TIP '드라이버' 회전만 건드림(본 회전 X) — Rig_Fingers가 꺼져있다면 메시엔 영향 없음
+            // apply to TIP driver only (Rig_Fingers handles bones)
             tipT.rotation = smoothed;
         }
         _tipRotInit = true;
@@ -570,10 +583,10 @@ public class RemoteHandRuntime : MonoBehaviour
         if (!applySplay || palmUp == null) return;
 
         Vector3 w = a[0];                   // WRIST
-        Vector3 fwd = (a[9] - w);           // WRIST→MIDDLE_MCP 대략 전방
+        Vector3 fwd = (a[9] - w);           // WRIST→MIDDLE_MCP direction
         if (fwd.sqrMagnitude < 1e-6f) return;
 
-        Vector3 side = Vector3.Cross(palmUp.up, fwd).normalized; // 손바닥 좌우
+        Vector3 side = Vector3.Cross(palmUp.up, fwd).normalized; // lateral direction
         int TH_CMC = 1, TH_TIP = 4, IX_MCP = 5, IX_TIP = 8, RG_MCP = 13, RG_TIP = 16, PK_MCP = 17, PK_TIP = 20;
         float s = isLeft ? -1f : 1f;
 
@@ -583,7 +596,7 @@ public class RemoteHandRuntime : MonoBehaviour
         a[PK_MCP] += s * side * splayPinky; a[PK_TIP] += s * side * splayPinky;
     }
 
-    // DebugHUD가 OnGUI 레이아웃 에러를 낼 수 있어 try/catch 래핑
+    // Safe logging to DebugHUD (if present) else Unity log
     void DebugHUD_LogSafe(string s)
     {
         try { DebugHUD.Log(s); } catch { Debug.Log(s); }

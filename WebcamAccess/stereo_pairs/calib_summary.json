@@ -1,5 +1,5 @@
 {
-  "baseline_mm": 158.264,
+  "baseline_mm": 155.749,
   "image_size": [
     1280,
     720
@@ -11,8 +11,8 @@
     "markerLength": 0.013000000268220901,
     "dict_name": "4x4_50"
   },
-  "mono_reproj_err_L": 0.24854699911095054,
-  "mono_reproj_err_R": 0.23661895909410527,
-  "stereo_reproj_err": 0.5106191542728791,
+  "mono_reproj_err_L": 0.28563748776523645,
+  "mono_reproj_err_R": 0.30904595451191114,
+  "stereo_reproj_err": 0.5925794384958206,
   "calib_npz": "C:\\Users\\jykan\\Project\\MGDIProject\\WebcamAccess\\stereo_pairs\\calib_charuco_stereo.npz"
 }

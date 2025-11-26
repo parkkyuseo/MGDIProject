@@ -82,3 +82,12 @@ __pycache__/
 # *.aab
 # *.unitypackage
 
+#############################
+# Webcam 캘리브레이션/캡처 이미지
+#############################
+
+WebcamAccess/stereo_pairs/*.png
+
+# 앵커 캡처도 코드랑 별개로 그냥 데이터면 같이 무시하는 걸 추천
+WebcamAccess/anchor_caps/
+

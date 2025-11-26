@@ -2,7 +2,7 @@ python demo_min3d_dyn.py `
   --left-id 0 --right-id 2 `
   --width 1280 --height 720 --fps 30 --max-pair-dt-ms 30 `
   --calib "stereo_pairs\calib_charuco_stereo.npz" `
-  --alpha 0.7 --min-conf 0.45 `
+  --alpha 0.3 --min-conf 0.45 `
   --detect-scale 1.0 --detect-every 1 `
   --max-interp-ms 150 `
   --max-pair-dt-ms 30 `
@@ -10,7 +10,7 @@ python demo_min3d_dyn.py `
   --emit-invalid `
   --thc "stereo_pairs\T_HC.json" `
   --udp 192.168.50.212:33333 `
-  --hz 30 `
+  --hz 60 `
   --gesture `
   --gesture-every 1 `
   --vis-scale 0.5 `
