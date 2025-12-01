@@ -2203,7 +2203,7 @@ MonoBehaviour:
     m_AimAxis: 4
     m_UpAxis: 2
     m_WorldUpType: 0
-    m_WorldUpObject: {fileID: 0}
+    m_WorldUpObject: {fileID: 168801407}
     m_WorldUpAxis: 2
     m_MaintainOffset: 0
     m_ConstrainedAxes:
@@ -2436,9 +2436,9 @@ MonoBehaviour:
   gestureScoreTau: 0.65
   grip_TH_OPEN: 1.1
   grip_TH_CLOSE: 0.7
-  gripThUp: 0.65
-  gripThDn: 0.35
-  gripTau: 0.1
+  gripThUp: 0.7
+  gripThDn: 0.3
+  gripTau: 0.15
   gripDropoutSec: 0.3
   logGripChanges: 1
   listenPort: 33333
@@ -2481,8 +2481,8 @@ MonoBehaviour:
   palmAimDistance: 0.08
   isLeft: 0
   manualTestMode: 0
-  cutoffHz: 8
-  maxStepMeters: 0.04
+  cutoffHz: 4
+  maxStepMeters: 0.03
   armer: {fileID: 6310441031314089671}
   firstValidDistance: 0.02
   autoArm: 1
@@ -2499,30 +2499,9 @@ MonoBehaviour:
   saneMaxY: 3
   addInitialOffset: 1
   rWrist: {fileID: 4103248669328405149}
-  applyHandScale: 1
-  autoScaleOnce: 1
-  skeletonByIndex:
-  - {fileID: 1050038128}
-  - {fileID: 368633860}
-  - {fileID: 1680200958}
-  - {fileID: 2014232951}
-  - {fileID: 1332626599}
-  - {fileID: 751545575}
-  - {fileID: 1285166504}
-  - {fileID: 1343028087}
-  - {fileID: 178076531}
-  - {fileID: 419367364}
-  - {fileID: 1694437039}
-  - {fileID: 828203742}
-  - {fileID: 1807694320}
-  - {fileID: 1585729302}
-  - {fileID: 1021130054}
-  - {fileID: 386508348}
-  - {fileID: 341060426}
-  - {fileID: 1070312974}
-  - {fileID: 1288500834}
-  - {fileID: 991365434}
-  - {fileID: 742456988}
+  applyHandScale: 0
+  autoScaleOnce: 0
+  skeletonByIndex: []
   manualHandScale: 1
   minHandScale: 0.5
   maxHandScale: 4
@@ -2536,29 +2515,29 @@ MonoBehaviour:
   rollRing: 8
   rollPinky: 15
   applySplay: 0
-  splayThumb: 0.008
-  splayIndex: 0.003
-  splayRing: 0.01
-  splayPinky: 0.012
-  cutoffHzTips: 5
-  maxStepTips: 0.01
+  splayThumb: 0.01
+  splayIndex: 0.005
+  splayRing: 0.005
+  splayPinky: 0.01
+  cutoffHzTips: 2.5
+  maxStepTips: 0.008
   tipRotLerp: 0.18
   computePalmFrame: 0
-  stabilizeWrist: 0
-  palmSlerp: 0
-  maxPalmDegPerSec: 9999
-  maxRollDegPerSec: 9999
-  nearParallelDot: 0.85
+  stabilizeWrist: 1
+  palmSlerp: 0.4
+  maxPalmDegPerSec: 240
+  maxRollDegPerSec: 240
+  nearParallelDot: 0.92
   logFirstRaw: 1
   logFirstAfter: 1
   debugEveryNFrames: 15
   aimPositionOnly: 1
   aimFromVelocity: 0
   aimVelMinSpeed: 0.05
-  aimDirLerp: 0.25
-  remoteWrist: {fileID: 1050038128}
-  proxyRoot: {fileID: 4217352218302390349}
-  rightHand: {fileID: 2547293117679861373}
+  aimDirLerp: 0.35
+  remoteWrist: {fileID: 0}
+  proxyRoot: {fileID: 0}
+  rightHand: {fileID: 0}
 --- !u!1 &1807694319
 GameObject:
   m_ObjectHideFlags: 0

@@ -430,13 +430,13 @@ public class UdpHandReceiver : MonoBehaviour
         {
             if (_remotePendingFlagLeft && remoteLeft != null && _remotePendingLeft != null)
             {
-                remoteLeft.isLeft = true;
+                
                 remoteLeft.ApplyWorldPositions(_remotePendingLeft);
                 _remotePendingFlagLeft = false;
             }
             if (_remotePendingFlagRight && remoteRight != null && _remotePendingRight != null)
             {
-                remoteRight.isLeft = false;
+                
                 remoteRight.ApplyWorldPositions(_remotePendingRight);
                 _remotePendingFlagRight = false;
             }
