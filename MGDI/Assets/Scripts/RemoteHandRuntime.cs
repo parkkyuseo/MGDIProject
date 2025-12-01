@@ -74,6 +74,13 @@ public class RemoteHandRuntime : MonoBehaviour
     [Range(-60, 60)] public float rollRing = 8f;
     [Range(-60, 60)] public float rollPinky = 15f;
 
+    [Header("Extra anti-jitter")]
+    [Tooltip("If true, very small frame-to-frame moves are ignored (dead-zone).")]
+    public bool useJitterDeadZone = true;
+
+    [Tooltip("Movements smaller than this (meters) are treated as noise and dropped.")]
+    public float jitterDeadZoneMeters = 0.003f; // 3 mm
+
     [Header("Splay (optional)")]
     public bool applySplay = false;
     public float splayThumb = 0.010f;  // 10mm
@@ -310,6 +317,17 @@ public class RemoteHandRuntime : MonoBehaviour
             Vector3 d = raw - prev[i];
             float m = d.magnitude;
             if (m > stepCap) raw = prev[i] + d.normalized * stepCap;
+
+            // extra small-move dead-zone
+            if (useJitterDeadZone)
+            {
+                float dz = Mathf.Max(0f, jitterDeadZoneMeters);
+                if (dz > 0f && (raw - prev[i]).sqrMagnitude < dz * dz)
+                {
+                    raw = prev[i]; // treat as noise
+                }
+            }
+
 
             // ★ 오직 Remote_* 드라이버에만 position을 씀 (본/메시는 절대 X)
             remoteByIndex[i].position = raw;
