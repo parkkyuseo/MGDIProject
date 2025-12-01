@@ -2168,7 +2168,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e3c430f382484144e925c097c2d33cfe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Weight: 1
+  m_Weight: 0.7
   m_Data:
     m_ConstrainedObject: {fileID: 4103248669328405149}
     m_SourceObjects:
@@ -2481,8 +2481,8 @@ MonoBehaviour:
   palmAimDistance: 0.08
   isLeft: 0
   manualTestMode: 0
-  cutoffHz: 4
-  maxStepMeters: 0.03
+  cutoffHz: 3
+  maxStepMeters: 0.02
   armer: {fileID: 6310441031314089671}
   firstValidDistance: 0.02
   autoArm: 1
@@ -2507,22 +2507,24 @@ MonoBehaviour:
   maxHandScale: 4
   useExtraCameraOffset: 1
   extraForwardMeters: 1.2
-  extraUpMeters: 0
+  extraUpMeters: -0.5
   tipAutoLook: 0
   rollThumb: -20
   rollIndex: -10
   rollMiddle: 0
   rollRing: 8
   rollPinky: 15
+  useJitterDeadZone: 1
+  jitterDeadZoneMeters: 0.005
   applySplay: 0
   splayThumb: 0.01
   splayIndex: 0.005
   splayRing: 0.005
   splayPinky: 0.01
-  cutoffHzTips: 2.5
+  cutoffHzTips: 2
   maxStepTips: 0.008
   tipRotLerp: 0.18
-  computePalmFrame: 0
+  computePalmFrame: 1
   stabilizeWrist: 1
   palmSlerp: 0.4
   maxPalmDegPerSec: 240
@@ -2534,7 +2536,7 @@ MonoBehaviour:
   aimPositionOnly: 1
   aimFromVelocity: 0
   aimVelMinSpeed: 0.05
-  aimDirLerp: 0.35
+  aimDirLerp: 0.05
   remoteWrist: {fileID: 0}
   proxyRoot: {fileID: 0}
   rightHand: {fileID: 0}
@@ -2691,7 +2693,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e17b57522e462db47a019622aa80446d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  refWrist: {fileID: 686607544}
 --- !u!114 &1838613295
 MonoBehaviour:
   m_ObjectHideFlags: 0
