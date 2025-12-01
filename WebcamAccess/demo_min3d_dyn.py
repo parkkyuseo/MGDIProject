@@ -105,6 +105,33 @@ def thc_hash_from_json(meta: dict) -> str:
     s  = f'{rq.get("x",0):.9f},{rq.get("y",0):.9f},{rq.get("z",0):.9f},{rq.get("w",0):.9f}|{tt.get("x",0):.9f},{tt.get("y",0):.9f},{tt.get("z",0):.9f}'
     return hashlib.sha1(s.encode("utf-8")).hexdigest()[:12]
 
+def _set_manual_exposure_gain(cap, exposure=None, gain=None, quiet=False, name=""):
+    """
+    Disable auto-exposure and apply manual exposure/gain if provided.
+    Note: exposure/gain ranges are backend-dependent (DSHOW often expects negative exposure values).
+    """
+    if cap is None:
+        return
+    try:
+        # 0.25 is manual on many Windows/DSHOW drivers; try 1.0 as fallback.
+        ok = cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+        if not ok:
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1.0)
+    except Exception:
+        pass
+    if exposure is not None:
+        try:
+            cap.set(cv2.CAP_PROP_EXPOSURE, float(exposure))
+        except Exception:
+            pass
+    if gain is not None:
+        try:
+            cap.set(cv2.CAP_PROP_GAIN, float(gain))
+        except Exception:
+            pass
+    if not quiet:
+        print(f"[cam] {name} auto-exp off, exposure={exposure}, gain={gain}")
+
 
 # ------------------ Main ------------------
 
@@ -135,6 +162,11 @@ def main():
     ap.add_argument('--z-log-interval', type=float, default=0.5, help='seconds between Z logs')
 
     ap.add_argument('--quiet', action='store_true', help='suppress console logs except essential state changes')
+
+    # camera exposure/gain tuning
+    ap.add_argument('--disable-auto-exp', action='store_true', help='force disable auto-exposure on both cams')
+    ap.add_argument('--exposure', type=float, default=None, help='manual exposure value (backend-specific; often negative on Windows)')
+    ap.add_argument('--gain', type=float, default=None, help='manual gain value')
 
     # transform/stream options
     ap.add_argument('--thc', type=str, default=None, help='path to ./calib/T_HC.json')
@@ -195,6 +227,11 @@ def main():
         gesture_enable=bool(args.gesture),
         gesture_every=int(args.gesture_every),
     )
+
+    # Apply manual exposure/gain if requested (helps reduce motion blur by shortening exposure)
+    if args.disable_auto_exp or args.exposure is not None or args.gain is not None:
+        _set_manual_exposure_gain(inst.camL.cap, exposure=args.exposure, gain=args.gain, quiet=args.quiet, name="L")
+        _set_manual_exposure_gain(inst.camR.cap, exposure=args.exposure, gain=args.gain, quiet=args.quiet, name="R")
 
     # === 초기 1회: 실제 프레임 크기로 맵 맞추고 프리뷰 스태시 심기 ===
     time.sleep(0.1)
