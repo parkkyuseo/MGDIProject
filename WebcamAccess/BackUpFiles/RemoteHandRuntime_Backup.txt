@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class RemoteHandRuntime : MonoBehaviour
 {
@@ -119,17 +119,23 @@ public class RemoteHandRuntime : MonoBehaviour
     Vector3 _aimDirSm = Vector3.zero;
 
 
-    [Header("Twist (door knob)")]
-    public Transform wristTwist;               // usually R_Wrist_Twist
-    public float twistMaxAbsDeg = 60f;         // max angle from neutral
-    public float twistDeadZoneDeg = 5f;        // treat small angles as zero
-    public float twistMaxDegPerSec = 360f;     // max twist speed
-    [Range(0f, 1f)] public float twistLerp = 0.2f; // extra smoothing
-    public bool twistInvertSign = false;       // set true if direction feels opposite
+    [Header("Twist (doorknob style)")]
+    public bool enableTwist = false;          // master toggle
+    public Transform wristTwistBone;          // R_Wrist_Twist
+    [Tooltip("Local axis of wristTwistBone that points toward fingers")]
+    public Vector3 twistLocalAxis = new Vector3(0f, 0f, -1f); // adjust if needed
 
-    bool _twistNeutralReady = false;
-    Vector3 _twistAxisNeutral;
-    Vector3 _twistRefNeutral;
+    [Tooltip("Maximum roll angle magnitude (deg) from neutral")]
+    public float twistMaxAbsDeg = 45f;        // +-45 deg
+
+    [Tooltip("Maximum twist speed (deg per second)")]
+    public float twistMaxDegPerSec = 180f;    // 180 deg/s
+
+    [Tooltip("Twist low-pass factor (0..1, larger is slower)")]
+    [Range(0f, 1f)] public float twistLerp = 0.25f;
+
+    [Tooltip("Small roll below this angle is treated as zero")]
+    public float twistDeadZoneDeg = 3f;
 
     
     [Header("TEST (read-only helpers)")]
@@ -285,9 +291,6 @@ public class RemoteHandRuntime : MonoBehaviour
         // (J) 좌표 스무딩 + 스텝 캡 + 드라이버에 대입(= 오직 Remote_*에만!)
         SmoothAndApply(worldPos);
 
-        // (K-2) doorknob twist on separate bone
-        UpdateTwist();
-
         // (K) 손바닥 프레임(= Wrist_Aim 타깃)
         if (computePalmFrame)
         {
@@ -295,7 +298,8 @@ public class RemoteHandRuntime : MonoBehaviour
             else UpdatePalmFrame_Full();   // 기존(회전 포함) 모드
         }
 
-
+        // (K-2) doorknob twist on separate bone
+        UpdateTwist();
 
         // (L) 손가락 TIP 방향만(드라이버 회전) — 기본 Off
         if (tipAutoLook) UpdateFingerTipFrames();
@@ -406,87 +410,100 @@ public class RemoteHandRuntime : MonoBehaviour
 
     void UpdateTwist()
     {
-        if (wristTwist == null) return;
-        if (remoteByIndex == null || remoteByIndex.Length < 10) return;
+        if (!enableTwist) return;
+        if (wristTwistBone == null) return;
+        if (remoteByIndex == null || remoteByIndex.Length < 18) return;
 
-        Transform tWrist = remoteByIndex[0]; // WRIST
-        Transform tMid   = remoteByIndex[9]; // MIDDLE_MCP
-        Transform tIdx   = remoteByIndex[5]; // INDEX_MCP
-
-        if (!tWrist || !tMid || !tIdx) return;
-
-        Vector3 wristPos = tWrist.position;
-        Vector3 mcpMPos  = tMid.position;
-        Vector3 mcpIPos  = tIdx.position;
-
-        // 1) twist axis: roughly wrist -> middle MCP
-        Vector3 axis = mcpMPos - wristPos;
-        if (axis.sqrMagnitude < 1e-8f) return;
-        axis.Normalize();
-
-        // 2) reference vector in palm plane: middle -> index
-        Vector3 refVec = mcpIPos - mcpMPos;
-        if (refVec.sqrMagnitude < 1e-8f) return;
-        refVec = Vector3.ProjectOnPlane(refVec, axis);
-        if (refVec.sqrMagnitude < 1e-8f) return;
-        refVec.Normalize();
-
-        // capture base local rotation of wristTwist once
+        // cache base local rotation once
         if (!_twistBaseCaptured)
         {
-            _twistBaseLocalRot = wristTwist.localRotation;
+            _twistBaseLocalRot = wristTwistBone.localRotation;
             _twistBaseCaptured = true;
         }
 
-        // 3) capture neutral frame once
-        if (!_twistNeutralReady)
+        // 1) get joints
+        Transform tWrist = remoteByIndex[0];
+        Transform tIndexMcp = remoteByIndex[5];
+        Transform tMiddleMcp = remoteByIndex[9];
+        Transform tPinkyMcp = remoteByIndex[17];
+
+        if (!tWrist || !tIndexMcp || !tMiddleMcp || !tPinkyMcp) return;
+
+        Vector3 w = tWrist.position;
+        Vector3 i = tIndexMcp.position;
+        Vector3 m = tMiddleMcp.position;
+        Vector3 p = tPinkyMcp.position;
+
+        // 2) forward: wrist -> middle MCP
+        Vector3 fwd = m - w;
+        if (fwd.sqrMagnitude < 1e-8f) return;
+        fwd.Normalize();
+
+        // 3) palm normal candidate (index vs pinky)
+        Vector3 upCand = isLeft
+            ? Vector3.Cross(i - w, p - w)
+            : Vector3.Cross(p - w, i - w);
+
+        if (upCand.sqrMagnitude < 1e-8f) return;
+        upCand.Normalize();
+
+        // 4) project onto plane orthogonal to fwd (pure roll)
+        Vector3 upProj = Vector3.ProjectOnPlane(upCand, fwd);
+        if (upProj.sqrMagnitude < 1e-8f) return;
+        upProj.Normalize();
+
+        // 5) first valid frame: define neutral
+        if (!_twistHasNeutral)
         {
-            _twistAxisNeutral = axis;
-            _twistRefNeutral  = refVec;
-            _twistNeutralReady = true;
+            _twistNeutralUpProj = upProj;
+            _twistTargetDegPrev = 0f;
             _twistSmoothedDeg = 0f;
-            wristTwist.localRotation = _twistBaseLocalRot;
+            _twistHasNeutral = true;
             return;
         }
 
-        // 4) compute raw roll angle around neutral axis
-        Vector3 refNow = Vector3.ProjectOnPlane(refVec, _twistAxisNeutral);
-        Vector3 ref0   = Vector3.ProjectOnPlane(_twistRefNeutral, _twistAxisNeutral);
+        // 6) compute roll angle around fwd, relative to neutral
+        float rawRollDeg = Vector3.SignedAngle(
+            _twistNeutralUpProj,
+            upProj,
+            fwd
+        ); // -180..+180
 
-        if (refNow.sqrMagnitude < 1e-8f || ref0.sqrMagnitude < 1e-8f)
-            return;
-
-        refNow.Normalize();
-        ref0.Normalize();
-
-        float rawRollDeg = Vector3.SignedAngle(ref0, refNow, _twistAxisNeutral);
-
-        // 5) clamp max range
-        rawRollDeg = Mathf.Clamp(rawRollDeg, -twistMaxAbsDeg, twistMaxAbsDeg);
-
-        // 6) dead zone: pull back to zero when nearly neutral
+        // 7) dead zone
         if (Mathf.Abs(rawRollDeg) < twistDeadZoneDeg)
             rawRollDeg = 0f;
 
-        // 7) limit speed (deg per second)
+        // 8) clamp absolute range
+        rawRollDeg = Mathf.Clamp(
+            rawRollDeg,
+            -twistMaxAbsDeg,
+            twistMaxAbsDeg
+        );
+
+        // 9) clamp per-frame speed
         float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
-        float maxStep = twistMaxDegPerSec * dt;
-        float delta = rawRollDeg - _twistSmoothedDeg;
-        if (delta > maxStep) delta = maxStep;
-        else if (delta < -maxStep) delta = -maxStep;
+        float maxStepDeg = twistMaxDegPerSec * dt;
 
-        float targetDeg = _twistSmoothedDeg + delta;
+        float delta = rawRollDeg - _twistTargetDegPrev;
+        delta = Mathf.Clamp(delta, -maxStepDeg, maxStepDeg);
 
-        // 8) extra low-pass filter
-        float s = 1f - Mathf.Pow(1f - Mathf.Clamp01(twistLerp), dt * 60f);
-        _twistSmoothedDeg = Mathf.Lerp(_twistSmoothedDeg, targetDeg, s);
+        float targetDeg = _twistTargetDegPrev + delta;
+        _twistTargetDegPrev = targetDeg;
 
-        // 9) apply around local forward axis (Z)
-        float finalDeg = twistInvertSign ? -_twistSmoothedDeg : _twistSmoothedDeg;
-        Quaternion twistRot = Quaternion.AngleAxis(finalDeg, Vector3.forward);
-        wristTwist.localRotation = _twistBaseLocalRot * twistRot;
+        // 10) low-pass filter
+        float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(twistLerp), dt * 60f);
+        _twistSmoothedDeg = Mathf.Lerp(_twistSmoothedDeg, targetDeg, k);
+
+        // 11) apply to local rotation of twist bone
+        Vector3 axisLocal = twistLocalAxis;
+        if (axisLocal.sqrMagnitude < 1e-6f)
+            axisLocal = new Vector3(0f, 0f, -1f); // default
+
+        axisLocal.Normalize();
+
+        Quaternion twistRot = Quaternion.AngleAxis(_twistSmoothedDeg, axisLocal);
+        wristTwistBone.localRotation = _twistBaseLocalRot * twistRot;
     }
-
 
     // --- 기존: 손바닥 프레임 업데이트(회전 포함) ---
     void UpdatePalmFrame_Full()
