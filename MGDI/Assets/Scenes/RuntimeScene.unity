@@ -2493,8 +2493,8 @@ MonoBehaviour:
   addInitialOffset: 1
   rWrist: {fileID: 4103248669328405149}
   useExtraCameraOffset: 1
-  extraForwardMeters: 1.2
-  extraUpMeters: -0.3
+  extraForwardMeters: 1.5
+  extraUpMeters: -0.5
   computePalmFrame: 1
   aimFromVelocity: 0
   aimVelMinSpeed: 0.05
@@ -2505,6 +2505,14 @@ MonoBehaviour:
   twistMaxDegPerSec: 540
   twistLerp: 0.1
   twistInvertSign: 0
+  enableSideToFrontRemap: 1
+  remapXScale: 1
+  remapYFromZScale: 1
+  remapInvertYFromZ: 0
+  remapZFromYScale: 0.6
+  remapInvertZFromY: 1
+  remapLerp: 0.25
+  remapMaxStepMeters: 0.1
 --- !u!1 &1807694319
 GameObject:
   m_ObjectHideFlags: 0

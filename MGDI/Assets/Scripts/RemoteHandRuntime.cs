@@ -78,6 +78,33 @@ public class RemoteHandRuntime : MonoBehaviour
     [Tooltip("Invert twist sign if the direction feels reversed.")]
     public bool twistInvertSign = false;
 
+    // Side-to-front remap settings
+    [Header("Side-to-front remap")]
+    public bool enableSideToFrontRemap = false;
+
+    // camera-local X -> world X scale
+    public float remapXScale = 1.0f;
+
+    // camera-local Z (forward) -> world Y (up)
+    public float remapYFromZScale = 1.0f;
+    public bool remapInvertYFromZ = false;
+
+    // camera-local Y (up) -> world Z (forward/back)
+    public float remapZFromYScale = 0.5f;
+    public bool remapInvertZFromY = true;
+
+    // remap smoothing
+    [Range(0f, 1f)] public float remapLerp = 0.25f;
+    public float remapMaxStepMeters = 0.15f; // max remap offset change per frame
+
+    Vector3 _remapNeutralCam = Vector3.zero;
+    Vector3 _remapNeutralWorld = Vector3.zero;
+    Vector3 _remapOffsetCamSm = Vector3.zero;
+    bool _remapNeutralCaptured = false;
+
+
+
+
     // internal state for position smoothing
     Vector3[] _prevPos = new Vector3[21];
     bool _havePrevPos = false;
@@ -136,6 +163,8 @@ public class RemoteHandRuntime : MonoBehaviour
             for (int i = 0; i < 21; i++)
                 worldPos[i] += _initialOffset;
         }
+
+        RemapSideToFront(worldPos);
 
         // smooth and apply to remote driver joints
         SmoothAndApply(worldPos);
@@ -354,6 +383,71 @@ public class RemoteHandRuntime : MonoBehaviour
         Quaternion twistRot = Quaternion.AngleAxis(finalDeg, Vector3.forward);
         wristTwist.localRotation = _twistBaseLocalRot * twistRot;
     }
+
+    void RemapSideToFront(Vector3[] joints)
+    {
+        if (!enableSideToFrontRemap) return;
+        if (joints == null || joints.Length < 1) return;
+        if (Camera.main == null) return;
+
+        Transform cam = Camera.main.transform;
+
+        // 0: WRIST
+        Vector3 wristWorld = joints[0];
+        Vector3 wristCam = cam.InverseTransformPoint(wristWorld);
+
+        // capture neutral once
+        if (!_remapNeutralCaptured)
+        {
+            _remapNeutralCam = wristCam;
+            _remapNeutralWorld = wristWorld;
+            _remapOffsetCamSm = Vector3.zero;
+            _remapNeutralCaptured = true;
+            return;
+        }
+
+        // camera local delta from neutral
+        Vector3 dCam = wristCam - _remapNeutralCam;
+
+        // map camera-local to remap offset (still in camera space)
+        float xOff = dCam.x * remapXScale;
+
+        float yOff = dCam.z * remapYFromZScale;
+        if (remapInvertYFromZ) yOff = -yOff;
+
+        float zOff = dCam.y * remapZFromYScale;
+        if (remapInvertZFromY) zOff = -zOff;
+
+        Vector3 targetOffsetCam = new Vector3(xOff, yOff, zOff);
+
+        // smoothing in camera space
+        float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
+        float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(remapLerp), dt * 60f);
+        Vector3 rawSm = Vector3.Lerp(_remapOffsetCamSm, targetOffsetCam, k);
+
+        // step clamp
+        float maxStep = Mathf.Max(0f, remapMaxStepMeters);
+        if (maxStep > 0f)
+        {
+            Vector3 step = rawSm - _remapOffsetCamSm;
+            float stepMag = step.magnitude;
+            if (stepMag > maxStep)
+                rawSm = _remapOffsetCamSm + step.normalized * maxStep;
+        }
+
+        _remapOffsetCamSm = rawSm;
+
+        // convert smoothed offset back to world space
+        Vector3 newWristWorld = _remapNeutralWorld + cam.TransformVector(_remapOffsetCamSm);
+
+        // world delta applied to all joints
+        Vector3 deltaWorld = newWristWorld - wristWorld;
+        for (int i = 0; i < joints.Length; i++)
+            joints[i] += deltaWorld;
+    }
+
+
+
 
     // ======================================================================
     // Helpers
