@@ -83,24 +83,41 @@ public class RemoteHandRuntime : MonoBehaviour
     public bool enableSideToFrontRemap = false;
 
     // camera-local X -> world X scale
+    [Tooltip("Camera-local X (left/right) to workspace X scale.")]
     public float remapXScale = 1.0f;
 
-    // camera-local Z (forward) -> world Y (up)
-    public float remapYFromZScale = 1.0f;
+    // camera-local Z (forward/back) -> workspace Y (up/down)
+    [Tooltip("Camera-local Z (forward) to workspace Y (up) scale.")]
+    public float remapYFromZScale = 0.6f;
     public bool remapInvertYFromZ = false;
 
-    // camera-local Y (up) -> world Z (forward/back)
-    public float remapZFromYScale = 0.5f;
-    public bool remapInvertZFromY = true;
+    // camera-local Y (up/down) -> workspace Z (forward/back)
+    [Tooltip("Camera-local Y (up) to workspace Z (forward) scale.")]
+    public float remapZFromYScale = 0.6f;
+    public bool remapInvertZFromY = false;
 
     // remap smoothing
-    [Range(0f, 1f)] public float remapLerp = 0.25f;
-    public float remapMaxStepMeters = 0.15f; // max remap offset change per frame
+    [Range(0f, 1f)]
+    [Tooltip("Smoothing factor for remap offset (0 = very stiff, 1 = no smoothing).")]
+    public float remapLerp = 0.15f;
 
+    [Tooltip("Max remap offset change per frame in camera space (meters).")]
+    public float remapMaxStepMeters = 0.02f;
+
+    // workspace 범위 제한
+    [Tooltip("Max absolute workspace offset in camera-local space (meters).")]
+    public Vector3 remapMaxOffsetCam = new Vector3(0.30f, 0.20f, 0.30f);
+
+    // remap 전용 dead-zone
+    [Tooltip("Camera-space dead-zone for remap offset changes (meters).")]
+    public float remapDeadZoneMeters = 0.005f;
+
+    // 내부 상태
     Vector3 _remapNeutralCam = Vector3.zero;
     Vector3 _remapNeutralWorld = Vector3.zero;
     Vector3 _remapOffsetCamSm = Vector3.zero;
     bool _remapNeutralCaptured = false;
+
 
 
 
@@ -392,11 +409,11 @@ public class RemoteHandRuntime : MonoBehaviour
 
         Transform cam = Camera.main.transform;
 
-        // 0: WRIST
+        // 0: wrist
         Vector3 wristWorld = joints[0];
         Vector3 wristCam = cam.InverseTransformPoint(wristWorld);
 
-        // capture neutral once
+        // 1) 중립 캡처 (한번만)
         if (!_remapNeutralCaptured)
         {
             _remapNeutralCam = wristCam;
@@ -406,45 +423,69 @@ public class RemoteHandRuntime : MonoBehaviour
             return;
         }
 
-        // camera local delta from neutral
+        // 2) 카메라 로컬 델타
         Vector3 dCam = wristCam - _remapNeutralCam;
+        Vector3 dWorld = wristWorld - _remapNeutralWorld;
 
-        // map camera-local to remap offset (still in camera space)
-        float xOff = dCam.x * remapXScale;
+        float xOff = dWorld.x * remapXScale;
 
-        float yOff = dCam.z * remapYFromZScale;
+        // 3) 축 remap: X 그대로, Z->Y, Y->Z
+        // float xOff = dCam.x * remapXScale;
+
+        float yOff = dCam.z * remapYFromZScale; // forward/back -> up/down
         if (remapInvertYFromZ) yOff = -yOff;
 
-        float zOff = dCam.y * remapZFromYScale;
+        float zOff = dCam.y * remapZFromYScale; // up/down -> forward/back
         if (remapInvertZFromY) zOff = -zOff;
 
         Vector3 targetOffsetCam = new Vector3(xOff, yOff, zOff);
 
-        // smoothing in camera space
+        // 4) workspace 크기 제한
+        if (remapMaxOffsetCam.x > 0f)
+            targetOffsetCam.x = Mathf.Clamp(targetOffsetCam.x,
+                                            -remapMaxOffsetCam.x, remapMaxOffsetCam.x);
+        if (remapMaxOffsetCam.y > 0f)
+            targetOffsetCam.y = Mathf.Clamp(targetOffsetCam.y,
+                                            -remapMaxOffsetCam.y, remapMaxOffsetCam.y);
+        if (remapMaxOffsetCam.z > 0f)
+            targetOffsetCam.z = Mathf.Clamp(targetOffsetCam.z,
+                                            -remapMaxOffsetCam.z, remapMaxOffsetCam.z);
+
+        // 5) remap 전용 dead-zone
+        float dz = Mathf.Max(0f, remapDeadZoneMeters);
+        if (dz > 0f)
+        {
+            Vector3 diff = targetOffsetCam - _remapOffsetCamSm;
+            if (diff.sqrMagnitude < dz * dz)
+            {
+                targetOffsetCam = _remapOffsetCamSm;
+            }
+        }
+
+        // 6) remap offset smoothing + step clamp (camera space)
         float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
         float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(remapLerp), dt * 60f);
-        Vector3 rawSm = Vector3.Lerp(_remapOffsetCamSm, targetOffsetCam, k);
+        Vector3 candidate = Vector3.Lerp(_remapOffsetCamSm, targetOffsetCam, k);
 
-        // step clamp
         float maxStep = Mathf.Max(0f, remapMaxStepMeters);
         if (maxStep > 0f)
         {
-            Vector3 step = rawSm - _remapOffsetCamSm;
+            Vector3 step = candidate - _remapOffsetCamSm;
             float stepMag = step.magnitude;
             if (stepMag > maxStep)
-                rawSm = _remapOffsetCamSm + step.normalized * maxStep;
+                candidate = _remapOffsetCamSm + step.normalized * maxStep;
         }
 
-        _remapOffsetCamSm = rawSm;
+        _remapOffsetCamSm = candidate;
 
-        // convert smoothed offset back to world space
+        // 7) 다시 world로 → 전체 joint에 동일 delta 적용
         Vector3 newWristWorld = _remapNeutralWorld + cam.TransformVector(_remapOffsetCamSm);
-
-        // world delta applied to all joints
         Vector3 deltaWorld = newWristWorld - wristWorld;
+
         for (int i = 0; i < joints.Length; i++)
             joints[i] += deltaWorld;
     }
+
 
 
 
@@ -473,6 +514,10 @@ public class RemoteHandRuntime : MonoBehaviour
         _firstArmed = false;
         _havePrevPos = false;
         _haveWristPrev = false;
+
+            // remap 관련 상태도 리셋
+        _remapNeutralCaptured = false;
+        _remapOffsetCamSm = Vector3.zero;
     }
 
     [ContextMenu("Offset / Recapture now (use last pre-offset wrist)")]
