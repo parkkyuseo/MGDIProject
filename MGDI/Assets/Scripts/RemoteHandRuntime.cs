@@ -119,6 +119,43 @@ public class RemoteHandRuntime : MonoBehaviour
     bool _remapNeutralCaptured = false;
 
 
+    // =========================================================
+    // Joystick-style remap (experimental)
+    // =========================================================
+    [Header("Joystick-style remap (experimental)")]
+    [Tooltip("If true, use joystick-style remap instead of position remap.")]
+    public bool useJoystickRemap = false;
+
+    [Tooltip("Half-size of the dead-zone box near your real hand (meters, world space).")]
+    public Vector3 joyBoxHalfSizeWorld = new Vector3(0.10f, 0.10f, 0.10f); // 10cm cube
+
+    [Tooltip("Max proxy speed along camera-right (X), camera-up (Y), camera-forward (Z) in m/s.")]
+    public float joyMaxSpeedX = 0.4f; // real X -> proxy X
+    public float joyMaxSpeedY = 0.4f; // real Z -> proxy Y
+    public float joyMaxSpeedZ = 0.4f; // real Y -> proxy Z
+
+    [Tooltip("Exponent for joystick response (1 = linear, 2 = softer near center).")]
+    public float joyExpo = 1.0f;
+
+    [Tooltip("Max workspace offset in camera-local space (meters).")]
+    public Vector3 joyMaxOffsetCam = new Vector3(0.6f, 0.4f, 0.6f);
+
+    [Tooltip("Invert proxy X when real hand moves left/right.")]
+    public bool joyInvertX = false;
+
+    [Tooltip("Invert proxy Y when real hand moves forward/back (real Z).")]
+    public bool joyInvertYFromZ = false;
+
+    [Tooltip("Invert proxy Z when real hand moves up/down (real Y).")]
+    public bool joyInvertZFromY = false;
+
+    // 내부 상태 (joystick remap)
+    Vector3 _joyOffsetCam = Vector3.zero;   // proxy offset in camera-local space
+    Vector3 _joyNeutralWorld = Vector3.zero; // center of the dead-zone box (world)
+    bool _joyNeutralCaptured = false;
+
+
+
 
 
 
@@ -181,7 +218,15 @@ public class RemoteHandRuntime : MonoBehaviour
                 worldPos[i] += _initialOffset;
         }
 
-        RemapSideToFront(worldPos);
+        // --- REMAP 단계 ---
+        if (useJoystickRemap)
+        {
+            RemapJoystickStyle(worldPos);    // 새 조이스틱 모드
+        }
+        else
+        {
+            RemapSideToFront(worldPos);      // 기존 사이드→프론트 remap
+        }
 
         // smooth and apply to remote driver joints
         SmoothAndApply(worldPos);
@@ -486,6 +531,116 @@ public class RemoteHandRuntime : MonoBehaviour
             joints[i] += deltaWorld;
     }
 
+    // =========================================================
+    // Joystick-style remap helper: one axis [-1..1]
+    // =========================================================
+    float JoyAxisInput(float delta, float halfSize)
+    {
+        // delta: 현재 위치 - 중립 위치 (world axis)
+        // halfSize: dead-zone box의 반쪽 길이 (양수)
+
+        float hs = Mathf.Abs(halfSize);
+        if (hs <= 1e-5f)
+            return 0f;
+
+        float absD = Mathf.Abs(delta);
+
+        // 박스 안 = dead-zone = 입력 0
+        if (absD <= hs)
+            return 0f;
+
+        // 박스 밖으로 벗어난 거리
+        float over = absD - hs;
+
+        // 여기서는 "박스 크기만큼 더 벗어나면 full input"으로 가정
+        float range = hs;
+        float t = Mathf.Clamp01(over / range); // 0..1
+
+        // 감도 곡선 (expo)
+        if (joyExpo > 0.0f && Mathf.Abs(joyExpo - 1.0f) > 1e-3f)
+            t = Mathf.Pow(t, joyExpo);
+
+        return Mathf.Sign(delta) * t; // -1..1
+    }
+    // =========================================================
+    // Joystick-style remap:
+    //  - 옆구리 근처에 보이지 않는 박스(joyBoxHalfSizeWorld)를 하나 두고
+    //  - 손이 그 안에 있으면 Proxy는 멈춘다.
+    //  - 박스 밖으로 나가면, 벗어난 방향/양에 비례해서 Proxy가 계속 움직인다.
+    //  - 축 매핑:
+    //      실제 X  -> Proxy X   (좌우)
+    //      실제 Y  -> Proxy Z   (위/아래 -> 앞/뒤)
+    //      실제 Z  -> Proxy Y   (앞/뒤   -> 위/아래)
+    // =========================================================
+    void RemapJoystickStyle(Vector3[] joints)
+    {
+        if (!useJoystickRemap) return;
+        if (joints == null || joints.Length < 1) return;
+        if (Camera.main == null) return;
+
+        Transform cam = Camera.main.transform;
+        float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
+
+        // 0: WRIST
+        Vector3 wristWorld = joints[0];
+
+        // 1) 처음 한 번, 중립 위치를 박스 중심으로 캡처
+        if (!_joyNeutralCaptured)
+        {
+            _joyNeutralWorld = wristWorld;
+            _joyOffsetCam = Vector3.zero;
+            _joyNeutralCaptured = true;
+            return;
+        }
+
+        // 2) 중립 위치에서 얼마나 벗어났는지 (world space)
+        Vector3 dWorld = wristWorld - _joyNeutralWorld;
+
+        // 각 축별 입력 (-1..1)
+        float inX = JoyAxisInput(dWorld.x, joyBoxHalfSizeWorld.x); // 실제 X -> Proxy X
+        float inY = JoyAxisInput(dWorld.y, joyBoxHalfSizeWorld.y); // 실제 Y -> Proxy Z
+        float inZ = JoyAxisInput(dWorld.z, joyBoxHalfSizeWorld.z); // 실제 Z -> Proxy Y
+
+        // 3) 축 매핑 (실제 -> Proxy)
+        // Proxy workspace는 camera-local 기준:
+        //   vxCam: 카메라 오른쪽(+X) / 왼쪽(-X)
+        //   vyCam: 카메라 위(+Y) / 아래(-Y)
+        //   vzCam: 카메라 앞(+Z) / 뒤(-Z)
+        float vxCam = inX * joyMaxSpeedX;
+        float vyCam = inZ * joyMaxSpeedY; // 실제 Z(앞/뒤) -> Proxy Y(위/아래)
+        float vzCam = inY * joyMaxSpeedZ; // 실제 Y(위/아래) -> Proxy Z(앞/뒤)
+
+        if (joyInvertX)        vxCam = -vxCam;
+        if (joyInvertYFromZ)   vyCam = -vyCam;
+        if (joyInvertZFromY)   vzCam = -vzCam;
+
+        // 4) camera-local 속도 벡터 (m/s)
+        Vector3 velCam = new Vector3(vxCam, vyCam, vzCam);
+
+        // 5) 시간 적분해서 offset 업데이트 (조이스틱: 속도 -> 위치)
+        _joyOffsetCam += velCam * dt;
+
+        // 6) workspace 클램프 (camera-local)
+        if (joyMaxOffsetCam.x > 0f)
+            _joyOffsetCam.x = Mathf.Clamp(_joyOffsetCam.x, -joyMaxOffsetCam.x, joyMaxOffsetCam.x);
+        if (joyMaxOffsetCam.y > 0f)
+            _joyOffsetCam.y = Mathf.Clamp(_joyOffsetCam.y, -joyMaxOffsetCam.y, joyMaxOffsetCam.y);
+        if (joyMaxOffsetCam.z > 0f)
+            _joyOffsetCam.z = Mathf.Clamp(_joyOffsetCam.z, -joyMaxOffsetCam.z, joyMaxOffsetCam.z);
+
+        // 7) camera-local offset을 world로 변환
+        Vector3 offsetWorld = cam.TransformVector(_joyOffsetCam);
+
+        // 중립 위치 + offset 가 "Proxy wrist가 있어야 하는 위치"
+        Vector3 newWristWorld = _joyNeutralWorld + offsetWorld;
+
+        // 8) 현재 wrist에서 proxy wrist까지의 델타를 모든 joint에 적용
+        Vector3 deltaWorld = newWristWorld - wristWorld;
+        for (int i = 0; i < joints.Length; i++)
+            joints[i] += deltaWorld;
+    }
+
+
 
 
 
@@ -518,6 +673,9 @@ public class RemoteHandRuntime : MonoBehaviour
             // remap 관련 상태도 리셋
         _remapNeutralCaptured = false;
         _remapOffsetCamSm = Vector3.zero;
+        // joystick remap 상태도 같이 리셋
+        _joyNeutralCaptured = false;
+        _joyOffsetCam = Vector3.zero;
     }
 
     [ContextMenu("Offset / Recapture now (use last pre-offset wrist)")]
