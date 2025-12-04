@@ -154,6 +154,16 @@ public class RemoteHandRuntime : MonoBehaviour
     Vector3 _joyNeutralWorld = Vector3.zero; // center of the dead-zone box (world)
     bool _joyNeutralCaptured = false;
 
+    [Tooltip("Extra smoothing for joystick inputs (0 = no extra smoothing, 1 = very slow).")]
+    [Range(0f, 1f)]
+    public float joyInputLerp = 0.3f;
+
+    // 내부 상태: 입력 스무딩용
+    float _joyInXSm = 0f;
+    float _joyInYSm = 0f;
+    float _joyInZSm = 0f;
+    bool _joyHasInputPrev = false;
+
 
 
 
@@ -596,10 +606,28 @@ public class RemoteHandRuntime : MonoBehaviour
         // 2) 중립 위치에서 얼마나 벗어났는지 (world space)
         Vector3 dWorld = wristWorld - _joyNeutralWorld;
 
-        // 각 축별 입력 (-1..1)
-        float inX = JoyAxisInput(dWorld.x, joyBoxHalfSizeWorld.x); // 실제 X -> Proxy X
-        float inY = JoyAxisInput(dWorld.y, joyBoxHalfSizeWorld.y); // 실제 Y -> Proxy Z
-        float inZ = JoyAxisInput(dWorld.z, joyBoxHalfSizeWorld.z); // 실제 Z -> Proxy Y
+        // --- 2) 각 축별 "raw" 입력 (-1..1) ---
+        float rawInX = JoyAxisInput(dWorld.x, joyBoxHalfSizeWorld.x); // 실제 X -> Proxy X
+        float rawInY = JoyAxisInput(dWorld.y, joyBoxHalfSizeWorld.y); // 실제 Y -> Proxy Z
+        float rawInZ = JoyAxisInput(dWorld.z, joyBoxHalfSizeWorld.z); // 실제 Z -> Proxy Y
+
+        // --- 2.5) 입력 스무딩 (추가 LPF) ---
+        if (!_joyHasInputPrev)
+        {
+            _joyInXSm = rawInX;
+            _joyInYSm = rawInY;
+            _joyInZSm = rawInZ;
+            _joyHasInputPrev = true;
+        }
+
+        float kIn = 1f - Mathf.Pow(1f - Mathf.Clamp01(joyInputLerp), dt * 60f);
+        _joyInXSm = Mathf.Lerp(_joyInXSm, rawInX, kIn);
+        _joyInYSm = Mathf.Lerp(_joyInYSm, rawInY, kIn);
+        _joyInZSm = Mathf.Lerp(_joyInZSm, rawInZ, kIn);
+
+        float inX = _joyInXSm;
+        float inY = _joyInYSm;
+        float inZ = _joyInZSm;
 
         // 3) 축 매핑 (실제 -> Proxy)
         // Proxy workspace는 camera-local 기준:
@@ -670,12 +698,15 @@ public class RemoteHandRuntime : MonoBehaviour
         _havePrevPos = false;
         _haveWristPrev = false;
 
-            // remap 관련 상태도 리셋
+        // remap 관련 상태도 리셋
         _remapNeutralCaptured = false;
         _remapOffsetCamSm = Vector3.zero;
         // joystick remap 상태도 같이 리셋
         _joyNeutralCaptured = false;
         _joyOffsetCam = Vector3.zero;
+        _joyHasInputPrev = false;
+        _joyInXSm = _joyInYSm = _joyInZSm = 0f;
+
     }
 
     [ContextMenu("Offset / Recapture now (use last pre-offset wrist)")]

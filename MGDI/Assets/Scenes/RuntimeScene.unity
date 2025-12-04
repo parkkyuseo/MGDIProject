@@ -2624,14 +2624,15 @@ MonoBehaviour:
   remapDeadZoneMeters: 0.008
   useJoystickRemap: 1
   joyBoxHalfSizeWorld: {x: 0.1, y: 0.1, z: 0.1}
-  joyMaxSpeedX: 0.4
-  joyMaxSpeedY: 0.4
-  joyMaxSpeedZ: 0.4
+  joyMaxSpeedX: 0.7
+  joyMaxSpeedY: 0.7
+  joyMaxSpeedZ: 0.7
   joyExpo: 1
   joyMaxOffsetCam: {x: 0.6, y: 0.4, z: 0.6}
   joyInvertX: 0
   joyInvertYFromZ: 0
   joyInvertZFromY: 1
+  joyInputLerp: 0.3
 --- !u!1 &1807694319
 GameObject:
   m_ObjectHideFlags: 0
