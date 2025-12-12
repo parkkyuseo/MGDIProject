@@ -2803,6 +2803,37 @@ MonoBehaviour:
   refWrist: {fileID: 686607544}
   refPalm: {fileID: 845328064}
   printEverySec: 0.1
+--- !u!1 &1843974512
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1843974513}
+  m_Layer: 0
+  m_Name: GrabAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1843974513
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1843974512}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.00086300075, y: 0.0012721163, z: -0.04782308}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4572798414391131366}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1992353097
 GameObject:
   m_ObjectHideFlags: 0
@@ -3782,6 +3813,7 @@ GameObject:
   - component: {fileID: 4217352218302390349}
   - component: {fileID: 4217352218302390357}
   - component: {fileID: 4217352218302390358}
+  - component: {fileID: 4217352218302390359}
   m_Layer: 0
   m_Name: ProxyHandR
   m_TagString: Untagged
@@ -3921,6 +3953,26 @@ MonoBehaviour:
   upOffset: -0.1
   handRuntime: {fileID: 1722393066}
   settleFrames: 30
+--- !u!114 &4217352218302390359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3588484702831311607}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e0e6c4aac4b6574e9fb997aafb894ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  handReceiver: {fileID: 1722393065}
+  grabAnchor: {fileID: 1843974513}
+  grabRadius: 0.08
+  grabbableLayers:
+    serializedVersion: 2
+    m_Bits: 8
+  requiredTag: Grabbable
+  logDebug: 1
 --- !u!1 &4319491421609646284
 GameObject:
   m_ObjectHideFlags: 0
@@ -3981,7 +4033,8 @@ Transform:
   m_LocalPosition: {x: -0.00086300075, y: -0.0012721121, z: 0.04782305}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1843974513}
   m_Father: {fileID: 1992353098}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &4716200115112833351
