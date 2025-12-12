@@ -1,41 +1,40 @@
+using System;
 using UnityEngine;
 
 public class ProxyHandGrabber : MonoBehaviour
 {
-    [Header("Hand input")]
-    [Tooltip("Optional reference to the UdpHandReceiver that drives this hand (for clarity).")]
-    public UdpHandReceiver handReceiver; // not strictly required if using static event
-
-    [Header("Grab anchor on proxy hand")]
-    [Tooltip("Where grabbed objects will be attached (for example a child under the wrist or palm).")]
+    [Header("Grab anchor")]
     public Transform grabAnchor;
 
     [Header("Grab settings")]
-    [Tooltip("Radius around the grabAnchor to search for grabbable objects.")]
-    public float grabRadius = 0.08f; // 8 cm
-
-    [Tooltip("Layers that contain grabbable objects.")]
+    public float grabRadius = 0.08f;
     public LayerMask grabbableLayers;
+    public string requiredTag = "";
 
-    [Tooltip("If true, only objects with this tag will be considered grabbable (leave empty to ignore).")]
-    public string requiredTag = ""; // e.g. "Grabbable"
+    [Header("Grip debounce")]
+    public float closeHoldSec = 0.08f;   // require Closed for this long before grabbing
+    public float openHoldSec = 0.12f;    // require Open for this long before releasing
+    public float regrabCooldownSec = 0.10f; // small cooldown after release
 
-    [Tooltip("Log basic grab / release events to the console.")]
+    [Header("Collision")]
+    public bool disableHeldColliders = true;
+
+    [Header("Debug")]
     public bool logDebug = true;
 
-    [Header("Follow tuning")]
-    public bool hardFollowHeldObject = true;
+    Collider[] _overlapBuffer = new Collider[32];
 
-    // internal state
-    Collider[] _overlapBuffer = new Collider[16];
     Rigidbody _heldBody;
     Transform _heldOriginalParent;
-    bool _isGrabbing;
+    Collider[] _heldColliders;
 
+    // debounce state
+    UdpHandReceiver.GripState _lastGripState = UdpHandReceiver.GripState.Unknown;
+    float _stateSinceTime = -1f;
+    float _lastReleaseTime = -999f;
 
     void OnEnable()
     {
-        // subscribe to global grip state events
         UdpHandReceiver.OnGripStateChanged += OnGripStateChanged;
     }
 
@@ -46,27 +45,51 @@ public class ProxyHandGrabber : MonoBehaviour
 
     void OnGripStateChanged(UdpHandReceiver.GripState state)
     {
-        // if you later have two hands, you may want to filter here
-        if (state == UdpHandReceiver.GripState.Closed)
+        // record state change time
+        if (state != _lastGripState)
         {
-            TryGrab();
+            _lastGripState = state;
+            _stateSinceTime = Time.unscaledTime;
+            if (logDebug) Debug.Log("[Grabber] GripState=" + state);
         }
-        else if (state == UdpHandReceiver.GripState.Open)
+    }
+
+    void Update()
+    {
+        // no state yet
+        if (_stateSinceTime < 0f) return;
+
+        float heldFor = Time.unscaledTime - _stateSinceTime;
+
+        // grab on sustained Closed
+        if (_heldBody == null && _lastGripState == UdpHandReceiver.GripState.Closed)
         {
-            TryRelease();
+            if (heldFor >= closeHoldSec && (Time.unscaledTime - _lastReleaseTime) >= regrabCooldownSec)
+            {
+                TryGrab();
+            }
+            return;
+        }
+
+        // release on sustained Open
+        if (_heldBody != null && _lastGripState == UdpHandReceiver.GripState.Open)
+        {
+            if (heldFor >= openHoldSec)
+            {
+                TryRelease();
+            }
+            return;
         }
     }
 
     void TryGrab()
     {
-        if (_isGrabbing) return;
         if (grabAnchor == null)
         {
-            if (logDebug) Debug.Log("[ProxyHandGrabber] No grabAnchor assigned.");
+            if (logDebug) Debug.Log("[Grabber] No grabAnchor.");
             return;
         }
 
-        // find nearby colliders around the grab anchor
         int count = Physics.OverlapSphereNonAlloc(
             grabAnchor.position,
             grabRadius,
@@ -75,93 +98,98 @@ public class ProxyHandGrabber : MonoBehaviour
             QueryTriggerInteraction.Collide
         );
 
-        if (count == 0)
+        if (count <= 0)
         {
-            if (logDebug) Debug.Log("[ProxyHandGrabber] No grabbable object in range.");
+            if (logDebug) Debug.Log("[Grabber] No candidate in range.");
             return;
         }
 
-        // choose the closest valid collider with a rigidbody
         Collider bestCol = null;
         float bestDist = float.MaxValue;
 
         for (int i = 0; i < count; i++)
         {
-            var col = _overlapBuffer[i];
+            Collider col = _overlapBuffer[i];
             if (col == null) continue;
 
             if (!string.IsNullOrEmpty(requiredTag) && !col.CompareTag(requiredTag))
                 continue;
 
-            float dist = Vector3.SqrMagnitude(col.ClosestPoint(grabAnchor.position) - grabAnchor.position);
-            if (dist < bestDist)
+            Rigidbody rb = col.attachedRigidbody;
+            if (rb == null) continue;
+
+            float d2 = (col.ClosestPoint(grabAnchor.position) - grabAnchor.position).sqrMagnitude;
+            if (d2 < bestDist)
             {
-                bestDist = dist;
+                bestDist = d2;
                 bestCol = col;
             }
         }
 
         if (bestCol == null)
         {
-            if (logDebug) Debug.Log("[ProxyHandGrabber] Found colliders but none matched tag filter.");
+            if (logDebug) Debug.Log("[Grabber] No valid rigidbody candidate.");
             return;
         }
 
-        Rigidbody rb = bestCol.attachedRigidbody;
-        if (rb == null)
-        {
-            if (logDebug) Debug.Log("[ProxyHandGrabber] Best collider has no Rigidbody.");
-            return;
-        }
+        Rigidbody body = bestCol.attachedRigidbody;
+        if (body == null) return;
 
-        // attach the rigidbody to the hand
-        _heldBody = rb;
-        _heldOriginalParent = rb.transform.parent;
-        _isGrabbing = true;
+        _heldBody = body;
+        _heldOriginalParent = body.transform.parent;
 
-        // make it kinematic so physics does not fight the hand
+        // freeze physics
         _heldBody.isKinematic = true;
-        rb.transform.SetParent(grabAnchor, true); // keep world pose
+        _heldBody.velocity = Vector3.zero;
+        _heldBody.angularVelocity = Vector3.zero;
 
-        if (logDebug) Debug.Log("[ProxyHandGrabber] Grabbed " + rb.name);
+        // attach (snap to anchor)
+        body.transform.SetParent(grabAnchor, false);
+        body.transform.localPosition = Vector3.zero;
+        body.transform.localRotation = Quaternion.identity;
+
+        if (disableHeldColliders)
+        {
+            _heldColliders = body.GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < _heldColliders.Length; i++)
+            {
+                if (_heldColliders[i] != null)
+                    _heldColliders[i].enabled = false;
+            }
+        }
+
+        if (logDebug) Debug.Log("[Grabber] Grabbed " + body.name);
     }
 
     void TryRelease()
     {
-        if (!_isGrabbing) return;
-        if (_heldBody == null)
+        if (_heldBody == null) return;
+
+        if (logDebug) Debug.Log("[Grabber] Released " + _heldBody.name);
+
+        if (disableHeldColliders && _heldColliders != null)
         {
-            _isGrabbing = false;
-            return;
+            for (int i = 0; i < _heldColliders.Length; i++)
+            {
+                if (_heldColliders[i] != null)
+                    _heldColliders[i].enabled = true;
+            }
         }
 
-        if (logDebug) Debug.Log("[ProxyHandGrabber] Released " + _heldBody.name);
-
-        // detach from hand and restore parent
         Transform t = _heldBody.transform;
         t.SetParent(_heldOriginalParent, true);
-        _heldBody.isKinematic = false;
 
+        _heldBody.isKinematic = false;
         _heldBody = null;
         _heldOriginalParent = null;
-        _isGrabbing = false;
+        _heldColliders = null;
+
+        _lastReleaseTime = Time.unscaledTime;
     }
 
     void OnDrawGizmosSelected()
     {
         if (grabAnchor == null) return;
-        Gizmos.color = new Color(0f, 1f, 0f, 0.25f);
         Gizmos.DrawWireSphere(grabAnchor.position, grabRadius);
-    }
-
-    void LateUpdate()
-    {
-        if (!hardFollowHeldObject) return;
-        if (!_isGrabbing) return;
-        if (_heldBody == null) return;
-        if (grabAnchor == null) return;
-
-        Transform t = _heldBody.transform;
-        t.SetPositionAndRotation(grabAnchor.position, grabAnchor.rotation);
     }
 }
