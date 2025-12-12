@@ -23,6 +23,9 @@ public class ProxyHandGrabber : MonoBehaviour
     [Tooltip("Log basic grab / release events to the console.")]
     public bool logDebug = true;
 
+    [Header("Follow tuning")]
+    public bool hardFollowHeldObject = true;
+
     // internal state
     Collider[] _overlapBuffer = new Collider[16];
     Rigidbody _heldBody;
@@ -149,5 +152,16 @@ public class ProxyHandGrabber : MonoBehaviour
         if (grabAnchor == null) return;
         Gizmos.color = new Color(0f, 1f, 0f, 0.25f);
         Gizmos.DrawWireSphere(grabAnchor.position, grabRadius);
+    }
+
+    void LateUpdate()
+    {
+        if (!hardFollowHeldObject) return;
+        if (!_isGrabbing) return;
+        if (_heldBody == null) return;
+        if (grabAnchor == null) return;
+
+        Transform t = _heldBody.transform;
+        t.SetPositionAndRotation(grabAnchor.position, grabAnchor.rotation);
     }
 }
