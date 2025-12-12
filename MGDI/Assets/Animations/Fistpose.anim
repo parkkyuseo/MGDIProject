@@ -19,7 +19,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 10.019, y: -4.166, z: 1.633}
+        value: {x: 3.396, y: 0, z: 0}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -29,13 +29,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 31.58, y: -7.424, z: 3.883}
+        value: {x: 30.813, y: -7.485, z: 3.852}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -45,13 +45,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 36.395, y: -1.341, z: -3.641}
+        value: {x: 29.245, y: -0.82, z: -3.359}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -61,13 +61,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 25.35, y: 2.088, z: -2.093}
+        value: {x: 19.544, y: 2.312, z: -2.007}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -77,13 +77,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 26.407, y: -0.134, z: -0.184}
+        value: {x: 4.433, y: 0, z: 0}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -93,13 +93,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 15.597, y: 0, z: 0}
+        value: {x: 28.834, y: 1.066, z: -0.962}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -109,13 +109,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 35.162, y: 0.937, z: -1.03}
+        value: {x: 34.266, y: -0.401, z: -1.615}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -125,13 +125,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 42.413, y: -0.711, z: -1.808}
+        value: {x: 15.496, y: -1.217, z: -4.817}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -141,13 +141,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 16.652, y: -1.319, z: -4.845}
+        value: {x: 5.644, y: 0, z: 0}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -157,13 +157,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 24.568, y: 0, z: 0}
+        value: {x: 16.989, y: 8.711, z: -5.809}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -173,13 +173,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 19.931, y: 0, z: 0}
+        value: {x: 41.485, y: -3.484, z: -6.112}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -189,13 +189,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 34.605, y: 6.566, z: -6.754}
+        value: {x: 17.668, y: -3.706, z: -1.4}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -205,13 +205,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 63.545, y: -8.68, z: -10.313}
+        value: {x: -2.952, y: 6.073, z: 10.971}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -221,13 +221,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 38.369, y: -4.337, z: -1.701}
+        value: {x: 49.931, y: -1.842, z: -9.629}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -237,13 +237,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 26.129, y: 0, z: 0}
+        value: {x: 21.778, y: -5.77, z: -0.556}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -253,13 +253,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 22.336, y: 7.509, z: -25.327}
+        value: {x: 21.599, y: -48.829, z: 69.62}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -269,13 +269,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 6.463, y: 7.901, z: 11.027}
+        value: {x: 46.357, y: 2.528, z: -11.759}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -285,13 +285,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 63.875, y: -7.202, z: -14.153}
+        value: {x: 21.496, y: -3.539, z: 8.974}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -301,110 +301,14 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: 29.567, y: -5.857, z: -0.594}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: 28.152, y: 0, z: 0}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: 26.42, y: -31.523, z: 76.713}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_ThumbMetacarpal
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: 52.134, y: 0.567, z: -13.247}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: 30.379, y: -1.918, z: 9.685}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: 12.548, y: 0, z: 0}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
   m_PositionCurves:
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: -0.019818995, y: -0.009505003, z: 0.036447998}
+        value: {x: -0.01981901, y: -0.00950505, z: 0.03644803}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -414,13 +318,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: -0.0037319954, y: 0.0021889936, z: 0.05954799}
+        value: {x: -0.0037319958, y: 0.0021890022, z: 0.059547998}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -430,13 +334,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: -0.0000012916869, y: -0.000001504956, z: 0.03792844}
+        value: {x: -0.0000012916869, y: -0.000001491918, z: 0.037928455}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -446,13 +350,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: -0.00000092970544, y: 0.00000015833285, z: 0.024305178}
+        value: {x: -0.00000091954774, y: 0.00000021607778, z: 0.02430521}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -462,13 +366,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 0.0002948296, y: 0.001024929, z: 0.022364112}
+        value: {x: -0.0036100037, y: -0.007647918, z: 0.034286022}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -478,13 +382,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: -0.0036099935, y: -0.0076480014, z: 0.034285996}
+        value: {x: 0.0018839985, y: 0.0051049874, z: 0.061361037}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -494,13 +398,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 0.0018839957, y: 0.005105001, z: 0.06136101}
+        value: {x: 0.00000032766252, y: -0.0000008828878, z: 0.042926554}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -510,13 +414,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 0.000000322249, y: -0.0000008828878, z: 0.042926542}
+        value: {x: -0.00000017696028, y: 0.0000005867356, z: 0.027548421}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -526,13 +430,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: -0.00000019478581, y: 0.00000058859825, z: 0.027548458}
+        value: {x: 0.014991995, y: -0.0060160267, z: 0.034776043}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -542,13 +446,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 0.0003094916, y: 0.0011371893, z: 0.024963921}
+        value: {x: 0.0024729967, y: -0.00051299063, z: 0.053918015}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -558,13 +462,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 0.014992007, y: -0.0060160034, z: 0.034775995}
+        value: {x: -0.00000054808896, y: 0.00000039766016, z: 0.03899511}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -574,13 +478,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 0.0024730144, y: -0.000513006, z: 0.053918}
+        value: {x: 0.0000010371069, y: -0.00000054393195, z: 0.026573557}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -590,13 +494,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: -0.00000050780886, y: 0.0000003464393, z: 0.038995035}
+        value: {x: -0.000002524769, y: 0.0000011667144, z: 0.04039112}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -606,13 +510,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 0.0000010339638, y: -0.00000050481356, z: 0.026573673}
+        value: {x: -0.0000001846428, y: -0.0000006531243, z: 0.030719943}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -622,13 +526,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 0.0002563953, y: 0.001606651, z: 0.024326196}
+        value: {x: -0.00000013081981, y: 0.0000006360852, z: 0.020311305}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -638,13 +542,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: 0.022999, y: -0.009419999, z: 0.03407397}
+        value: {x: -0.030217994, y: -0.016084064, z: 0.034498107}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -654,13 +558,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: -0.0000025419981, y: 0.0000011520367, z: 0.045651983}
+        value: {x: 0.0009862665, y: -0.0057129394, z: 0.03199219}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -670,13 +574,13 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
   - curve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: {x: -0.0000001681111, y: -0.0000006681995, z: 0.030719934}
+        value: {x: 0.0000013922256, y: -0.0000060871744, z: 0.033791564}
         inSlope: {x: 0, y: 0, z: 0}
         outSlope: {x: 0, y: 0, z: 0}
         tangentMode: 0
@@ -686,103 +590,7 @@ AnimationClip:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: -0.00000011699569, y: 0.000000614665, z: 0.02031133}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: -0.0002462735, y: 0.0012152138, z: 0.02192339}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: -0.030218001, y: -0.016084, z: 0.034498025}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_ThumbMetacarpal
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: 0.0009862711, y: -0.0057129296, z: 0.031992167}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: 0.0000013805549, y: -0.0000061076635, z: 0.03379151}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-  - curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: {x: 0.00067009445, y: 0.0010274143, z: 0.024590692}
-        inSlope: {x: 0, y: 0, z: 0}
-        outSlope: {x: 0, y: 0, z: 0}
-        tangentMode: 0
-        weightedMode: 0
-        inWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-        outWeight: {x: 0, y: 0.33333334, z: 0.33333334}
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
   m_ScaleCurves: []
   m_FloatCurves: []
   m_PPtrCurves: []
@@ -794,7 +602,7 @@ AnimationClip:
   m_ClipBindingConstant:
     genericBindings:
     - serializedVersion: 2
-      path: 4072850042
+      path: 1172126467
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -803,7 +611,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 997630690
+      path: 3984876711
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -812,7 +620,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 646380117
+      path: 1195977748
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -821,7 +629,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 966521280
+      path: 1598170213
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -830,7 +638,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 3966024079
+      path: 2190697694
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -839,7 +647,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2885530303
+      path: 3626855649
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -848,7 +656,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 656697046
+      path: 1385661890
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -857,7 +665,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 4285980652
+      path: 1628614868
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -866,7 +674,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 1691227139
+      path: 2195930332
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -875,7 +683,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2762305660
+      path: 1417748022
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -884,7 +692,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 541490850
+      path: 1556644259
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -893,7 +701,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2240747717
+      path: 2577988390
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -902,7 +710,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 1758826110
+      path: 1336706369
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -911,7 +719,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 25869761
+      path: 715628473
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -920,7 +728,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 1399451494
+      path: 952876962
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -929,7 +737,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 3609246104
+      path: 649529368
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -938,7 +746,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2963640182
+      path: 942057818
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -947,7 +755,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2269562263
+      path: 2629120720
       attribute: 1
       script: {fileID: 0}
       typeID: 4
@@ -956,61 +764,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 1024924533
-      attribute: 1
-      script: {fileID: 0}
-      typeID: 4
-      customType: 0
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 4071389462
-      attribute: 1
-      script: {fileID: 0}
-      typeID: 4
-      customType: 0
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 2443768161
-      attribute: 1
-      script: {fileID: 0}
-      typeID: 4
-      customType: 0
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 4006899487
-      attribute: 1
-      script: {fileID: 0}
-      typeID: 4
-      customType: 0
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 2884735582
-      attribute: 1
-      script: {fileID: 0}
-      typeID: 4
-      customType: 0
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 3121436892
-      attribute: 1
-      script: {fileID: 0}
-      typeID: 4
-      customType: 0
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 4072850042
+      path: 1172126467
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1019,7 +773,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 997630690
+      path: 3984876711
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1028,7 +782,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 646380117
+      path: 1195977748
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1037,7 +791,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 966521280
+      path: 1598170213
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1046,7 +800,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 3966024079
+      path: 2190697694
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1055,7 +809,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2885530303
+      path: 3626855649
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1064,7 +818,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 656697046
+      path: 1385661890
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1073,7 +827,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 4285980652
+      path: 1628614868
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1082,7 +836,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 1691227139
+      path: 2195930332
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1091,7 +845,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2762305660
+      path: 1417748022
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1100,7 +854,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 541490850
+      path: 1556644259
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1109,7 +863,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2240747717
+      path: 2577988390
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1118,7 +872,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 1758826110
+      path: 1336706369
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1127,7 +881,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 25869761
+      path: 715628473
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1136,7 +890,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 1399451494
+      path: 952876962
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1145,7 +899,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 3609246104
+      path: 649529368
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1154,7 +908,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2963640182
+      path: 942057818
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1163,61 +917,7 @@ AnimationClip:
       isIntCurve: 0
       isSerializeReferenceCurve: 0
     - serializedVersion: 2
-      path: 2269562263
-      attribute: 4
-      script: {fileID: 0}
-      typeID: 4
-      customType: 4
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 1024924533
-      attribute: 4
-      script: {fileID: 0}
-      typeID: 4
-      customType: 4
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 4071389462
-      attribute: 4
-      script: {fileID: 0}
-      typeID: 4
-      customType: 4
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 2443768161
-      attribute: 4
-      script: {fileID: 0}
-      typeID: 4
-      customType: 4
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 4006899487
-      attribute: 4
-      script: {fileID: 0}
-      typeID: 4
-      customType: 4
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 2884735582
-      attribute: 4
-      script: {fileID: 0}
-      typeID: 4
-      customType: 4
-      isPPtrCurve: 0
-      isIntCurve: 0
-      isSerializeReferenceCurve: 0
-    - serializedVersion: 2
-      path: 3121436892
+      path: 2629120720
       attribute: 4
       script: {fileID: 0}
       typeID: 4
@@ -1253,7 +953,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.019818995
+        value: -0.01981901
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1264,7 +964,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1274,7 +974,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.009505003
+        value: -0.00950505
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1285,7 +985,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1295,7 +995,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.036447998
+        value: 0.03644803
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1306,7 +1006,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1316,7 +1016,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 10.019
+        value: 3.396
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1327,7 +1027,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1337,7 +1037,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -4.166
+        value: 0
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1348,7 +1048,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1358,7 +1058,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 1.633
+        value: 0
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1369,7 +1069,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1379,7 +1079,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.0037319954
+        value: -0.0037319958
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1390,7 +1090,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1400,7 +1100,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0021889936
+        value: 0.0021890022
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1411,7 +1111,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1421,7 +1121,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.05954799
+        value: 0.059547998
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1432,7 +1132,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1442,7 +1142,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 31.58
+        value: 30.813
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1453,7 +1153,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1463,7 +1163,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -7.424
+        value: -7.485
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1474,7 +1174,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1484,7 +1184,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 3.883
+        value: 3.852
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1495,7 +1195,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1516,7 +1216,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1526,7 +1226,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.000001504956
+        value: -0.000001491918
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1537,7 +1237,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1547,7 +1247,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.03792844
+        value: 0.037928455
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1558,7 +1258,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1568,7 +1268,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 36.395
+        value: 29.245
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1579,7 +1279,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1589,7 +1289,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -1.341
+        value: -0.82
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1600,7 +1300,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1610,7 +1310,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -3.641
+        value: -3.359
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1621,7 +1321,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1631,7 +1331,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.00000092970544
+        value: -0.00000091954774
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1642,7 +1342,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1652,7 +1352,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.00000015833285
+        value: 0.00000021607778
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1663,7 +1363,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1673,7 +1373,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.024305178
+        value: 0.02430521
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1684,7 +1384,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1694,7 +1394,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 25.35
+        value: 19.544
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1705,7 +1405,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1715,7 +1415,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 2.088
+        value: 2.312
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1726,7 +1426,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1736,7 +1436,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -2.093
+        value: -2.007
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1747,7 +1447,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1757,7 +1457,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0002948296
+        value: -0.0036100037
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1768,7 +1468,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1778,7 +1478,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.001024929
+        value: -0.007647918
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1789,7 +1489,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1799,7 +1499,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.022364112
+        value: 0.034286022
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1810,7 +1510,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -1820,7 +1520,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 26.407
+        value: 4.433
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -1831,133 +1531,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -0.134
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -0.184
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -0.0036099935
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.x
-    path: R_Wrist/R_MiddleMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -0.0076480014
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.y
-    path: R_Wrist/R_MiddleMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.034285996
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.z
-    path: R_Wrist/R_MiddleMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 15.597
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_MiddleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1978,7 +1552,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_MiddleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -1999,7 +1573,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_MiddleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2009,7 +1583,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0018839957
+        value: 0.0018839985
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2020,7 +1594,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2030,7 +1604,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.005105001
+        value: 0.0051049874
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2041,7 +1615,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2051,7 +1625,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.06136101
+        value: 0.061361037
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2062,7 +1636,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2072,7 +1646,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 35.162
+        value: 28.834
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2083,7 +1657,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2093,7 +1667,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.937
+        value: 1.066
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2104,7 +1678,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2114,7 +1688,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -1.03
+        value: -0.962
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2125,7 +1699,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2135,7 +1709,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.000000322249
+        value: 0.00000032766252
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2146,7 +1720,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2167,7 +1741,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2177,7 +1751,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.042926542
+        value: 0.042926554
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2188,7 +1762,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2198,7 +1772,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 42.413
+        value: 34.266
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2209,7 +1783,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2219,7 +1793,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.711
+        value: -0.401
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2230,7 +1804,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2240,7 +1814,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -1.808
+        value: -1.615
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2251,7 +1825,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2261,7 +1835,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.00000019478581
+        value: -0.00000017696028
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2272,7 +1846,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2282,7 +1856,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.00000058859825
+        value: 0.0000005867356
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2293,7 +1867,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2303,7 +1877,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.027548458
+        value: 0.027548421
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2314,7 +1888,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2324,7 +1898,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 16.652
+        value: 15.496
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2335,7 +1909,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2345,7 +1919,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -1.319
+        value: -1.217
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2356,7 +1930,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2366,7 +1940,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -4.845
+        value: -4.817
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2377,7 +1951,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2387,7 +1961,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0003094916
+        value: 0.014991995
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2398,7 +1972,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2408,7 +1982,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0011371893
+        value: -0.0060160267
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2419,7 +1993,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2429,7 +2003,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.024963921
+        value: 0.034776043
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2440,7 +2014,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2450,7 +2024,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 24.568
+        value: 5.644
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2461,7 +2035,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2482,7 +2056,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2503,7 +2077,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2513,7 +2087,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.014992007
+        value: 0.0024729967
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2524,7 +2098,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2534,7 +2108,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.0060160034
+        value: -0.00051299063
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2545,7 +2119,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2555,7 +2129,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.034775995
+        value: 0.053918015
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2566,7 +2140,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2576,7 +2150,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 19.931
+        value: 16.989
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2587,7 +2161,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2597,7 +2171,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0
+        value: 8.711
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2608,7 +2182,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2618,7 +2192,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0
+        value: -5.809
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2629,7 +2203,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2639,7 +2213,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0024730144
+        value: -0.00000054808896
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2650,7 +2224,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2660,7 +2234,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.000513006
+        value: 0.00000039766016
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2671,7 +2245,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2681,7 +2255,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.053918
+        value: 0.03899511
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2692,7 +2266,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2702,7 +2276,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 34.605
+        value: 41.485
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2713,7 +2287,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2723,7 +2297,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 6.566
+        value: -3.484
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2734,7 +2308,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2744,7 +2318,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -6.754
+        value: -6.112
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2755,7 +2329,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2765,7 +2339,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.00000050780886
+        value: 0.0000010371069
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2776,7 +2350,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2786,7 +2360,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0000003464393
+        value: -0.00000054393195
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2797,7 +2371,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2807,7 +2381,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.038995035
+        value: 0.026573557
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2818,7 +2392,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2828,7 +2402,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 63.545
+        value: 17.668
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2839,7 +2413,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2849,7 +2423,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -8.68
+        value: -3.706
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2860,7 +2434,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2870,7 +2444,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -10.313
+        value: -1.4
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2881,7 +2455,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2891,7 +2465,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0000010339638
+        value: -0.000002524769
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2902,7 +2476,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2912,7 +2486,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.00000050481356
+        value: 0.0000011667144
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2923,7 +2497,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2933,7 +2507,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.026573673
+        value: 0.04039112
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2944,7 +2518,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -2954,7 +2528,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 38.369
+        value: -2.952
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2965,7 +2539,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2975,7 +2549,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -4.337
+        value: 6.073
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -2986,7 +2560,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -2996,7 +2570,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -1.701
+        value: 10.971
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3007,7 +2581,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3017,7 +2591,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0002563953
+        value: -0.0000001846428
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3028,7 +2602,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3038,7 +2612,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.001606651
+        value: -0.0000006531243
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3049,7 +2623,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3059,7 +2633,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.024326196
+        value: 0.030719943
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3070,7 +2644,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3080,7 +2654,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 26.129
+        value: 49.931
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3091,7 +2665,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3101,7 +2675,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0
+        value: -1.842
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3112,7 +2686,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3122,7 +2696,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0
+        value: -9.629
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3133,7 +2707,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3143,7 +2717,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.022999
+        value: -0.00000013081981
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3154,7 +2728,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3164,7 +2738,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.009419999
+        value: 0.0000006360852
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3175,7 +2749,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3185,7 +2759,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.03407397
+        value: 0.020311305
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3196,7 +2770,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3206,7 +2780,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 22.336
+        value: 21.778
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3217,7 +2791,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3227,7 +2801,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 7.509
+        value: -5.77
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3238,7 +2812,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3248,7 +2822,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -25.327
+        value: -0.556
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3259,7 +2833,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3269,7 +2843,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.0000025419981
+        value: -0.030217994
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3280,7 +2854,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3290,7 +2864,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.0000011520367
+        value: -0.016084064
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3301,7 +2875,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3311,7 +2885,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.045651983
+        value: 0.034498107
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3322,7 +2896,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3332,7 +2906,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 6.463
+        value: 21.599
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3343,7 +2917,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3353,7 +2927,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 7.901
+        value: -48.829
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3364,7 +2938,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3374,7 +2948,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 11.027
+        value: 69.62
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3385,7 +2959,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3395,7 +2969,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.0000001681111
+        value: 0.0009862665
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3406,7 +2980,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3416,7 +2990,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.0000006681995
+        value: -0.0057129394
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3427,7 +3001,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3437,7 +3011,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.030719934
+        value: 0.03199219
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3448,7 +3022,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3458,7 +3032,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 63.875
+        value: 46.357
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3469,7 +3043,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3479,7 +3053,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -7.202
+        value: 2.528
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3490,7 +3064,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3500,7 +3074,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -14.153
+        value: -11.759
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3511,7 +3085,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3521,7 +3095,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.00000011699569
+        value: 0.0000013922256
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3532,7 +3106,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3542,7 +3116,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.000000614665
+        value: -0.0000060871744
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3553,7 +3127,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3563,7 +3137,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 0.02031133
+        value: 0.033791564
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3574,7 +3148,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalPosition.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -3584,7 +3158,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: 29.567
+        value: 21.496
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3595,7 +3169,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3605,7 +3179,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -5.857
+        value: -3.539
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3616,7 +3190,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -3626,7 +3200,7 @@ AnimationClip:
       m_Curve:
       - serializedVersion: 3
         time: 0
-        value: -0.594
+        value: 8.974
         inSlope: 0
         outSlope: 0
         tangentMode: 136
@@ -3637,637 +3211,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -0.0002462735
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.0012152138
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.02192339
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 28.152
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -0.030218001
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.x
-    path: R_Wrist/R_ThumbMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -0.016084
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.y
-    path: R_Wrist/R_ThumbMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.034498025
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.z
-    path: R_Wrist/R_ThumbMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 26.42
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_ThumbMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -31.523
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_ThumbMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 76.713
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_ThumbMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.0009862711
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.x
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -0.0057129296
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.y
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.031992167
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.z
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 52.134
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.567
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -13.247
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.0000013805549
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.x
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -0.0000061076635
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.y
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.03379151
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.z
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 30.379
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: -1.918
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 9.685
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.00067009445
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.x
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.0010274143
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.y
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0.024590692
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalPosition.z
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 12.548
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.x
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.y
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 16
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve:
-      - serializedVersion: 3
-        time: 0
-        value: 0
-        inSlope: 0
-        outSlope: 0
-        tangentMode: 136
-        weightedMode: 0
-        inWeight: 0
-        outWeight: 0
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: localEulerAnglesRaw.z
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
     classID: 4
     script: {fileID: 0}
     flags: 16
@@ -4280,7 +3224,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4292,7 +3236,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4304,7 +3248,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_IndexMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4316,7 +3260,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4328,7 +3272,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4340,7 +3284,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4352,7 +3296,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4364,7 +3308,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4376,7 +3320,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4388,7 +3332,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4400,7 +3344,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4412,7 +3356,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
+    path: R_Wrist/R_Wrist_Twist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4424,7 +3368,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4436,7 +3380,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4448,7 +3392,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_IndexMetacarpal/R_IndexProximal/R_IndexIntermediate/R_IndexDistal/R_IndexTip
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4460,7 +3404,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_MiddleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4472,7 +3416,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_MiddleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4484,7 +3428,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_MiddleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4496,7 +3440,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4508,7 +3452,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4520,7 +3464,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4532,7 +3476,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4544,7 +3488,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4556,7 +3500,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4568,7 +3512,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4580,7 +3524,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4592,7 +3536,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4604,7 +3548,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4616,7 +3560,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4628,7 +3572,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4640,7 +3584,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4652,7 +3596,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4664,7 +3608,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_RingMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4676,7 +3620,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4688,7 +3632,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4700,7 +3644,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal
+    path: R_Wrist/R_Wrist_Twist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4712,7 +3656,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4724,7 +3668,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4736,7 +3680,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4748,7 +3692,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4760,7 +3704,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4772,7 +3716,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4784,7 +3728,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4796,7 +3740,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4808,7 +3752,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_RingMetacarpal/R_RingProximal/R_RingIntermediate/R_RingDistal/R_RingTip
+    path: R_Wrist/R_Wrist_Twist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4820,7 +3764,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4832,7 +3776,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4844,7 +3788,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_LittleMetacarpal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4856,7 +3800,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4868,7 +3812,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4880,7 +3824,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4892,7 +3836,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4904,7 +3848,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
     classID: 4
     script: {fileID: 0}
     flags: 0
@@ -4916,223 +3860,7 @@ AnimationClip:
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_LittleMetacarpal/R_LittleProximal/R_LittleIntermediate/R_LittleDistal/R_LittleTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_ThumbMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_ThumbMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_ThumbMetacarpal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.x
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.y
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
-    classID: 4
-    script: {fileID: 0}
-    flags: 0
-  - serializedVersion: 2
-    curve:
-      serializedVersion: 2
-      m_Curve: []
-      m_PreInfinity: 2
-      m_PostInfinity: 2
-      m_RotationOrder: 4
-    attribute: m_LocalEulerAngles.z
-    path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
+    path: R_Wrist/R_Wrist_Twist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal
     classID: 4
     script: {fileID: 0}
     flags: 0

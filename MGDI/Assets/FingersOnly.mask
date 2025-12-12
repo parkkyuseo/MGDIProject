@@ -7,12 +7,12 @@ AvatarMask:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: FingersOnly
-  m_Mask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+  m_Mask: 01000000010000000100000001000000010000000100000001000000000000000000000001000000010000000000000000000000
   m_Elements:
   - m_Path: 
     m_Weight: 1
   - m_Path: R_Wrist
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: R_Wrist/R_IndexMetacarpal
     m_Weight: 1
   - m_Path: R_Wrist/R_IndexMetacarpal/R_IndexProximal
@@ -44,7 +44,7 @@ AvatarMask:
   - m_Path: R_Wrist/R_MiddleMetacarpal/R_MiddleProximal/R_MiddleIntermediate/R_MiddleDistal/R_MiddleTip
     m_Weight: 1
   - m_Path: R_Wrist/R_Palm
-    m_Weight: 0
+    m_Weight: 1
   - m_Path: R_Wrist/R_RingMetacarpal
     m_Weight: 1
   - m_Path: R_Wrist/R_RingMetacarpal/R_RingProximal
@@ -64,4 +64,4 @@ AvatarMask:
   - m_Path: R_Wrist/R_ThumbMetacarpal/R_ThumbProximal/R_ThumbDistal/R_ThumbTip
     m_Weight: 1
   - m_Path: RightHand
-    m_Weight: 0
+    m_Weight: 1
