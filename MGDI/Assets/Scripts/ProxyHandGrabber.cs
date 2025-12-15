@@ -11,23 +11,30 @@ public class ProxyHandGrabber : MonoBehaviour
     public LayerMask grabbableLayers;
     public string requiredTag = "";
 
+    [Tooltip("Must be within this distance to actually attach (meters). Should be <= grabRadius.")]
+    public float attachDistance = 0.05f;
+
     [Header("Grip debounce")]
-    public float closeHoldSec = 0.08f;        // require Closed for this long before grabbing
-    public float openHoldSec = 0.12f;         // require Open for this long before releasing
-    public float regrabCooldownSec = 0.10f;   // small cooldown after release
+    public float closeHoldSec = 0.08f;
+    public float openHoldSec = 0.12f;
+    public float regrabCooldownSec = 0.10f;
 
     [Header("Collision")]
     public bool disableHeldColliders = true;
 
     [Header("Held object follow filter")]
     public bool filterHeldObject = true;
-    public float heldPosDeadZoneMeters = 0.006f;  // 6 mm
-    public float heldMaxStepMeters = 0.06f;       // 6 cm per frame
-    public float heldTauSec = 0.08f;              // LPF time constant (sec)
+    public float heldPosDeadZoneMeters = 0.006f;
+    public float heldMaxStepMeters = 0.06f;
+    public float heldTauSec = 0.08f;
 
-    public bool filterHeldRotation = false;       // keep false first
+    public bool filterHeldRotation = false;
     public float heldMaxDegPerSec = 360f;
     public float heldRotTauSec = 0.10f;
+
+    [Header("Grab offset behavior")]
+    [Tooltip("If true, keep the initial relative pose between hand and object (no snap).")]
+    public bool keepInitialOffset = true;
 
     [Header("Debug")]
     public bool logDebug = true;
@@ -37,6 +44,10 @@ public class ProxyHandGrabber : MonoBehaviour
     Rigidbody _heldBody;
     Transform _heldOriginalParent;
     Collider[] _heldColliders;
+
+    // initial offset captured at grab time
+    Vector3 _heldLocalPosToAnchor;
+    Quaternion _heldLocalRotToAnchor = Quaternion.identity;
 
     // debounce state
     UdpHandReceiver.GripState _lastGripState = UdpHandReceiver.GripState.Unknown;
@@ -60,7 +71,6 @@ public class ProxyHandGrabber : MonoBehaviour
 
     void OnGripStateChanged(UdpHandReceiver.GripState state)
     {
-        // record state change time
         if (state != _lastGripState)
         {
             _lastGripState = state;
@@ -71,54 +81,64 @@ public class ProxyHandGrabber : MonoBehaviour
 
     void Update()
     {
-        // no state yet
         if (_stateSinceTime < 0f) return;
 
         float heldFor = Time.unscaledTime - _stateSinceTime;
 
-        // grab on sustained Closed
         if (_heldBody == null && _lastGripState == UdpHandReceiver.GripState.Closed)
         {
             if (heldFor >= closeHoldSec && (Time.unscaledTime - _lastReleaseTime) >= regrabCooldownSec)
-            {
                 TryGrab();
-            }
             return;
         }
 
-        // release on sustained Open
         if (_heldBody != null && _lastGripState == UdpHandReceiver.GripState.Open)
         {
             if (heldFor >= openHoldSec)
-            {
                 TryRelease();
-            }
             return;
         }
     }
 
     void LateUpdate()
     {
-        if (!filterHeldObject) return;
         if (_heldBody == null) return;
         if (grabAnchor == null) return;
 
         Transform t = _heldBody.transform;
 
-        Vector3 targetPos = grabAnchor.position;
-        Quaternion targetRot = grabAnchor.rotation;
+        // target pose = anchor pose * initial local offset
+        Vector3 targetPos;
+        Quaternion targetRot;
+
+        if (keepInitialOffset)
+        {
+            targetPos = grabAnchor.TransformPoint(_heldLocalPosToAnchor);
+            targetRot = grabAnchor.rotation * _heldLocalRotToAnchor;
+        }
+        else
+        {
+            targetPos = grabAnchor.position;
+            targetRot = grabAnchor.rotation;
+        }
+
+        if (!filterHeldObject)
+        {
+            t.SetPositionAndRotation(targetPos, targetRot);
+            return;
+        }
 
         if (!_heldFollowInit)
         {
-            _heldPosSm = targetPos;
-            _heldRotSm = targetRot;
+            _heldPosSm = t.position;
+            _heldRotSm = t.rotation;
             _heldFollowInit = true;
         }
 
         // position filter: dead-zone + step clamp + LPF
         Vector3 dp = targetPos - _heldPosSm;
-
         float dz = Mathf.Max(0f, heldPosDeadZoneMeters);
+
         if (dz > 0f && dp.sqrMagnitude < dz * dz)
         {
             targetPos = _heldPosSm;
@@ -128,9 +148,7 @@ public class ProxyHandGrabber : MonoBehaviour
             float maxStep = Mathf.Max(0f, heldMaxStepMeters);
             float mag = dp.magnitude;
             if (maxStep > 0f && mag > maxStep)
-            {
                 targetPos = _heldPosSm + dp / Mathf.Max(mag, 1e-6f) * maxStep;
-            }
 
             float dt = Mathf.Max(Time.unscaledDeltaTime, 1f / 120f);
             float tau = Mathf.Max(1e-4f, heldTauSec);
@@ -147,9 +165,7 @@ public class ProxyHandGrabber : MonoBehaviour
             float ang = Quaternion.Angle(_heldRotSm, targetRot);
             float maxStepDeg = Mathf.Max(1f, heldMaxDegPerSec) * dt;
             if (ang > maxStepDeg && ang > 1e-3f)
-            {
                 targetRot = Quaternion.Slerp(_heldRotSm, targetRot, maxStepDeg / ang);
-            }
 
             float tau = Mathf.Max(1e-4f, heldRotTauSec);
             float a = 1f - Mathf.Exp(-dt / tau);
@@ -214,6 +230,14 @@ public class ProxyHandGrabber : MonoBehaviour
             return;
         }
 
+        // distance gate: only attach if already close enough
+        float attachD = Mathf.Max(0f, attachDistance);
+        if (attachD > 0f && bestDist > attachD * attachD)
+        {
+            if (logDebug) Debug.Log("[Grabber] Candidate too far for attach.");
+            return;
+        }
+
         Rigidbody body = bestCol.attachedRigidbody;
         if (body == null) return;
 
@@ -225,14 +249,16 @@ public class ProxyHandGrabber : MonoBehaviour
         _heldBody.velocity = Vector3.zero;
         _heldBody.angularVelocity = Vector3.zero;
 
-        // attach (snap to anchor)
-        body.transform.SetParent(grabAnchor, false);
-        body.transform.localPosition = Vector3.zero;
-        body.transform.localRotation = Quaternion.identity;
+        // keep world pose (no snap)
+        body.transform.SetParent(grabAnchor, true);
 
-        // init follow filter state
-        _heldPosSm = grabAnchor.position;
-        _heldRotSm = grabAnchor.rotation;
+        // capture offset relative to anchor so the object follows without snapping
+        _heldLocalPosToAnchor = grabAnchor.InverseTransformPoint(body.transform.position);
+        _heldLocalRotToAnchor = Quaternion.Inverse(grabAnchor.rotation) * body.transform.rotation;
+
+        // init filter state from current pose (no jump)
+        _heldPosSm = body.transform.position;
+        _heldRotSm = body.transform.rotation;
         _heldFollowInit = true;
 
         if (disableHeldColliders)
@@ -279,5 +305,7 @@ public class ProxyHandGrabber : MonoBehaviour
     {
         if (grabAnchor == null) return;
         Gizmos.DrawWireSphere(grabAnchor.position, grabRadius);
+        Gizmos.color = new Color(1f, 0f, 0f, 0.35f);
+        Gizmos.DrawWireSphere(grabAnchor.position, attachDistance);
     }
 }
