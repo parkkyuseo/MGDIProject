@@ -881,6 +881,9 @@ class StereoHand3D:
 
         prev = np.array(self._motion_prev_pos, dtype=np.float32).reshape(3,)
         dist = float(np.linalg.norm(cur - prev))
+        # deadzone (예: 3mm)
+        if dist < 0.003:
+            dist = 0.0
         speed = dist / (dt_ms / 1000.0)  # m/s
         self._motion_speed_mps = speed
 
