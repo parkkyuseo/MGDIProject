@@ -867,20 +867,40 @@ class StereoHand3D:
             except Exception:
                 ratio = None
 
-        # counts
+        # counts (기존 로직 유지)
         bent     = sum([1 for th in curl if (th is not None and th <= 70.0)])
         straight = sum([1 for th in curl if (th is not None and th >= 110.0)])
 
-        # score heuristics
+        # ---- [PATCH] 디버그용 상세 정보 구성 (판정 로직은 그대로) ----
+        finger_names = ["index", "middle", "ring", "little"]  # fingers dict insertion order와 동일
+        angles = {finger_names[i]: curl[i] for i in range(min(4, len(curl)))}
+
+        valid_fingers = [f for f, th in angles.items() if th is not None]
+        bent_fingers = [f for f, th in angles.items() if (th is not None and th <= 70.0)]
+        straight_fingers = [f for f, th in angles.items() if (th is not None and th >= 110.0)]
+
+        dbg = {
+            "curl": curl,                       # 기존 유지(호환)
+            "angles_deg": angles,               # 손가락별 PIP각도
+            "valid_fingers": valid_fingers,     # 각도 계산 성공 손가락
+            "bent_fingers": bent_fingers,       # <=70도
+            "straight_fingers": straight_fingers,# >=110도
+            "bent": bent,
+            "straight": straight,
+            "ratio": ratio,
+        }
+
+        # score heuristics (기존 로직 유지)
         if bent >= 3:
             score = min(0.95, 0.60 + 0.07*(bent-3))
-            return {"name":"Closed_Fist", "score":score, "dbg":{"curl":curl, "ratio":ratio}}
+            return {"name":"Closed_Fist", "score":score, "dbg":dbg}
+
         if ratio is not None and straight >= 4 and ratio >= 1.55 and bent <= 1:
             extra = 0.0 if ratio is None else max(0.0, min(0.2, 0.15*(ratio-1.45)/0.10))
             score = min(0.95, 0.62 + 0.06*(straight-3) + extra)
-            return {"name":"Open_Palm", "score":score, "dbg":{"curl":curl, "ratio":ratio}}
+            return {"name":"Open_Palm", "score":score, "dbg":dbg}
 
-        return {"name":"None", "score":0.0, "dbg":{"curl":curl, "ratio":ratio}}
+        return {"name":"None", "score":0.0, "dbg":dbg}
 
     def _update_gesture_hysteresis(self, cand: Optional[dict], ts_ms: int) -> Optional[dict]:
         """Apply hysteresis; None or weak evidence does not flip state."""
@@ -912,9 +932,30 @@ class StereoHand3D:
         if decided is not None:
             prev = (self._gesture_last.get("name") if self._gesture_last else None)
             self._gesture_last = dict(decided)
+
             if decided["name"] != prev:
-                # 간단 로그 (Top-K가 없으니 score만)
-                print(f"[glog][state] -> {decided['name']} (score={decided['score']:.2f})")
+                # ---- [PATCH] 상태 변화 이유 로그 ----
+                dbg = cand.get("dbg", {}) if isinstance(cand, dict) else {}
+                angles = dbg.get("angles_deg", {}) if isinstance(dbg, dict) else {}
+
+                ratio = dbg.get("ratio", None) if isinstance(dbg, dict) else None
+                bent = dbg.get("bent", None) if isinstance(dbg, dict) else None
+                straight = dbg.get("straight", None) if isinstance(dbg, dict) else None
+                bent_f = dbg.get("bent_fingers", []) if isinstance(dbg, dict) else []
+                straight_f = dbg.get("straight_fingers", []) if isinstance(dbg, dict) else []
+                valid_f = dbg.get("valid_fingers", []) if isinstance(dbg, dict) else []
+
+                print(
+                    f"[glog][flip] {prev} -> {decided['name']} | "
+                    f"cand={name} score={score:.2f} | "
+                    f"bent={bent} straight={straight} ratio={ratio} | "
+                    f"bent_f={bent_f} straight_f={straight_f} valid={valid_f} | "
+                    f"cnt(open={self._open_cnt}/{self._OPEN_K}, close={self._close_cnt}/{self._CLOSE_K}) | "
+                    f"th(open>={self._OPEN_THRESH:.2f}, close>={self._CLOSE_THRESH:.2f}) | "
+                    f"angles(index={angles.get('index')}, middle={angles.get('middle')}, "
+                    f"ring={angles.get('ring')}, little={angles.get('little')})"
+                )
+
             return decided
         return None
 
