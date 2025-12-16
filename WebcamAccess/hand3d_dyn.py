@@ -399,6 +399,16 @@ class StereoHand3D:
         self._OPEN_THRESH        = 0.75   # 해제 임계(각도 기반 score)
         self._CLOSE_K            = 1      # 연속 N프레임
         self._CLOSE_THRESH       = 0.60   # 그랩 임계(각도 기반 score)
+        # [MOTION-GATE] Open_Palm은 "정지 상태"에서만 허용 (False Open 억제)
+        self._motion_gate_enable = True
+        self._V_STILL = 0.05          # m/s: 이 속도 미만이면 "정지 후보"
+        self._STILL_HOLD_MS = 150     # ms: 이 시간 이상 연속 정지면 "정지"로 확정
+
+        self._motion_prev_pos = None  # np.ndarray(3,)
+        self._motion_prev_ts  = 0     # ms
+        self._still_accum_ms  = 0
+        self._is_still        = True
+        self._motion_speed_mps = 0.0  # 디버그용(필요시 출력)
 
         # EMA & last valid/interp
         self._ema = {'wrist': None, 'palm': None, 'index_tip': None}
@@ -835,6 +845,55 @@ class StereoHand3D:
         v = np.clip(float(np.dot(BA, BC) / den), -1.0, 1.0)
         return float(np.degrees(np.arccos(v)))
 
+    # ---------- [MOTION-GATE] helpers ----------
+    def _update_motion_state(self, pos: Optional[np.ndarray], ts_ms: int):
+        """
+        Update motion state based on EMA-smoothed wrist/palm position.
+        - pos: (3,) meters
+        - ts_ms: timestamp in ms
+        Sets:
+          self._motion_speed_mps
+          self._is_still
+          self._still_accum_ms
+        """
+        if pos is None or ts_ms is None:
+            return
+        ts_ms = int(ts_ms)
+        if ts_ms <= 0:
+            return
+
+        cur = np.array(pos, dtype=np.float32).reshape(3,)
+
+        if self._motion_prev_pos is None or int(self._motion_prev_ts) <= 0:
+            self._motion_prev_pos = cur
+            self._motion_prev_ts = ts_ms
+            self._still_accum_ms = 0
+            self._is_still = True
+            self._motion_speed_mps = 0.0
+            return
+
+        dt_ms = ts_ms - int(self._motion_prev_ts)
+        if dt_ms <= 0:
+            # timestamp 이상치면 위치만 갱신
+            self._motion_prev_pos = cur
+            self._motion_prev_ts = ts_ms
+            return
+
+        prev = np.array(self._motion_prev_pos, dtype=np.float32).reshape(3,)
+        dist = float(np.linalg.norm(cur - prev))
+        speed = dist / (dt_ms / 1000.0)  # m/s
+        self._motion_speed_mps = speed
+
+        if speed < float(self._V_STILL):
+            self._still_accum_ms = min(int(self._still_accum_ms) + int(dt_ms), 5000)
+        else:
+            self._still_accum_ms = 0
+
+        self._is_still = (int(self._still_accum_ms) >= int(self._STILL_HOLD_MS))
+
+        self._motion_prev_pos = cur
+        self._motion_prev_ts = ts_ms
+
     def _gesture_from_tri(self, tri: Dict[int, TriRes]) -> Optional[dict]:
         """Return {'name','score'} based on finger curl angles & palm ratio, or None if insufficient."""
         # indices
@@ -1147,6 +1206,10 @@ class StereoHand3D:
                 palmF = self._ema_apply('palm',      palm.xyz)
                 tipF  = self._ema_apply('index_tip', tri[8].xyz)
 
+                # [MOTION-GATE] 모션 상태 업데이트 (EMA된 palm 우선, 없으면 wrist 사용)
+                motion_pos = palmF if palmF is not None else tri0
+                self._update_motion_state(motion_pos, pair_ts)
+
                 tri_out  = {
                     0: TriRes(tri0,  tri[0].conf if tri0  is not None else 0.0),
                     8: TriRes(tipF,  tri[8].conf if tipF  is not None else 0.0),
@@ -1171,6 +1234,12 @@ class StereoHand3D:
                 # [GESTURE-ANGLE] 업데이트 (detect 실행된 프레임에서만)
                 if self._gesture_enable and do_detect and (self._pair_seq % max(1, self._gesture_every) == 0):
                     cand = self._gesture_from_tri(tri)
+
+                    # [MOTION-GATE] Open_Palm은 정지 상태에서만 누적/전환 허용
+                    if (self._motion_gate_enable and cand is not None and cand.get("name") == "Open_Palm"):
+                        if not bool(getattr(self, "_is_still", True)):
+                            cand = None  # 움직이는 중엔 Open 후보 무시(상태 유지)
+
                     _ = self._update_gesture_hysteresis(cand, pair_ts)
 
                 # [PATCH][FORCE] 다음 루프 강제검출 여부
