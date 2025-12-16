@@ -395,8 +395,8 @@ class StereoHand3D:
         self._open_cnt           = 0
         self._close_cnt          = 0
         # 히스테리시스: 해제(Open)는 보수적으로, 그랩(Closed)은 관대하게
-        self._OPEN_K             = 2      # 연속 N프레임
-        self._OPEN_THRESH        = 0.65   # 해제 임계(각도 기반 score)
+        self._OPEN_K             = 4      # 연속 N프레임
+        self._OPEN_THRESH        = 0.75   # 해제 임계(각도 기반 score)
         self._CLOSE_K            = 1      # 연속 N프레임
         self._CLOSE_THRESH       = 0.60   # 그랩 임계(각도 기반 score)
 
@@ -875,7 +875,7 @@ class StereoHand3D:
         if bent >= 3:
             score = min(0.95, 0.60 + 0.07*(bent-3))
             return {"name":"Closed_Fist", "score":score, "dbg":{"curl":curl, "ratio":ratio}}
-        if straight >= 3 and (ratio is None or ratio >= 1.45):
+        if ratio is not None and straight >= 4 and ratio >= 1.55 and bent <= 1:
             extra = 0.0 if ratio is None else max(0.0, min(0.2, 0.15*(ratio-1.45)/0.10))
             score = min(0.95, 0.62 + 0.06*(straight-3) + extra)
             return {"name":"Open_Palm", "score":score, "dbg":{"curl":curl, "ratio":ratio}}
