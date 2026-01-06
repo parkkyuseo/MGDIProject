@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Windows.Speech;
 
@@ -219,13 +220,15 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private void SetupVoiceCommands()
     {
+        if (keywordRecognizer != null) return;
+
         keywordActions = new Dictionary<string, System.Action>
         {
             { startKeyword.ToLower(), () => StartBlock() },
             { restartKeyword.ToLower(), () => StartBlock() }
         };
 
-        keywordRecognizer = new KeywordRecognizer(keywordActions.Keys);
+        keywordRecognizer = new KeywordRecognizer(keywordActions.Keys.ToArray());
         keywordRecognizer.OnPhraseRecognized += args =>
         {
             string key = args.text.ToLower();
