@@ -391,6 +391,11 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 4625409247517307806, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
   m_PrefabInstance: {fileID: 1880847025}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &168584006 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
+  m_PrefabInstance: {fileID: 1880847025}
+  m_PrefabAsset: {fileID: 0}
 --- !u!54 &168584007
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1775,7 +1780,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1035575650
 Transform:
   m_ObjectHideFlags: 0
@@ -2264,6 +2269,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 672060783}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &1302947703 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
+  m_PrefabInstance: {fileID: 713616375}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1332626598
 GameObject:
   m_ObjectHideFlags: 0
@@ -3301,6 +3311,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1964408500}
+  - component: {fileID: 1964408501}
   m_Layer: 0
   m_Name: LogoPlacementTask
   m_TagString: Untagged
@@ -3323,6 +3334,27 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1551205279}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1964408501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1964408499}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 604e262f4c3e41b4cb21dba4075e5e04, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  blockRoot: {fileID: 168584006}
+  targetSlotRoot: {fileID: 1302947703}
+  trialTimeoutSeconds: 12
+  dwellSeconds: 0.2
+  targetDistMin: 0.35
+  targetDistMax: 0.6
+  minTolMeters: 0.005
+  keepTargetSlotY: 1
+  totalTrials: 20
 --- !u!1 &1992353097
 GameObject:
   m_ObjectHideFlags: 0
@@ -3621,7 +3653,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2051009353
 Transform:
   m_ObjectHideFlags: 0
