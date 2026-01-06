@@ -28,6 +28,9 @@ public class ProxyHandGrabber : MonoBehaviour
     public float heldMaxStepMeters = 0.06f;
     public float heldTauSec = 0.08f;
 
+    [Tooltip("If true, rotation follows grabAnchor (with optional smoothing below). If false, rotation is fixed (kept at grab-start).")]
+    public bool followHeldRotation = true;
+
     public bool filterHeldRotation = false;
     public float heldMaxDegPerSec = 360f;
     public float heldRotTauSec = 0.10f;
@@ -48,6 +51,9 @@ public class ProxyHandGrabber : MonoBehaviour
     // initial offset captured at grab time
     Vector3 _heldLocalPosToAnchor;
     Quaternion _heldLocalRotToAnchor = Quaternion.identity;
+
+    // rotation fixed at grab start (world space)
+    Quaternion _heldRotFixedWorld = Quaternion.identity;
 
     // debounce state
     UdpHandReceiver.GripState _lastGripState = UdpHandReceiver.GripState.Unknown;
@@ -114,12 +120,20 @@ public class ProxyHandGrabber : MonoBehaviour
         if (keepInitialOffset)
         {
             targetPos = grabAnchor.TransformPoint(_heldLocalPosToAnchor);
+
+            // For rotation: compute normally, but may be overridden if followHeldRotation == false
             targetRot = grabAnchor.rotation * _heldLocalRotToAnchor;
         }
         else
         {
             targetPos = grabAnchor.position;
             targetRot = grabAnchor.rotation;
+        }
+
+        // If rotation should not follow (e.g., translation-only task), keep a fixed world rotation.
+        if (!followHeldRotation)
+        {
+            targetRot = _heldRotFixedWorld;
         }
 
         if (!filterHeldObject)
@@ -157,8 +171,14 @@ public class ProxyHandGrabber : MonoBehaviour
             _heldPosSm = Vector3.Lerp(_heldPosSm, targetPos, a);
         }
 
-        // rotation filter: optional
-        if (filterHeldRotation)
+        // rotation filter:
+        // - if followHeldRotation is false, keep fixed rotation (no smoothing needed, but keep _heldRotSm consistent)
+        // - else, behave as before (optional smoothing)
+        if (!followHeldRotation)
+        {
+            _heldRotSm = _heldRotFixedWorld;
+        }
+        else if (filterHeldRotation)
         {
             float dt = Mathf.Max(Time.unscaledDeltaTime, 1f / 120f);
 
@@ -256,6 +276,9 @@ public class ProxyHandGrabber : MonoBehaviour
         _heldLocalPosToAnchor = grabAnchor.InverseTransformPoint(body.transform.position);
         _heldLocalRotToAnchor = Quaternion.Inverse(grabAnchor.rotation) * body.transform.rotation;
 
+        // capture fixed rotation at grab-start (world rotation)
+        _heldRotFixedWorld = body.transform.rotation;
+
         // init filter state from current pose (no jump)
         _heldPosSm = body.transform.position;
         _heldRotSm = body.transform.rotation;
@@ -299,6 +322,25 @@ public class ProxyHandGrabber : MonoBehaviour
 
         _heldFollowInit = false;
         _lastReleaseTime = Time.unscaledTime;
+    }
+
+    // Allows TaskManager or other controllers to force a release at any time.
+    public void ForceRelease()
+    {
+        TryRelease();
+    }
+
+    // Allows TaskManager to toggle rotation-follow at runtime (e.g., translation task vs rotation task).
+    public void SetFollowHeldRotation(bool value)
+    {
+        followHeldRotation = value;
+
+        // If rotation-follow is turned off while holding an object, lock rotation to current pose immediately.
+        if (_heldBody != null && !followHeldRotation)
+        {
+            _heldRotFixedWorld = _heldBody.transform.rotation;
+            _heldRotSm = _heldRotFixedWorld;
+        }
     }
 
     void OnDrawGizmosSelected()

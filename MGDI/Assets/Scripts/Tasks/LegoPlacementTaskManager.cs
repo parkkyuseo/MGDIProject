@@ -13,8 +13,15 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [Tooltip("The target slot root transform (e.g., TargetSlot/LegoBlockRoot).")]
     [SerializeField] private Transform targetSlotRoot;
 
-    [Tooltip("Optional: a component on the grabbed object that supports ForceRelease() (SendMessage).")]
+    [Tooltip("Optional: a component on the grabbed object or grab controller that supports ForceRelease() and SetFollowHeldRotation(bool).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
+
+    [Header("Grab behavior per task")]
+    [Tooltip("If true, lock rotation follow during placement trials (translation-only).")]
+    [SerializeField] private bool lockRotationDuringPlacement = true;
+
+    [Tooltip("If true, restore rotation follow after each trial (useful when later adding rotation tasks).")]
+    [SerializeField] private bool restoreRotationFollowAfterTrial = true;
 
     [Header("Feedback (Audio/UI)")]
     [SerializeField] private AudioSource audioSource;
@@ -49,7 +56,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [SerializeField] private int maxResampleAttempts = 20;
 
     [Header("Snap + Inter-trial timing")]
-    [Tooltip("If true, snap block to target when success. Recommended: true.")]
+    [Tooltip("If true, snap block to target when success.")]
     [SerializeField] private bool snapOnSuccess = true;
 
     [Tooltip("Additional wait after snapping (seconds) before resetting and next trial.")]
@@ -150,8 +157,13 @@ public class LegoPlacementTaskManager : MonoBehaviour
             return;
         }
 
+        // Placement trials: lock rotation-follow so incidental hand/camera rotation doesn't rotate the object.
+        if (lockRotationDuringPlacement)
+        {
+            SetGrabberFollowRotation(false);
+        }
+
         // Record current block position as the startPos for THIS trial.
-        // (You said current placement is fine for now; later you can set a canonical start pose.)
         startPos = blockRoot.position;
 
         // Sample target offset (axis ranges + min planar distance)
@@ -178,7 +190,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private IEnumerator EndTrialRoutine(bool success, bool timedOut)
     {
-        if (inTransition) yield break; // prevent double-ending
+        if (inTransition) yield break;
         inTransition = true;
         trialRunning = false;
 
@@ -190,7 +202,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
         if (success)
         {
-            // Force release first so the grab script does not fight the snap/reset.
+            // Release first so grabber does not fight the snap/reset.
             ForceReleaseIfPossible();
 
             if (snapOnSuccess)
@@ -212,16 +224,22 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
         HideFeedbackUI();
 
+        // Restore rotation-follow (optional; useful if later tasks require rotation)
+        if (restoreRotationFollowAfterTrial)
+        {
+            // Safe to call even if not grabbed
+            SetGrabberFollowRotation(true);
+        }
+
         // Reset block position back to startPos (per your request)
         if (resetBlockToStartAfterTrial)
         {
-            ForceReleaseIfPossible(); // safe to call again
+            ForceReleaseIfPossible(); // extra safety
             ResetBlockToStart();
         }
 
         trialIndex++;
 
-        // Start next trial
         BeginNextTrial();
     }
 
@@ -229,7 +247,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
     {
         // Translation task: snap position only. Keep current rotation/scale.
         Vector3 p = targetSlotRoot.position;
-        blockRoot.position = new Vector3(p.x, blockRoot.position.y, p.z); // keep block y as-is for now
+        blockRoot.position = new Vector3(p.x, blockRoot.position.y, p.z);
     }
 
     private void ResetBlockToStart()
@@ -260,11 +278,18 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private void ForceReleaseIfPossible()
     {
-        // This calls grabReleaseComponent.ForceRelease() if it exists.
-        // No compile-time dependency on your grab script.
         if (grabReleaseComponent != null)
         {
             grabReleaseComponent.SendMessage("ForceRelease", SendMessageOptions.DontRequireReceiver);
+        }
+    }
+
+    private void SetGrabberFollowRotation(bool follow)
+    {
+        if (grabReleaseComponent != null)
+        {
+            // ProxyHandGrabber has: public void SetFollowHeldRotation(bool value)
+            grabReleaseComponent.SendMessage("SetFollowHeldRotation", follow, SendMessageOptions.DontRequireReceiver);
         }
     }
 
