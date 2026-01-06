@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Windows.Speech;
 
 public class LegoPlacementTaskManager : MonoBehaviour
 {
@@ -13,18 +15,37 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [SerializeField] private float trialTimeoutSeconds = 12f;
     [SerializeField] private float dwellSeconds = 0.20f;
 
-    [Tooltip("Target translation distance range (meters). Sampled on XZ plane.")]
-    [SerializeField] private float targetDistMin = 0.20f;
-    [SerializeField] private float targetDistMax = 0.40f;
-
     [Tooltip("Tolerance = max(0.05 * targetDistance, minTolMeters).")]
     [SerializeField] private float minTolMeters = 0.005f;
 
-    [Tooltip("If true, keep targetSlot Y equal to its current Y (ignore block Y).")]
+    [Tooltip("If true, keep targetSlot Y equal to its current Y (ignore sampled Y offset).")]
     [SerializeField] private bool keepTargetSlotY = true;
+
+    [Header("Target Offset Range (meters) - sampled per axis")]
+    [Tooltip("Offset added to startPos.x")]
+    [SerializeField] private Vector2 offsetXRange = new Vector2(-0.35f, 0.35f);
+
+    [Tooltip("Offset added to startPos.y (used only when keepTargetSlotY is false)")]
+    [SerializeField] private Vector2 offsetYRange = new Vector2(0.00f, 0.00f);
+
+    [Tooltip("Offset added to startPos.z")]
+    [SerializeField] private Vector2 offsetZRange = new Vector2(0.30f, 0.60f);
+
+    [Header("Min distance constraint (prevents too-close targets)")]
+    [Tooltip("Minimum planar (XZ) offset magnitude in meters.")]
+    [SerializeField] private float minPlanarOffsetMeters = 0.30f;
+
+    [Tooltip("Max resampling attempts to satisfy minPlanarOffsetMeters.")]
+    [SerializeField] private int maxResampleAttempts = 20;
 
     [Header("Optional: Trial Count")]
     [SerializeField] private int totalTrials = 20;
+
+    [Header("Voice Start (HoloLens)")]
+    [SerializeField] private bool enableVoiceStart = true;
+    [SerializeField] private string startKeyword = "start";
+    [SerializeField] private string restartKeyword = "restart";
+    [SerializeField] private bool autoStartInEditor = false;
 
     // Runtime state
     private int trialIndex = 0;
@@ -38,8 +59,11 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private bool trialRunning = false;
 
-    // --- Public controls (can be wired to UI/voice later) ---
-    [ContextMenu("Start / Restart Block")]
+    // Voice
+    private KeywordRecognizer keywordRecognizer;
+    private Dictionary<string, System.Action> keywordActions;
+
+    // --- Public controls (can be wired to UI later) ---
     public void StartBlock()
     {
         trialIndex = 0;
@@ -48,8 +72,11 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private void Start()
     {
-        // Optional auto-start:
-        // BeginNextTrial();
+        if (enableVoiceStart)
+            SetupVoiceCommands();
+
+        if (autoStartInEditor && Application.isEditor)
+            StartBlock();
     }
 
     private void Update()
@@ -101,20 +128,16 @@ public class LegoPlacementTaskManager : MonoBehaviour
         // Record start pose (keep as-is; do not force y right now)
         startPos = blockRoot.position;
 
-        // Sample target pose on XZ plane around start
-        Vector2 dir2 = Random.insideUnitCircle.normalized;
-        if (dir2.sqrMagnitude < 1e-6f) dir2 = Vector2.right;
+        // Sample offset per axis with min-planar-distance constraint
+        Vector3 offset = SampleOffsetWithMinPlanarDistance();
 
-        float dist = Random.Range(targetDistMin, targetDistMax);
-        Vector3 offset = new Vector3(dir2.x, 0f, dir2.y) * dist;
-
-        float y = keepTargetSlotY ? targetSlotRoot.position.y : startPos.y;
+        float y = keepTargetSlotY ? targetSlotRoot.position.y : (startPos.y + offset.y);
         targetPos = new Vector3(startPos.x + offset.x, y, startPos.z + offset.z);
 
         // Apply target to slot (slot is the visual guide)
         targetSlotRoot.position = targetPos;
 
-        // Compute tolerance
+        // Compute tolerance (based on target distance)
         targetDistance = Vector3.Distance(startPos, targetPos);
         tolerance = Mathf.Max(0.05f * targetDistance, minTolMeters);
 
@@ -125,14 +148,37 @@ public class LegoPlacementTaskManager : MonoBehaviour
         trialRunning = true;
 
         Debug.Log($"[LegoPlacementTaskManager] Trial {trialIndex + 1}/{totalTrials} " +
-                  $"targetDist={targetDistance:F3}m tol={tolerance:F3}m");
+                  $"targetDist={targetDistance:F3}m tol={tolerance:F3}m " +
+                  $"offset=({offset.x:F3},{offset.y:F3},{offset.z:F3})");
+    }
+
+    private Vector3 SampleOffsetWithMinPlanarDistance()
+    {
+        Vector3 offset = Vector3.zero;
+
+        for (int attempt = 0; attempt < maxResampleAttempts; attempt++)
+        {
+            float ox = Random.Range(offsetXRange.x, offsetXRange.y);
+            float oy = Random.Range(offsetYRange.x, offsetYRange.y);
+            float oz = Random.Range(offsetZRange.x, offsetZRange.y);
+
+            offset = new Vector3(ox, oy, oz);
+
+            // Only constrain planar distance in XZ (Placement task)
+            Vector2 planar = new Vector2(offset.x, offset.z);
+            if (planar.magnitude >= minPlanarOffsetMeters)
+                return offset;
+        }
+
+        // If resampling fails, return the last sample but warn
+        Debug.LogWarning("[LegoPlacementTaskManager] Could not satisfy minPlanarOffsetMeters after resampling. Using last sample.");
+        return offset;
     }
 
     private void EndTrial(bool success, bool timedOut)
     {
         trialRunning = false;
 
-        // --- Log (placeholder) ---
         float finalErr = Vector3.Distance(blockRoot.position, targetSlotRoot.position);
         Debug.Log($"[LegoPlacementTaskManager] Trial {trialIndex + 1} End. " +
                   $"success={success} timedOut={timedOut} time={trialTimer:F2}s finalErr={finalErr:F3}m");
@@ -149,7 +195,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
         trialIndex++;
 
-        // Small delay could be added later; for now, start immediately
+        // For now, start next trial immediately
         BeginNextTrial();
     }
 
@@ -169,5 +215,35 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private void OnTrialFail(bool timedOut)
     {
         // TODO: show X, write to CSV
+    }
+
+    private void SetupVoiceCommands()
+    {
+        keywordActions = new Dictionary<string, System.Action>
+        {
+            { startKeyword.ToLower(), () => StartBlock() },
+            { restartKeyword.ToLower(), () => StartBlock() }
+        };
+
+        keywordRecognizer = new KeywordRecognizer(keywordActions.Keys);
+        keywordRecognizer.OnPhraseRecognized += args =>
+        {
+            string key = args.text.ToLower();
+            if (keywordActions.TryGetValue(key, out var action))
+                action.Invoke();
+        };
+        keywordRecognizer.Start();
+
+        Debug.Log($"[LegoPlacementTaskManager] Voice commands enabled: '{startKeyword}', '{restartKeyword}'");
+    }
+
+    private void OnDisable()
+    {
+        if (keywordRecognizer != null)
+        {
+            keywordRecognizer.Stop();
+            keywordRecognizer.Dispose();
+            keywordRecognizer = null;
+        }
     }
 }
