@@ -197,6 +197,8 @@ public class LegoPlacementTaskManager : MonoBehaviour
             if (planar < minPlanarOffsetMeters)
                 continue;
 
+            Debug.Log($"[TargetSample] lx={lx:F3}, ly={ly:F3}, lz={lz:F3}");
+
             return new Vector3(lx, ly, lz);
         }
 
