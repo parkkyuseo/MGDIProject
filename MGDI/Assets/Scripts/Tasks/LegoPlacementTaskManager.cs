@@ -171,6 +171,11 @@ public class LegoPlacementTaskManager : MonoBehaviour
         trialRunning = true;
         inTransition = false;
 
+        if (matchTargetVisualRotationToBlock && targetSlotVisual != null && blockRoot != null)
+        {
+            targetSlotVisual.rotation = blockRoot.rotation;
+        }
+
         Debug.Log($"[LegoPlacementTaskManager] Trial {trialIndex + 1}/{totalTrials} " +
                   $"localOffset=({localOffset.x:F2},{localOffset.y:F2},{localOffset.z:F2})");
     }
