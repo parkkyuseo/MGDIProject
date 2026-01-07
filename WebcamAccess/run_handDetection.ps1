@@ -1,5 +1,5 @@
 python demo_min3d_dyn.py `
-  --left-id 0 --right-id 2 `
+  --left-id 0 --right-id 1 `
   --width 1280 --height 720 --fps 30 --max-pair-dt-ms 30 `
   --calib "stereo_pairs\calib_charuco_stereo.npz" `
   --alpha 0.3 --min-conf 0.35 `
