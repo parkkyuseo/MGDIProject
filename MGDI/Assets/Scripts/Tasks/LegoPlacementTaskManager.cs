@@ -7,48 +7,39 @@ using UnityEngine.Windows.Speech;
 public class LegoPlacementTaskManager : MonoBehaviour
 {
     [Header("References")]
-    [Tooltip("The transform that moves (use LegoBlockRoot).")]
     [SerializeField] private Transform blockRoot;
-
-    [Tooltip("The target slot root transform (e.g., TargetSlot/LegoBlockRoot).")]
     [SerializeField] private Transform targetSlotRoot;
 
-    [Tooltip("Optional: a component that supports ForceRelease() and SetFollowHeldRotation(bool). (e.g., ProxyHandGrabber)")]
+    [Tooltip("Grab controller (e.g., ProxyHandGrabber) supporting ForceRelease() and SetFollowHeldRotation(bool).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
 
-    [Tooltip("Reference frame for target sampling (e.g., an empty object at table center). If null, uses world axes.")]
+    [Tooltip("Reference frame for target sampling (e.g., empty object at table center).")]
     [SerializeField] private Transform referenceFrame;
 
     [Header("Grab behavior per task")]
-    [Tooltip("If true, lock rotation follow during placement trials (translation-only).")]
     [SerializeField] private bool lockRotationDuringPlacement = true;
-
-    [Tooltip("If true, restore rotation follow after each trial (useful when later adding rotation tasks).")]
     [SerializeField] private bool restoreRotationFollowAfterTrial = true;
 
-    [Header("Feedback (Audio/UI)")]
+    [Header("Feedback (Audio / UI)")]
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private AudioClip snapClip;
     [SerializeField] private GameObject starUI;
     [SerializeField] private GameObject xUI;
     [SerializeField] private float feedbackShowSeconds = 0.50f;
 
-    [Header("Trial Parameters")]
+    [Header("Trial Timing")]
     [SerializeField] private float trialTimeoutSeconds = 12f;
     [SerializeField] private float dwellSeconds = 0.20f;
 
     [Tooltip("Tolerance = max(0.05 * targetDistance, minTolMeters).")]
     [SerializeField] private float minTolMeters = 0.005f;
 
-    [Tooltip("If true, keep targetSlot Y equal to its current Y.")]
-    [SerializeField] private bool keepTargetSlotY = true;
-
-    [Header("Snap + Inter-trial timing")]
+    [Header("Snap / Reset")]
     [SerializeField] private bool snapOnSuccess = true;
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
     [SerializeField] private bool resetBlockToStartAfterTrial = true;
 
-    [Header("Optional: Trial Count")]
+    [Header("Trial Count")]
     [SerializeField] private int totalTrials = 20;
 
     [Header("Voice Start (HoloLens)")]
@@ -57,36 +48,34 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [SerializeField] private string restartKeyword = "restart";
     [SerializeField] private bool autoStartInEditor = false;
 
-    [Header("Target Sampling: Safe Wedge (referenceFrame 기준)")]
-    [Tooltip("Target distance range in meters (in XZ plane from startPos).")]
-    [SerializeField] private Vector2 targetDistanceRange = new Vector2(0.35f, 0.60f);
+    [Header("Target Sampling (referenceFrame local space)")]
+    [Tooltip("Local X range (meters).")]
+    [SerializeField] private Vector2 localXRange = new Vector2(-0.35f, 0.35f);
 
-    [Tooltip("Avoid the fragile 'straight ahead' zone by excluding |angle| < excludeCenterDeg. (deg)")]
-    [SerializeField] private float excludeCenterDeg = 20f;
+    [Tooltip("Local Y range (meters). Can be non-zero if table is disabled.")]
+    [SerializeField] private Vector2 localYRange = new Vector2(0.00f, 0.15f);
 
-    [Tooltip("Maximum side angle allowed from forward direction. (deg)")]
-    [SerializeField] private float maxSideDeg = 70f;
+    [Tooltip("Local Z range (meters). Strongly constrains reachability.")]
+    [SerializeField] private Vector2 localZRange = new Vector2(0.25f, 0.55f);
 
-    [Tooltip("If true, sample both left and right wedges. If false, use one side only (fixed by useRightSideOnly).")]
-    [SerializeField] private bool allowBothSides = true;
+    [Header("Forbidden Center Region")]
+    [Tooltip("Half-width of forbidden center strip on X (meters). abs(x) < value is rejected.")]
+    [SerializeField] private float centerNoGoHalfWidthX = 0.12f;
 
-    [Tooltip("When allowBothSides is false, choose right wedge if true, else left wedge.")]
-    [SerializeField] private bool useRightSideOnly = true;
-
-    [Tooltip("Extra constraint: minimum planar offset magnitude. (meters)")]
+    [Header("Distance Constraints")]
+    [Tooltip("Minimum planar (XZ) distance from start (meters).")]
     [SerializeField] private float minPlanarOffsetMeters = 0.30f;
 
-    [Tooltip("Resample attempts for wedge sampling.")]
-    [SerializeField] private int maxResampleAttempts = 30;
+    [Tooltip("Max resampling attempts.")]
+    [SerializeField] private int maxResampleAttempts = 40;
 
-    // Runtime state
+    // Runtime
     private int trialIndex = 0;
     private float trialTimer = 0f;
     private float dwellTimer = 0f;
 
-    private Vector3 startPos;     // start position for CURRENT trial
+    private Vector3 startPos;
     private Vector3 targetPos;
-    private float targetDistance;
     private float tolerance;
 
     private bool trialRunning = false;
@@ -96,18 +85,17 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private KeywordRecognizer keywordRecognizer;
     private Dictionary<string, System.Action> keywordActions;
 
-    // --- Public controls ---
+    // ---------------- Public ----------------
     public void StartBlock()
     {
         StopAllCoroutines();
         inTransition = false;
         trialRunning = false;
-
         trialIndex = 0;
         BeginNextTrial();
     }
 
-    private void Start()
+    void Start()
     {
         if (enableVoiceStart)
             SetupVoiceCommands();
@@ -118,7 +106,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
             StartBlock();
     }
 
-    private void Update()
+    void Update()
     {
         if (!trialRunning || inTransition) return;
 
@@ -126,7 +114,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
         if (trialTimer >= trialTimeoutSeconds)
         {
-            StartCoroutine(EndTrialRoutine(success: false, timedOut: true));
+            StartCoroutine(EndTrialRoutine(false, true));
             return;
         }
 
@@ -136,9 +124,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
         {
             dwellTimer += Time.deltaTime;
             if (dwellTimer >= dwellSeconds)
-            {
-                StartCoroutine(EndTrialRoutine(success: true, timedOut: false));
-            }
+                StartCoroutine(EndTrialRoutine(true, false));
         }
         else
         {
@@ -146,37 +132,34 @@ public class LegoPlacementTaskManager : MonoBehaviour
         }
     }
 
+    // ---------------- Trial Flow ----------------
     private void BeginNextTrial()
     {
-        if (blockRoot == null || targetSlotRoot == null)
+        if (blockRoot == null || targetSlotRoot == null || referenceFrame == null)
         {
-            Debug.LogError("[LegoPlacementTaskManager] Missing references: blockRoot or targetSlotRoot.");
-            trialRunning = false;
+            Debug.LogError("[LegoPlacementTaskManager] Missing references.");
             return;
         }
 
         if (totalTrials > 0 && trialIndex >= totalTrials)
         {
-            trialRunning = false;
             Debug.Log("[LegoPlacementTaskManager] Block finished.");
+            trialRunning = false;
             return;
         }
 
         if (lockRotationDuringPlacement)
             SetGrabberFollowRotation(false);
 
-        // Record current block position as the startPos for THIS trial.
         startPos = blockRoot.position;
 
-        // Sample target offset in a safe wedge relative to referenceFrame forward/right (XZ plane).
-        Vector3 offset = SampleOffsetInSafeWedge_ReferenceFrame();
+        Vector3 localOffset = SampleLocalOffset();
+        Vector3 worldTarget = referenceFrame.TransformPoint(localOffset);
 
-        float y = keepTargetSlotY ? targetSlotRoot.position.y : startPos.y;
-        targetPos = new Vector3(startPos.x + offset.x, y, startPos.z + offset.z);
-
+        targetPos = worldTarget;
         targetSlotRoot.position = targetPos;
 
-        targetDistance = Vector3.Distance(startPos, targetPos);
+        float targetDistance = Vector3.Distance(startPos, targetPos);
         tolerance = Mathf.Max(0.05f * targetDistance, minTolMeters);
 
         trialTimer = 0f;
@@ -185,64 +168,35 @@ public class LegoPlacementTaskManager : MonoBehaviour
         inTransition = false;
 
         Debug.Log($"[LegoPlacementTaskManager] Trial {trialIndex + 1}/{totalTrials} " +
-                  $"targetDist={targetDistance:F3}m tol={tolerance:F3}m " +
-                  $"start=({startPos.x:F3},{startPos.y:F3},{startPos.z:F3}) " +
-                  $"target=({targetPos.x:F3},{targetPos.y:F3},{targetPos.z:F3})");
+                  $"localOffset=({localOffset.x:F2},{localOffset.y:F2},{localOffset.z:F2})");
     }
 
-    private Vector3 SampleOffsetInSafeWedge_ReferenceFrame()
+    private Vector3 SampleLocalOffset()
     {
-        // Use referenceFrame forward/right projected to XZ; fallback to world axes.
-        Vector3 fwd = Vector3.forward;
-        Vector3 right = Vector3.right;
-
-        if (referenceFrame != null)
+        for (int i = 0; i < maxResampleAttempts; i++)
         {
-            fwd = referenceFrame.forward;
-            right = referenceFrame.right;
+            float lx = Random.Range(localXRange.x, localXRange.y);
+            float ly = Random.Range(localYRange.x, localYRange.y);
+            float lz = Random.Range(localZRange.x, localZRange.y);
+
+            // 중앙 금지 스트립 (X만)
+            if (Mathf.Abs(lx) < centerNoGoHalfWidthX)
+                continue;
+
+            // 최소 평면 거리 (XZ)
+            float planar = Mathf.Sqrt(lx * lx + lz * lz);
+            if (planar < minPlanarOffsetMeters)
+                continue;
+
+            return new Vector3(lx, ly, lz);
         }
 
-        fwd.y = 0f;
-        right.y = 0f;
-
-        if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
-        if (right.sqrMagnitude < 1e-6f) right = Vector3.right;
-
-        fwd.Normalize();
-        right.Normalize();
-
-        float exclude = Mathf.Clamp(excludeCenterDeg, 0f, 89f);
-        float maxSide = Mathf.Clamp(maxSideDeg, exclude + 1f, 89f);
-
-        Vector3 offset = Vector3.zero;
-
-        for (int attempt = 0; attempt < maxResampleAttempts; attempt++)
-        {
-            // choose left/right side
-            int sideSign;
-            if (allowBothSides)
-                sideSign = (Random.value < 0.5f) ? -1 : 1; // -1 left, +1 right
-            else
-                sideSign = useRightSideOnly ? 1 : -1;
-
-            // angle away from center to avoid fragile zone
-            float angDeg = Random.Range(exclude, maxSide);
-            float angRad = angDeg * Mathf.Deg2Rad;
-
-            float dist = Random.Range(targetDistanceRange.x, targetDistanceRange.y);
-
-            // direction on XZ plane: rotate forward toward left/right by angDeg
-            Vector3 dir = (fwd * Mathf.Cos(angRad)) + (right * (sideSign * Mathf.Sin(angRad)));
-            offset = dir * dist;
-
-            // enforce minimum planar offset
-            Vector2 planar = new Vector2(offset.x, offset.z);
-            if (planar.magnitude >= minPlanarOffsetMeters)
-                return offset;
-        }
-
-        Debug.LogWarning("[LegoPlacementTaskManager] Safe wedge sampling failed; using fallback forward offset.");
-        return fwd * Mathf.Max(minPlanarOffsetMeters, targetDistanceRange.x);
+        Debug.LogWarning("[LegoPlacementTaskManager] Sampling failed; using fallback.");
+        return new Vector3(
+            Mathf.Sign(localXRange.y) * centerNoGoHalfWidthX,
+            localYRange.x,
+            localZRange.x
+        );
     }
 
     private IEnumerator EndTrialRoutine(bool success, bool timedOut)
@@ -251,15 +205,10 @@ public class LegoPlacementTaskManager : MonoBehaviour
         inTransition = true;
         trialRunning = false;
 
-        float finalErr = Vector3.Distance(blockRoot.position, targetSlotRoot.position);
-        Debug.Log($"[LegoPlacementTaskManager] Trial {trialIndex + 1} End. " +
-                  $"success={success} timedOut={timedOut} time={trialTimer:F2}s finalErr={finalErr:F3}m");
-
         HideFeedbackUI();
 
         if (success)
         {
-            // Release first so grabber does not fight the snap/reset.
             ForceReleaseIfPossible();
 
             if (snapOnSuccess)
@@ -273,7 +222,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
         else
         {
             ShowX();
-            yield return new WaitForSeconds(feedbackShowSeconds));
+            yield return new WaitForSeconds(feedbackShowSeconds);
         }
 
         HideFeedbackUI();
@@ -284,23 +233,17 @@ public class LegoPlacementTaskManager : MonoBehaviour
         if (resetBlockToStartAfterTrial)
         {
             ForceReleaseIfPossible();
-            ResetBlockToStart();
+            blockRoot.position = startPos;
         }
 
         trialIndex++;
-
         BeginNextTrial();
     }
 
+    // ---------------- Helpers ----------------
     private void SnapBlockToTarget()
     {
-        Vector3 p = targetSlotRoot.position;
-        blockRoot.position = new Vector3(p.x, blockRoot.position.y, p.z);
-    }
-
-    private void ResetBlockToStart()
-    {
-        blockRoot.position = startPos;
+        blockRoot.position = targetSlotRoot.position;
     }
 
     private void ForceReleaseIfPossible()
@@ -317,8 +260,8 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private void PlaySnapSound()
     {
-        if (audioSource == null || snapClip == null) return;
-        audioSource.PlayOneShot(snapClip);
+        if (audioSource != null && snapClip != null)
+            audioSource.PlayOneShot(snapClip);
     }
 
     private void ShowStar()
@@ -339,26 +282,24 @@ public class LegoPlacementTaskManager : MonoBehaviour
         if (xUI != null) xUI.SetActive(false);
     }
 
+    // ---------------- Voice ----------------
     private void SetupVoiceCommands()
     {
         if (keywordRecognizer != null) return;
 
         keywordActions = new Dictionary<string, System.Action>
         {
-            { startKeyword.ToLower(), () => StartBlock() },
-            { restartKeyword.ToLower(), () => StartBlock() }
+            { startKeyword.ToLower(), StartBlock },
+            { restartKeyword.ToLower(), StartBlock }
         };
 
         keywordRecognizer = new KeywordRecognizer(keywordActions.Keys.ToArray());
         keywordRecognizer.OnPhraseRecognized += args =>
         {
-            string key = args.text.ToLower();
-            if (keywordActions.TryGetValue(key, out var action))
+            if (keywordActions.TryGetValue(args.text.ToLower(), out var action))
                 action.Invoke();
         };
         keywordRecognizer.Start();
-
-        Debug.Log($"[LegoPlacementTaskManager] Voice commands enabled: '{startKeyword}', '{restartKeyword}'");
     }
 
     private void OnDisable()
