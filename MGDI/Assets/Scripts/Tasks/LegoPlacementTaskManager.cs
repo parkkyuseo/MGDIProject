@@ -7,18 +7,38 @@ using UnityEngine.Windows.Speech;
 public class LegoPlacementTaskManager : MonoBehaviour
 {
     [Header("References")]
+    [Tooltip("The transform that moves (use LegoBlockRoot).")]
     [SerializeField] private Transform blockRoot;
+
+    [Tooltip("The target slot root transform (use TargetSlotRoot - the EMPTY root).")]
     [SerializeField] private Transform targetSlotRoot;
+
+    [Tooltip("Target visual transform (use TargetSlotVisual - the EMPTY visual parent).")]
+    [SerializeField] private Transform targetSlotVisual;
 
     [Tooltip("Grab controller (e.g., ProxyHandGrabber) supporting ForceRelease() and SetFollowHeldRotation(bool).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
 
-    [Tooltip("Reference frame for target sampling (e.g., empty object at table center).")]
+    [Tooltip("Reference frame for target sampling (an empty object). This will be re-positioned each trial if anchoring is enabled.")]
     [SerializeField] private Transform referenceFrame;
 
+    [Header("Reference Frame Anchoring")]
+    [Tooltip("If true, referenceFrame.position is set each trial to blockRoot.position + referenceFrameOffsetLocal (in referenceFrame local axes).")]
+    [SerializeField] private bool anchorReferenceFrameToBlock = true;
+
+    [Tooltip("Local offset applied when anchoring referenceFrame to blockRoot (meters).")]
+    [SerializeField] private Vector3 referenceFrameOffsetLocal = new Vector3(0f, 0.05f, 0f);
+
     [Header("Grab behavior per task")]
+    [Tooltip("If true, lock rotation follow during placement trials (translation-only).")]
     [SerializeField] private bool lockRotationDuringPlacement = true;
+
+    [Tooltip("If true, restore rotation follow after each trial (useful when later adding rotation tasks).")]
     [SerializeField] private bool restoreRotationFollowAfterTrial = true;
+
+    [Header("Target Visual Rotation")]
+    [Tooltip("If true, copy blockRoot.rotation into targetSlotVisual.rotation each trial so the target looks aligned.")]
+    [SerializeField] private bool matchTargetVisualRotationToBlock = true;
 
     [Header("Feedback (Audio / UI)")]
     [SerializeField] private AudioSource audioSource;
@@ -26,10 +46,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [SerializeField] private GameObject starUI;
     [SerializeField] private GameObject xUI;
     [SerializeField] private float feedbackShowSeconds = 0.50f;
-
-    [Header("Target Visual")]
-    [SerializeField] private Transform targetSlotVisual;
-    [SerializeField] private bool matchTargetVisualRotationToBlock = true;
 
     [Header("Trial Timing")]
     [SerializeField] private float trialTimeoutSeconds = 12f;
@@ -56,10 +72,10 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [Tooltip("Local X range (meters).")]
     [SerializeField] private Vector2 localXRange = new Vector2(-0.35f, 0.35f);
 
-    [Tooltip("Local Y range (meters). Can be non-zero if table is disabled.")]
+    [Tooltip("Local Y range (meters).")]
     [SerializeField] private Vector2 localYRange = new Vector2(0.00f, 0.15f);
 
-    [Tooltip("Local Z range (meters). Strongly constrains reachability.")]
+    [Tooltip("Local Z range (meters).")]
     [SerializeField] private Vector2 localZRange = new Vector2(0.25f, 0.55f);
 
     [Header("Forbidden Center Region")]
@@ -67,7 +83,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [SerializeField] private float centerNoGoHalfWidthX = 0.12f;
 
     [Header("Distance Constraints")]
-    [Tooltip("Minimum planar (XZ) distance from start (meters).")]
+    [Tooltip("Minimum planar (XZ) distance from the anchored reference origin (meters).")]
     [SerializeField] private float minPlanarOffsetMeters = 0.30f;
 
     [Tooltip("Max resampling attempts.")]
@@ -79,7 +95,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private float dwellTimer = 0f;
 
     private Vector3 startPos;
-    private Vector3 targetPos;
     private float tolerance;
 
     private bool trialRunning = false;
@@ -141,7 +156,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
     {
         if (blockRoot == null || targetSlotRoot == null || referenceFrame == null)
         {
-            Debug.LogError("[LegoPlacementTaskManager] Missing references.");
+            Debug.LogError("[LegoPlacementTaskManager] Missing references (blockRoot/targetSlotRoot/referenceFrame).");
             return;
         }
 
@@ -155,29 +170,42 @@ public class LegoPlacementTaskManager : MonoBehaviour
         if (lockRotationDuringPlacement)
             SetGrabberFollowRotation(false);
 
+        // Record current block position as startPos for THIS trial
         startPos = blockRoot.position;
 
+        // Anchor referenceFrame position to the block start position each trial (POSITION ONLY).
+        if (anchorReferenceFrameToBlock)
+        {
+            // Keep referenceFrame rotation as-is; only move position.
+            referenceFrame.position = blockRoot.position + referenceFrame.TransformVector(referenceFrameOffsetLocal);
+        }
+
+        // Sample local offset and convert to world target
         Vector3 localOffset = SampleLocalOffset();
         Vector3 worldTarget = referenceFrame.TransformPoint(localOffset);
 
-        targetPos = worldTarget;
-        targetSlotRoot.position = targetPos;
+        // Move only the ROOT position (visual follows as child)
+        targetSlotRoot.position = worldTarget;
 
-        float targetDistance = Vector3.Distance(startPos, targetPos);
+        // Make the visual look aligned with the block (rotation only on visual parent)
+        if (matchTargetVisualRotationToBlock && targetSlotVisual != null)
+        {
+            targetSlotVisual.rotation = blockRoot.rotation;
+        }
+
+        // Compute tolerance
+        float targetDistance = Vector3.Distance(startPos, targetSlotRoot.position);
         tolerance = Mathf.Max(0.05f * targetDistance, minTolMeters);
 
+        // Reset timers
         trialTimer = 0f;
         dwellTimer = 0f;
         trialRunning = true;
         inTransition = false;
 
-        if (matchTargetVisualRotationToBlock && targetSlotVisual != null && blockRoot != null)
-        {
-            targetSlotVisual.rotation = blockRoot.rotation;
-        }
-
         Debug.Log($"[LegoPlacementTaskManager] Trial {trialIndex + 1}/{totalTrials} " +
-                  $"localOffset=({localOffset.x:F2},{localOffset.y:F2},{localOffset.z:F2})");
+                  $"localOffset=({localOffset.x:F2},{localOffset.y:F2},{localOffset.z:F2}) " +
+                  $"targetDist={targetDistance:F2} tol={tolerance:F3}");
     }
 
     private Vector3 SampleLocalOffset()
@@ -188,26 +216,24 @@ public class LegoPlacementTaskManager : MonoBehaviour
             float ly = Random.Range(localYRange.x, localYRange.y);
             float lz = Random.Range(localZRange.x, localZRange.y);
 
-            // 중앙 금지 스트립 (X만)
+            // Forbidden center strip: X only
             if (Mathf.Abs(lx) < centerNoGoHalfWidthX)
                 continue;
 
-            // 최소 평면 거리 (XZ)
+            // Minimum planar distance on XZ
             float planar = Mathf.Sqrt(lx * lx + lz * lz);
             if (planar < minPlanarOffsetMeters)
                 continue;
-
-            Debug.Log($"[TargetSample] lx={lx:F3}, ly={ly:F3}, lz={lz:F3}");
 
             return new Vector3(lx, ly, lz);
         }
 
         Debug.LogWarning("[LegoPlacementTaskManager] Sampling failed; using fallback.");
-        return new Vector3(
-            Mathf.Sign(localXRange.y) * centerNoGoHalfWidthX,
-            localYRange.x,
-            localZRange.x
-        );
+        float fallbackX = (Random.value < 0.5f ? -1f : 1f) * Mathf.Max(centerNoGoHalfWidthX, 0.01f);
+        float fallbackY = Mathf.Clamp(localYRange.x, Mathf.Min(localYRange.x, localYRange.y), Mathf.Max(localYRange.x, localYRange.y));
+        float fallbackZ = Mathf.Max(localZRange.x, minPlanarOffsetMeters);
+
+        return new Vector3(fallbackX, fallbackY, fallbackZ);
     }
 
     private IEnumerator EndTrialRoutine(bool success, bool timedOut)
@@ -254,6 +280,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
     // ---------------- Helpers ----------------
     private void SnapBlockToTarget()
     {
+        // Placement: snap position only (rotation already locked during grab)
         blockRoot.position = targetSlotRoot.position;
     }
 
@@ -311,6 +338,8 @@ public class LegoPlacementTaskManager : MonoBehaviour
                 action.Invoke();
         };
         keywordRecognizer.Start();
+
+        Debug.Log($"[LegoPlacementTaskManager] Voice commands enabled: '{startKeyword}', '{restartKeyword}'");
     }
 
     private void OnDisable()
