@@ -1331,6 +1331,7 @@ Transform:
   - {fileID: 2039947070}
   - {fileID: 2014816070}
   - {fileID: 1904262955}
+  - {fileID: 838731307}
   - {fileID: 1551205279}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1364,6 +1365,37 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 672060783}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &838731306
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 838731307}
+  m_Layer: 0
+  m_Name: TargetReferenceFrame
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &838731307
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 838731306}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.50432146, z: 2.7237985}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 770468291}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &845328064 stripped
 Transform:
@@ -3970,6 +4002,7 @@ MonoBehaviour:
   blockRoot: {fileID: 168584006}
   targetSlotRoot: {fileID: 1302947703}
   grabReleaseComponent: {fileID: 4217352218302390358}
+  referenceFrame: {fileID: 838731307}
   lockRotationDuringPlacement: 1
   restoreRotationFollowAfterTrial: 1
   audioSource: {fileID: 1481024369}
@@ -3981,11 +4014,6 @@ MonoBehaviour:
   dwellSeconds: 0.2
   minTolMeters: 0.005
   keepTargetSlotY: 0
-  offsetXRange: {x: -0.35, y: 0.35}
-  offsetYRange: {x: -0.2, y: 0.2}
-  offsetZRange: {x: -0.1, y: 0.1}
-  minPlanarOffsetMeters: 0.3
-  maxResampleAttempts: 20
   snapOnSuccess: 1
   postSnapHoldSeconds: 0.35
   resetBlockToStartAfterTrial: 1
@@ -3994,6 +4022,13 @@ MonoBehaviour:
   startKeyword: start
   restartKeyword: restart
   autoStartInEditor: 1
+  targetDistanceRange: {x: 0.35, y: 0.6}
+  excludeCenterDeg: 20
+  maxSideDeg: 70
+  allowBothSides: 1
+  useRightSideOnly: 1
+  minPlanarOffsetMeters: 0.3
+  maxResampleAttempts: 20
 --- !u!1 &1992353097
 GameObject:
   m_ObjectHideFlags: 0
