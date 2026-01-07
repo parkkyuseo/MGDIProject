@@ -13,8 +13,11 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [Tooltip("The target slot root transform (e.g., TargetSlot/LegoBlockRoot).")]
     [SerializeField] private Transform targetSlotRoot;
 
-    [Tooltip("Optional: a component on the grabbed object or grab controller that supports ForceRelease() and SetFollowHeldRotation(bool).")]
+    [Tooltip("Optional: a component that supports ForceRelease() and SetFollowHeldRotation(bool). (e.g., ProxyHandGrabber)")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
+
+    [Tooltip("Reference frame for target sampling (e.g., an empty object at table center). If null, uses world axes.")]
+    [SerializeField] private Transform referenceFrame;
 
     [Header("Grab behavior per task")]
     [Tooltip("If true, lock rotation follow during placement trials (translation-only).")]
@@ -26,14 +29,8 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [Header("Feedback (Audio/UI)")]
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private AudioClip snapClip;
-
-    [Tooltip("Enable/disable star object for success feedback.")]
     [SerializeField] private GameObject starUI;
-
-    [Tooltip("Enable/disable X object for failure feedback.")]
     [SerializeField] private GameObject xUI;
-
-    [Tooltip("How long to show star or X (seconds).")]
     [SerializeField] private float feedbackShowSeconds = 0.50f;
 
     [Header("Trial Parameters")]
@@ -43,26 +40,12 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [Tooltip("Tolerance = max(0.05 * targetDistance, minTolMeters).")]
     [SerializeField] private float minTolMeters = 0.005f;
 
-    [Tooltip("If true, keep targetSlot Y equal to its current Y (ignore sampled Y offset).")]
+    [Tooltip("If true, keep targetSlot Y equal to its current Y.")]
     [SerializeField] private bool keepTargetSlotY = true;
 
-    [Header("Target Offset Range (meters) - sampled per axis")]
-    [SerializeField] private Vector2 offsetXRange = new Vector2(-0.35f, 0.35f);
-    [SerializeField] private Vector2 offsetYRange = new Vector2(0.00f, 0.00f);
-    [SerializeField] private Vector2 offsetZRange = new Vector2(0.30f, 0.60f);
-
-    [Header("Min distance constraint (prevents too-close targets)")]
-    [SerializeField] private float minPlanarOffsetMeters = 0.30f;
-    [SerializeField] private int maxResampleAttempts = 20;
-
     [Header("Snap + Inter-trial timing")]
-    [Tooltip("If true, snap block to target when success.")]
     [SerializeField] private bool snapOnSuccess = true;
-
-    [Tooltip("Additional wait after snapping (seconds) before resetting and next trial.")]
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
-
-    [Tooltip("If true, block is reset to startPos after success/timeout before next trial.")]
     [SerializeField] private bool resetBlockToStartAfterTrial = true;
 
     [Header("Optional: Trial Count")]
@@ -73,6 +56,28 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [SerializeField] private string startKeyword = "start";
     [SerializeField] private string restartKeyword = "restart";
     [SerializeField] private bool autoStartInEditor = false;
+
+    [Header("Target Sampling: Safe Wedge (referenceFrame 기준)")]
+    [Tooltip("Target distance range in meters (in XZ plane from startPos).")]
+    [SerializeField] private Vector2 targetDistanceRange = new Vector2(0.35f, 0.60f);
+
+    [Tooltip("Avoid the fragile 'straight ahead' zone by excluding |angle| < excludeCenterDeg. (deg)")]
+    [SerializeField] private float excludeCenterDeg = 20f;
+
+    [Tooltip("Maximum side angle allowed from forward direction. (deg)")]
+    [SerializeField] private float maxSideDeg = 70f;
+
+    [Tooltip("If true, sample both left and right wedges. If false, use one side only (fixed by useRightSideOnly).")]
+    [SerializeField] private bool allowBothSides = true;
+
+    [Tooltip("When allowBothSides is false, choose right wedge if true, else left wedge.")]
+    [SerializeField] private bool useRightSideOnly = true;
+
+    [Tooltip("Extra constraint: minimum planar offset magnitude. (meters)")]
+    [SerializeField] private float minPlanarOffsetMeters = 0.30f;
+
+    [Tooltip("Resample attempts for wedge sampling.")]
+    [SerializeField] private int maxResampleAttempts = 30;
 
     // Runtime state
     private int trialIndex = 0;
@@ -157,19 +162,16 @@ public class LegoPlacementTaskManager : MonoBehaviour
             return;
         }
 
-        // Placement trials: lock rotation-follow so incidental hand/camera rotation doesn't rotate the object.
         if (lockRotationDuringPlacement)
-        {
             SetGrabberFollowRotation(false);
-        }
 
         // Record current block position as the startPos for THIS trial.
         startPos = blockRoot.position;
 
-        // Sample target offset (axis ranges + min planar distance)
-        Vector3 offset = SampleOffsetWithMinPlanarDistance();
+        // Sample target offset in a safe wedge relative to referenceFrame forward/right (XZ plane).
+        Vector3 offset = SampleOffsetInSafeWedge_ReferenceFrame();
 
-        float y = keepTargetSlotY ? targetSlotRoot.position.y : (startPos.y + offset.y);
+        float y = keepTargetSlotY ? targetSlotRoot.position.y : startPos.y;
         targetPos = new Vector3(startPos.x + offset.x, y, startPos.z + offset.z);
 
         targetSlotRoot.position = targetPos;
@@ -186,6 +188,61 @@ public class LegoPlacementTaskManager : MonoBehaviour
                   $"targetDist={targetDistance:F3}m tol={tolerance:F3}m " +
                   $"start=({startPos.x:F3},{startPos.y:F3},{startPos.z:F3}) " +
                   $"target=({targetPos.x:F3},{targetPos.y:F3},{targetPos.z:F3})");
+    }
+
+    private Vector3 SampleOffsetInSafeWedge_ReferenceFrame()
+    {
+        // Use referenceFrame forward/right projected to XZ; fallback to world axes.
+        Vector3 fwd = Vector3.forward;
+        Vector3 right = Vector3.right;
+
+        if (referenceFrame != null)
+        {
+            fwd = referenceFrame.forward;
+            right = referenceFrame.right;
+        }
+
+        fwd.y = 0f;
+        right.y = 0f;
+
+        if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
+        if (right.sqrMagnitude < 1e-6f) right = Vector3.right;
+
+        fwd.Normalize();
+        right.Normalize();
+
+        float exclude = Mathf.Clamp(excludeCenterDeg, 0f, 89f);
+        float maxSide = Mathf.Clamp(maxSideDeg, exclude + 1f, 89f);
+
+        Vector3 offset = Vector3.zero;
+
+        for (int attempt = 0; attempt < maxResampleAttempts; attempt++)
+        {
+            // choose left/right side
+            int sideSign;
+            if (allowBothSides)
+                sideSign = (Random.value < 0.5f) ? -1 : 1; // -1 left, +1 right
+            else
+                sideSign = useRightSideOnly ? 1 : -1;
+
+            // angle away from center to avoid fragile zone
+            float angDeg = Random.Range(exclude, maxSide);
+            float angRad = angDeg * Mathf.Deg2Rad;
+
+            float dist = Random.Range(targetDistanceRange.x, targetDistanceRange.y);
+
+            // direction on XZ plane: rotate forward toward left/right by angDeg
+            Vector3 dir = (fwd * Mathf.Cos(angRad)) + (right * (sideSign * Mathf.Sin(angRad)));
+            offset = dir * dist;
+
+            // enforce minimum planar offset
+            Vector2 planar = new Vector2(offset.x, offset.z);
+            if (planar.magnitude >= minPlanarOffsetMeters)
+                return offset;
+        }
+
+        Debug.LogWarning("[LegoPlacementTaskManager] Safe wedge sampling failed; using fallback forward offset.");
+        return fwd * Mathf.Max(minPlanarOffsetMeters, targetDistanceRange.x);
     }
 
     private IEnumerator EndTrialRoutine(bool success, bool timedOut)
@@ -206,35 +263,27 @@ public class LegoPlacementTaskManager : MonoBehaviour
             ForceReleaseIfPossible();
 
             if (snapOnSuccess)
-            {
                 SnapBlockToTarget();
-            }
 
             PlaySnapSound();
             ShowStar();
 
-            // Hold a short moment so the user perceives "clicked in"
             yield return new WaitForSeconds(Mathf.Max(feedbackShowSeconds, postSnapHoldSeconds));
         }
         else
         {
             ShowX();
-            yield return new WaitForSeconds(feedbackShowSeconds);
+            yield return new WaitForSeconds(feedbackShowSeconds));
         }
 
         HideFeedbackUI();
 
-        // Restore rotation-follow (optional; useful if later tasks require rotation)
         if (restoreRotationFollowAfterTrial)
-        {
-            // Safe to call even if not grabbed
             SetGrabberFollowRotation(true);
-        }
 
-        // Reset block position back to startPos (per your request)
         if (resetBlockToStartAfterTrial)
         {
-            ForceReleaseIfPossible(); // extra safety
+            ForceReleaseIfPossible();
             ResetBlockToStart();
         }
 
@@ -245,7 +294,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private void SnapBlockToTarget()
     {
-        // Translation task: snap position only. Keep current rotation/scale.
         Vector3 p = targetSlotRoot.position;
         blockRoot.position = new Vector3(p.x, blockRoot.position.y, p.z);
     }
@@ -255,42 +303,16 @@ public class LegoPlacementTaskManager : MonoBehaviour
         blockRoot.position = startPos;
     }
 
-    private Vector3 SampleOffsetWithMinPlanarDistance()
-    {
-        Vector3 offset = Vector3.zero;
-
-        for (int attempt = 0; attempt < maxResampleAttempts; attempt++)
-        {
-            float ox = Random.Range(offsetXRange.x, offsetXRange.y);
-            float oy = Random.Range(offsetYRange.x, offsetYRange.y);
-            float oz = Random.Range(offsetZRange.x, offsetZRange.y);
-
-            offset = new Vector3(ox, oy, oz);
-
-            Vector2 planar = new Vector2(offset.x, offset.z);
-            if (planar.magnitude >= minPlanarOffsetMeters)
-                return offset;
-        }
-
-        Debug.LogWarning("[LegoPlacementTaskManager] Could not satisfy minPlanarOffsetMeters after resampling. Using last sample.");
-        return offset;
-    }
-
     private void ForceReleaseIfPossible()
     {
         if (grabReleaseComponent != null)
-        {
             grabReleaseComponent.SendMessage("ForceRelease", SendMessageOptions.DontRequireReceiver);
-        }
     }
 
     private void SetGrabberFollowRotation(bool follow)
     {
         if (grabReleaseComponent != null)
-        {
-            // ProxyHandGrabber has: public void SetFollowHeldRotation(bool value)
             grabReleaseComponent.SendMessage("SetFollowHeldRotation", follow, SendMessageOptions.DontRequireReceiver);
-        }
     }
 
     private void PlaySnapSound()
