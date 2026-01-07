@@ -27,6 +27,10 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [SerializeField] private GameObject xUI;
     [SerializeField] private float feedbackShowSeconds = 0.50f;
 
+    [Header("Target Visual")]
+    [SerializeField] private Transform targetSlotVisual;
+    [SerializeField] private bool matchTargetVisualRotationToBlock = true;
+
     [Header("Trial Timing")]
     [SerializeField] private float trialTimeoutSeconds = 12f;
     [SerializeField] private float dwellSeconds = 0.20f;
