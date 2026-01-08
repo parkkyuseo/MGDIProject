@@ -142,7 +142,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &5334210
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4224,7 +4224,7 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 12
+  trialTimeoutSeconds: 300
   dwellSeconds: 0.2
   minTolMeters: 0.02
   snapOnSuccess: 1
@@ -4235,9 +4235,9 @@ MonoBehaviour:
   startKeyword: start
   restartKeyword: restart
   autoStartInEditor: 1
-  localXRange: {x: -0.3, y: 0.7}
-  localYRange: {x: 0, y: 0.15}
-  localZRange: {x: -0.1, y: 0.1}
+  localXRange: {x: -0.3, y: 0.4}
+  localYRange: {x: 0, y: 0.1}
+  localZRange: {x: -0.05, y: 0.05}
   centerNoGoHalfWidthX: 0.12
   minPlanarOffsetMeters: 0.3
   maxResampleAttempts: 20
