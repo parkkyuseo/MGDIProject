@@ -73,6 +73,22 @@ public class RemoteHandRuntime : MonoBehaviour
     Vector3 _gainNeutralWristWorld = Vector3.zero;
     bool _gainNeutralCaptured = false;
 
+    [Header("Depth (camera-forward) stabilization")]
+    [Tooltip("If true, suppress jitter along camera-forward direction (depth axis).")]
+    public bool stabilizeDepth = true;
+
+    [Tooltip("If true, apply depth stabilization only to wrist joint (index 0). If false, apply to all joints.")]
+    public bool stabilizeDepthWristOnly = true;
+
+    [Tooltip("Extra dead-zone for depth component (meters).")]
+    public float depthDeadZoneMeters = 0.010f; // 1 cm
+
+    [Tooltip("Max change per frame along camera-forward (meters).")]
+    public float depthMaxStepMeters = 0.005f; // 5 mm/frame
+
+    [Tooltip("Extra low-pass cutoff for depth component (Hz). Lower = smoother, more lag.")]
+    public float depthCutoffHz = 2.0f;
+
     [Header("Twist (door knob style)")]
     [Tooltip("Bone that should twist around its local forward axis (usually R_Wrist_Twist).")]
     public Transform wristTwist;
@@ -301,6 +317,20 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
 
+        // Camera-forward direction for "depth" stabilization
+        Vector3 camFwd = Vector3.forward;
+        if (Camera.main != null)
+        {
+            camFwd = Camera.main.transform.forward;
+            if (camFwd.sqrMagnitude > 1e-8f) camFwd.Normalize();
+            else camFwd = Vector3.forward;
+        }
+
+        // Depth LPF coefficient (applies only to depth component)
+        float depthHz = Mathf.Max(0.01f, depthCutoffHz);
+        float omegaDepth = 2f * Mathf.PI * depthHz;
+        float alphaDepth = omegaDepth * dt / (1f + omegaDepth * dt); // 0..1
+
         for (int i = 0; i < 21; i++)
         {
             float cutoff = IsTip(i) ? cutoffHzTips : cutoffHz;
@@ -317,21 +347,51 @@ public class RemoteHandRuntime : MonoBehaviour
             if (!_havePrevPos)
                 _prevPos[i] = v;
 
+            // 1) base LPF (vector)
             Vector3 raw = Vector3.Lerp(_prevPos[i], v, alpha);
 
+            // 2) step clamp (vector magnitude)
             float stepCap = IsTip(i) ? maxStepTips : maxStepMeters;
-            Vector3 d = raw - _prevPos[i];
-            float m = d.magnitude;
-
+            Vector3 dVec = raw - _prevPos[i];
+            float m = dVec.magnitude;
             if (m > stepCap)
-                raw = _prevPos[i] + d.normalized * stepCap;
+                raw = _prevPos[i] + dVec.normalized * stepCap;
 
+            // 3) optional depth stabilization (camera-forward component only)
+            bool applyDepth = stabilizeDepth && (!stabilizeDepthWristOnly || i == 0);
+            if (applyDepth)
+            {
+                // delta from prev to current candidate
+                Vector3 delta = raw - _prevPos[i];
+
+                // depth component (signed)
+                float dDepth = Vector3.Dot(delta, camFwd);
+
+                // depth dead-zone
+                float dz = Mathf.Max(0f, depthDeadZoneMeters);
+                if (dz > 0f && Mathf.Abs(dDepth) < dz)
+                    dDepth = 0f;
+
+                // depth step clamp
+                float maxStep = Mathf.Max(0f, depthMaxStepMeters);
+                if (maxStep > 0f)
+                    dDepth = Mathf.Clamp(dDepth, -maxStep, maxStep);
+
+                // extra depth LPF (only on depth scalar)
+                float dDepthSm = Mathf.Lerp(0f, dDepth, Mathf.Clamp01(alphaDepth));
+
+                // remove original depth delta and replace with stabilized depth delta
+                // keep all non-depth components as-is
+                Vector3 deltaNonDepth = delta - (Vector3.Dot(delta, camFwd) * camFwd);
+                raw = _prevPos[i] + deltaNonDepth + (dDepthSm * camFwd);
+            }
+
+            // 4) global jitter dead-zone (vector)
             if (useJitterDeadZone)
             {
                 float dz = Mathf.Max(0f, jitterDeadZoneMeters);
                 if (dz > 0f && (raw - _prevPos[i]).sqrMagnitude < dz * dz)
                 {
-                    // treat as pure noise: keep previous value
                     raw = _prevPos[i];
                 }
             }
