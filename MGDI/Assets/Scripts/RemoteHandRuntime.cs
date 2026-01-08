@@ -89,6 +89,25 @@ public class RemoteHandRuntime : MonoBehaviour
     [Tooltip("Extra low-pass cutoff for depth component (Hz). Lower = smoother, more lag.")]
     public float depthCutoffHz = 2.0f;
 
+    [Header("Depth stabilization gating (wrist intent detection)")]
+    [Tooltip("If true, depth stabilization is applied only when lateral motion dominates.")]
+    public bool depthUseGating = true;
+
+    [Tooltip("Minimum non-depth movement per frame to consider as 'lateral motion' (meters).")]
+    public float depthGateMinNonDepthStep = 0.004f; // 4 mm/frame
+
+    [Tooltip("If |dDepth| <= ratio * nonDepthMag, treat depth as noise and stabilize it.")]
+    public float depthGateDepthToNonDepthRatio = 0.35f; // 0.2~0.6
+
+    [Tooltip("When depth is NOT gated (user intends forward/back), allow larger depth per frame.")]
+    public float depthMaxStepMetersFree = 0.04f; // 4 cm/frame (large)
+
+    [Tooltip("When depth is NOT gated, use weaker deadzone for depth.")]
+    public float depthDeadZoneMetersFree = 0.000f;
+
+    [Tooltip("When depth is NOT gated, use higher cutoff (less smoothing) for depth.")]
+    public float depthCutoffHzFree = 10f;
+
     [Header("Twist (door knob style)")]
     [Tooltip("Bone that should twist around its local forward axis (usually R_Wrist_Twist).")]
     public Transform wristTwist;
@@ -361,28 +380,52 @@ public class RemoteHandRuntime : MonoBehaviour
             bool applyDepth = stabilizeDepth && (!stabilizeDepthWristOnly || i == 0);
             if (applyDepth)
             {
-                // delta from prev to current candidate
                 Vector3 delta = raw - _prevPos[i];
 
-                // depth component (signed)
+                // Depth component along camera forward
                 float dDepth = Vector3.Dot(delta, camFwd);
+                Vector3 deltaNonDepth = delta - (dDepth * camFwd);
+                float nonDepthMag = deltaNonDepth.magnitude;
 
-                // depth dead-zone
-                float dz = Mathf.Max(0f, depthDeadZoneMeters);
+                // Decide whether to gate (stabilize) depth strongly
+                bool gateDepth = !depthUseGating ? true : false;
+
+                if (depthUseGating)
+                {
+                    // If lateral (non-depth) movement is large and depth is relatively small,
+                    // treat depth as noise during side motion.
+                    if (nonDepthMag >= depthGateMinNonDepthStep &&
+                        Mathf.Abs(dDepth) <= depthGateDepthToNonDepthRatio * nonDepthMag)
+                    {
+                        gateDepth = true;   // strong stabilize
+                    }
+                    else
+                    {
+                        gateDepth = false;  // user likely intends forward/back
+                    }
+                }
+
+                // Choose parameters depending on gating
+                float dz = gateDepth ? depthDeadZoneMeters : depthDeadZoneMetersFree;
+                float maxStep = gateDepth ? depthMaxStepMeters : depthMaxStepMetersFree;
+
+                float cutoff = gateDepth ? depthCutoffHz : depthCutoffHzFree;
+                cutoff = Mathf.Max(0.01f, cutoff);
+                float omega = 2f * Mathf.PI * cutoff;
+                float a = omega * dt / (1f + omega * dt); // 0..1
+
+                // Dead-zone on depth
                 if (dz > 0f && Mathf.Abs(dDepth) < dz)
                     dDepth = 0f;
 
-                // depth step clamp
-                float maxStep = Mathf.Max(0f, depthMaxStepMeters);
+                // Step clamp on depth
                 if (maxStep > 0f)
                     dDepth = Mathf.Clamp(dDepth, -maxStep, maxStep);
 
-                // extra depth LPF (only on depth scalar)
-                float dDepthSm = Mathf.Lerp(0f, dDepth, Mathf.Clamp01(alphaDepth));
+                // Extra LPF on depth scalar
+                float dDepthSm = Mathf.Lerp(0f, dDepth, Mathf.Clamp01(a));
 
-                // remove original depth delta and replace with stabilized depth delta
-                // keep all non-depth components as-is
-                Vector3 deltaNonDepth = delta - (Vector3.Dot(delta, camFwd) * camFwd);
+                // Recompose: keep non-depth as-is, replace depth with stabilized depth
                 raw = _prevPos[i] + deltaNonDepth + (dDepthSm * camFwd);
             }
 
