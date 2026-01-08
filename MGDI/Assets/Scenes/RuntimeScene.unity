@@ -3626,7 +3626,7 @@ MonoBehaviour:
   cutoffHzTips: 2
   maxStepTips: 0.008
   useJitterDeadZone: 1
-  jitterDeadZoneMeters: 0.005
+  jitterDeadZoneMeters: 0.01
   armer: {fileID: 6310441031314089671}
   firstValidDistance: 0.02
   autoArm: 1
@@ -3639,6 +3639,8 @@ MonoBehaviour:
   aimFromVelocity: 0
   aimVelMinSpeed: 0.05
   aimDirLerp: 0.05
+  translationGain: 1.2
+  gainUseNeutralWrist: 1
   wristTwist: {fileID: 1992353098}
   twistMaxAbsDeg: 45
   twistDeadZoneDeg: 5
