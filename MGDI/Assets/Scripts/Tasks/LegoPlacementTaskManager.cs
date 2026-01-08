@@ -149,6 +149,15 @@ public class LegoPlacementTaskManager : MonoBehaviour
         {
             dwellTimer = 0f;
         }
+
+
+        // ERROR LOG
+        if (Time.frameCount % 12 == 0)
+        {
+            float errDbg = Vector3.Distance(blockRoot.position, targetSlotRoot.position);
+            DebugHUD.Log($"[PlacementDebug] err={errDbg:F4} tol={tolerance:F4} dwell={dwellTimer:F3}/{dwellSeconds:F3} " +
+                      $"block={blockRoot.position} target={targetSlotRoot.position}");
+        }
     }
 
     // ---------------- Trial Flow ----------------
