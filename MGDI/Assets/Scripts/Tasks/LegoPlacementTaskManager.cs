@@ -105,6 +105,23 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private Dictionary<string, System.Action> keywordActions;
 
     // ---------------- Public ----------------
+    void OnDrawGizmos()
+    {
+        if (blockRoot == null || targetSlotRoot == null) return;
+
+        // target 기준점
+        Gizmos.color = Color.green;
+        Gizmos.DrawSphere(targetSlotRoot.position, 0.01f);
+
+        // block 기준점
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawSphere(blockRoot.position, 0.01f);
+
+        // 두 점 사이 선
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawLine(blockRoot.position, targetSlotRoot.position);
+    }
+
     public void StartBlock()
     {
         StopAllCoroutines();
