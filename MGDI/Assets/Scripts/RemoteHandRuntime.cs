@@ -63,6 +63,16 @@ public class RemoteHandRuntime : MonoBehaviour
     [Tooltip("Smoothing factor for aim direction (0 = no smoothing, 1 = very slow).")]
     public float aimDirLerp = 0.20f;
 
+    [Header("Translation gain (no remap)")]
+    [Tooltip("Proxy translation gain. 1=1:1, 2=twice as far.")]
+    public float translationGain = 1.0f;
+
+    [Tooltip("If true, gain is applied around the first captured wrist position.")]
+    public bool gainUseNeutralWrist = true;
+
+    Vector3 _gainNeutralWristWorld = Vector3.zero;
+    bool _gainNeutralCaptured = false;
+
     [Header("Twist (door knob style)")]
     [Tooltip("Bone that should twist around its local forward axis (usually R_Wrist_Twist).")]
     public Transform wristTwist;
@@ -238,6 +248,34 @@ public class RemoteHandRuntime : MonoBehaviour
             RemapSideToFront(worldPos);      // 기존 사이드→프론트 remap
         }
 
+        // --- Translation gain (amplify wrist translation) ---
+        if (translationGain != 1.0f && translationGain > 0f)
+        {
+            Vector3 wrist = worldPos[0];
+
+            if (gainUseNeutralWrist)
+            {
+                if (!_gainNeutralCaptured)
+                {
+                    _gainNeutralWristWorld = wrist;
+                    _gainNeutralCaptured = true;
+                }
+
+                Vector3 d = wrist - _gainNeutralWristWorld;
+                Vector3 wristG = _gainNeutralWristWorld + d * translationGain;
+                Vector3 delta = wristG - wrist;
+
+                // Apply same translation delta to all joints (keeps hand shape)
+                for (int i = 0; i < 21; i++)
+                    worldPos[i] += delta;
+            }
+            else
+            {
+                // Simpler: scale around current wrist origin (less common)
+                // Not recommended unless you specifically want it.
+            }
+        }
+        
         // smooth and apply to remote driver joints
         SmoothAndApply(worldPos);
 
