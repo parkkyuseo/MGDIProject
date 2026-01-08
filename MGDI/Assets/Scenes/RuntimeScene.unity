@@ -3641,6 +3641,11 @@ MonoBehaviour:
   aimDirLerp: 0.05
   translationGain: 1.2
   gainUseNeutralWrist: 1
+  stabilizeDepth: 1
+  stabilizeDepthWristOnly: 1
+  depthDeadZoneMeters: 0.003
+  depthMaxStepMeters: 0.01
+  depthCutoffHz: 6
   wristTwist: {fileID: 1992353098}
   twistMaxAbsDeg: 45
   twistDeadZoneDeg: 5
