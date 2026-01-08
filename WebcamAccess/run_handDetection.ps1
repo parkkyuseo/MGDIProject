@@ -1,5 +1,5 @@
 python demo_min3d_dyn.py `
-  --left-id 0 --right-id 1 `
+  --left-id 0 --right-id 2 `
   --width 1280 --height 720 --fps 30 --max-pair-dt-ms 30 `
   --calib "stereo_pairs\calib_charuco_stereo.npz" `
   --alpha 0.3 --min-conf 0.35 `
@@ -17,7 +17,7 @@ python demo_min3d_dyn.py `
   --z-log-interval 1.0 `
   --mp-det-conf 0.30 `
   --mp-track-conf 0.50 `
-  --mp-model-complexity 0 `
+  --mp-model-complexity 1 `
   --mp-max-hands 1 `
   --rect-alpha 0.75 `
   --show --no-epi --quiet --disable-auto-exp --exposure -6 --gain 8

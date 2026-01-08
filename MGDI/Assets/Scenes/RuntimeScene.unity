@@ -142,7 +142,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &5334210
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1873,7 +1873,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: 9145355bb2878ee4bbaa3f6a98b5beba, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2681,6 +2681,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: TargetSlot_LegoVisual
       objectReference: {fileID: 0}
+    - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -1.36
+      objectReference: {fileID: 0}
+    - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 1.67
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3300,7 +3312,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: acbdbea1b75585548801e0f436aab77a, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -3622,7 +3634,7 @@ MonoBehaviour:
   rWrist: {fileID: 4103248669328405149}
   useExtraCameraOffset: 1
   extraForwardMeters: 1.5
-  extraUpMeters: -0.2
+  extraUpMeters: -0.4
   computePalmFrame: 1
   aimFromVelocity: 0
   aimVelMinSpeed: 0.05
@@ -3952,15 +3964,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 14.196263
+      value: 14.19
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 4.809974
+      value: 5.04
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 19.543945
+      value: 19.54
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalRotation.w
@@ -4186,7 +4198,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   blockRoot: {fileID: 168584006}
   targetSlotRoot: {fileID: 1568458988}
-  targetSlotVisual: {fileID: 0}
+  targetSlotVisual: {fileID: 481999432}
   grabReleaseComponent: {fileID: 4217352218302390358}
   referenceFrame: {fileID: 838731307}
   anchorReferenceFrameToBlock: 1
@@ -4196,8 +4208,8 @@ MonoBehaviour:
   matchTargetVisualRotationToBlock: 1
   audioSource: {fileID: 1481024369}
   snapClip: {fileID: 8300000, guid: 61eb6ff0ade160e47ae0945392535fe9, type: 3}
-  starUI: {fileID: 1939821581}
-  xUI: {fileID: 1555681463}
+  starUI: {fileID: 1610688646}
+  xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
   trialTimeoutSeconds: 12
   dwellSeconds: 0.2
@@ -4210,7 +4222,7 @@ MonoBehaviour:
   startKeyword: start
   restartKeyword: restart
   autoStartInEditor: 1
-  localXRange: {x: -0.5, y: 0.7}
+  localXRange: {x: -0.3, y: 0.7}
   localYRange: {x: 0, y: 0.15}
   localZRange: {x: -0.1, y: 0.1}
   centerNoGoHalfWidthX: 0.12
