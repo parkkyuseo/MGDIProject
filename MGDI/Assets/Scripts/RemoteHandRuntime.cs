@@ -345,21 +345,16 @@ public class RemoteHandRuntime : MonoBehaviour
             else camFwd = Vector3.forward;
         }
 
-        // Depth LPF coefficient (applies only to depth component)
-        float depthHz = Mathf.Max(0.01f, depthCutoffHz);
-        float omegaDepth = 2f * Mathf.PI * depthHz;
-        float alphaDepth = omegaDepth * dt / (1f + omegaDepth * dt); // 0..1
-
         for (int i = 0; i < 21; i++)
         {
-            float cutoff = IsTip(i) ? cutoffHzTips : cutoffHz;
-            float omega = 2f * Mathf.PI * cutoff;
-            float alpha = omega * dt / (1f + omega * dt);
+            float baseCutoffHz = IsTip(i) ? cutoffHzTips : cutoffHz;
+            float baseOmega = 2f * Mathf.PI * baseCutoffHz;
+            float baseAlpha = baseOmega * dt / (1f + baseOmega * dt);
 
             if (IsTip(i))
-                alpha = Mathf.Clamp(alpha, 0.02f, 0.30f);
+                baseAlpha = Mathf.Clamp(baseAlpha, 0.02f, 0.30f);
             else
-                alpha = Mathf.Clamp01(alpha);
+                baseAlpha = Mathf.Clamp01(baseAlpha);
 
             Vector3 v = inPos[i];
 
@@ -367,7 +362,7 @@ public class RemoteHandRuntime : MonoBehaviour
                 _prevPos[i] = v;
 
             // 1) base LPF (vector)
-            Vector3 raw = Vector3.Lerp(_prevPos[i], v, alpha);
+            Vector3 raw = Vector3.Lerp(_prevPos[i], v, baseAlpha);
 
             // 2) step clamp (vector magnitude)
             float stepCap = IsTip(i) ? maxStepTips : maxStepMeters;
@@ -406,24 +401,24 @@ public class RemoteHandRuntime : MonoBehaviour
                 }
 
                 // Choose parameters depending on gating
-                float dz = gateDepth ? depthDeadZoneMeters : depthDeadZoneMetersFree;
-                float maxStep = gateDepth ? depthMaxStepMeters : depthMaxStepMetersFree;
+                float dzDepth = gateDepth ? depthDeadZoneMeters : depthDeadZoneMetersFree;
+                float maxStepDepth = gateDepth ? depthMaxStepMeters : depthMaxStepMetersFree;
 
-                float cutoff = gateDepth ? depthCutoffHz : depthCutoffHzFree;
-                cutoff = Mathf.Max(0.01f, cutoff);
-                float omega = 2f * Mathf.PI * cutoff;
-                float a = omega * dt / (1f + omega * dt); // 0..1
+                float depthCutoffLocalHz = gateDepth ? depthCutoffHz : depthCutoffHzFree;
+                depthCutoffLocalHz = Mathf.Max(0.01f, depthCutoffLocalHz);
+                float depthOmega = 2f * Mathf.PI * depthCutoffLocalHz;
+                float depthAlpha = depthOmega * dt / (1f + depthOmega * dt); // 0..1
 
                 // Dead-zone on depth
-                if (dz > 0f && Mathf.Abs(dDepth) < dz)
+                if (dzDepth > 0f && Mathf.Abs(dDepth) < dzDepth)
                     dDepth = 0f;
 
                 // Step clamp on depth
-                if (maxStep > 0f)
-                    dDepth = Mathf.Clamp(dDepth, -maxStep, maxStep);
+                if (maxStepDepth > 0f)
+                    dDepth = Mathf.Clamp(dDepth, -maxStepDepth, maxStepDepth);
 
                 // Extra LPF on depth scalar
-                float dDepthSm = Mathf.Lerp(0f, dDepth, Mathf.Clamp01(a));
+                float dDepthSm = Mathf.Lerp(0f, dDepth, Mathf.Clamp01(depthAlpha));
 
                 // Recompose: keep non-depth as-is, replace depth with stabilized depth
                 raw = _prevPos[i] + deltaNonDepth + (dDepthSm * camFwd);
@@ -434,9 +429,7 @@ public class RemoteHandRuntime : MonoBehaviour
             {
                 float dz = Mathf.Max(0f, jitterDeadZoneMeters);
                 if (dz > 0f && (raw - _prevPos[i]).sqrMagnitude < dz * dz)
-                {
                     raw = _prevPos[i];
-                }
             }
 
             if (remoteByIndex[i] != null)
