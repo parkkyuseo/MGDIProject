@@ -2687,11 +2687,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 0.34
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 1.67
+      value: 2.03
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3643,9 +3643,15 @@ MonoBehaviour:
   gainUseNeutralWrist: 1
   stabilizeDepth: 1
   stabilizeDepthWristOnly: 1
-  depthDeadZoneMeters: 0.003
-  depthMaxStepMeters: 0.01
-  depthCutoffHz: 6
+  depthDeadZoneMeters: 0.005
+  depthMaxStepMeters: 0.008
+  depthCutoffHz: 4
+  depthUseGating: 1
+  depthGateMinNonDepthStep: 0.004
+  depthGateDepthToNonDepthRatio: 0.45
+  depthMaxStepMetersFree: 0.04
+  depthDeadZoneMetersFree: 0
+  depthCutoffHzFree: 10
   wristTwist: {fileID: 1992353098}
   twistMaxAbsDeg: 45
   twistDeadZoneDeg: 5
@@ -3971,15 +3977,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 14.19
+      value: 14.02
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 5.04
+      value: 5.5
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 19.54
+      value: 20.47
       objectReference: {fileID: 0}
     - target: {fileID: 7666905876270866241, guid: 2f8900d9831bbd346b90f4456ba9d630, type: 3}
       propertyPath: m_LocalRotation.w
@@ -4220,7 +4226,7 @@ MonoBehaviour:
   feedbackShowSeconds: 0.5
   trialTimeoutSeconds: 12
   dwellSeconds: 0.2
-  minTolMeters: 0.005
+  minTolMeters: 0.02
   snapOnSuccess: 1
   postSnapHoldSeconds: 0.35
   resetBlockToStartAfterTrial: 1
