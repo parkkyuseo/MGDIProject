@@ -105,6 +105,47 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private Dictionary<string, System.Action> keywordActions;
 
     // ---------------- Public ----------------
+    
+    void OnDrawGizmos()
+    {
+        if (blockRoot == null || targetSlotRoot == null) return;
+
+        // Transform 기준점
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawSphere(blockRoot.position, 0.01f);
+
+        Gizmos.color = Color.green;
+        Gizmos.DrawSphere(targetSlotRoot.position, 0.01f);
+
+        // Mesh 중심(Renderer bounds center)
+        var blockR = blockRoot.GetComponentInChildren<Renderer>();
+        var targetR = targetSlotRoot.GetComponentInChildren<Renderer>();
+
+        if (blockR != null)
+        {
+            Gizmos.color = new Color(1f, 0.5f, 0f, 1f); // orange
+            Gizmos.DrawSphere(blockR.bounds.center, 0.01f);
+            Gizmos.DrawLine(blockRoot.position, blockR.bounds.center);
+        }
+
+        if (targetR != null)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawSphere(targetR.bounds.center, 0.01f);
+            Gizmos.DrawLine(targetSlotRoot.position, targetR.bounds.center);
+        }
+
+        // Root-to-root line (what your success check uses)
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawLine(blockRoot.position, targetSlotRoot.position);
+
+        // Mesh-center-to-mesh-center line (what your eyes use)
+        if (blockR != null && targetR != null)
+        {
+            Gizmos.color = Color.white;
+            Gizmos.DrawLine(blockR.bounds.center, targetR.bounds.center);
+        }
+    }
     public void StartBlock()
     {
         StopAllCoroutines();
