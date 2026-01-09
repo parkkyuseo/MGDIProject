@@ -105,44 +105,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private Dictionary<string, System.Action> keywordActions;
 
     // ---------------- Public ----------------
-    private float _dbgNextTime = 0f;
-
-    void OnDrawGizmos()
-    {
-        if (blockRoot == null || targetSlotRoot == null) return;
-
-        if (Application.isPlaying && Time.time >= _dbgNextTime)
-        {
-            _dbgNextTime = Time.time + 1f;
-            DebugHUD.Log($"[GizmoRefs] blockRoot={blockRoot.name} path={GetPath(blockRoot)}");
-            DebugHUD.Log($"[GizmoRefs] targetSlotRoot={targetSlotRoot.name} path={GetPath(targetSlotRoot)}");
-        }
-
-        Gizmos.color = Color.green;
-        Gizmos.DrawSphere(targetSlotRoot.position, 0.01f);
-
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawSphere(blockRoot.position, 0.01f);
-
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawLine(blockRoot.position, targetSlotRoot.position);
-    }
-
-    static string GetPath(Transform t)
-    {
-        if (t == null) return "<null>";
-        string p = t.name;
-        while (t.parent != null)
-        {
-            t = t.parent;
-            p = t.name + "/" + p;
-        }
-        return p;
-    }
-
-
-    // up to this
-
     public void StartBlock()
     {
         StopAllCoroutines();
