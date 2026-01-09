@@ -114,8 +114,8 @@ public class LegoPlacementTaskManager : MonoBehaviour
         if (Application.isPlaying && Time.time >= _dbgNextTime)
         {
             _dbgNextTime = Time.time + 1f;
-            Debug.Log($"[GizmoRefs] blockRoot={blockRoot.name} path={GetPath(blockRoot)}");
-            Debug.Log($"[GizmoRefs] targetSlotRoot={targetSlotRoot.name} path={GetPath(targetSlotRoot)}");
+            DebugHUD.Log($"[GizmoRefs] blockRoot={blockRoot.name} path={GetPath(blockRoot)}");
+            DebugHUD.Log($"[GizmoRefs] targetSlotRoot={targetSlotRoot.name} path={GetPath(targetSlotRoot)}");
         }
 
         Gizmos.color = Color.green;
