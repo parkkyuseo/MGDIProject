@@ -199,6 +199,14 @@ public class LegoPlacementTaskManager : MonoBehaviour
          *     DebugHUD.Log($"[PlacementDebug] err={errDbg:F4} tol={tolerance:F4} dwell={dwellTimer:F3}/{dwellSeconds:F3} " +
          *               $"block={blockRoot.position} target={targetSlotRoot.position}");
          * } */
+        if (Time.frameCount % 60 == 0)
+        {
+            DebugHUD.Log($"blockRoot={blockRoot.name} pos={blockRoot.position}");
+            DebugHUD.Log($"targetSlotRoot={targetSlotRoot.name} pos={targetSlotRoot.position}");
+            DebugHUD.Log($"blockRootPath={GetPath(blockRoot)}");
+            DebugHUD.Log($"targetSlotRootPath={GetPath(targetSlotRoot)}");
+        }
+
     }
 
     // ---------------- Trial Flow ----------------
