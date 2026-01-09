@@ -122,10 +122,10 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
         // Transform 기준점
         Gizmos.color = Color.yellow;
-        Gizmos.DrawSphere(blockRoot.position, 0.01f);
+        Gizmos.DrawSphere(blockRoot.position, 0.05f);
 
         Gizmos.color = Color.green;
-        Gizmos.DrawSphere(targetSlotRoot.position, 0.01f);
+        Gizmos.DrawSphere(targetSlotRoot.position, 0.05f);
 
         // Mesh 중심(Renderer bounds center)
         var blockR = blockRoot.GetComponentInChildren<Renderer>();
@@ -134,14 +134,14 @@ public class LegoPlacementTaskManager : MonoBehaviour
         if (blockR != null)
         {
             Gizmos.color = new Color(1f, 0.5f, 0f, 1f); // orange
-            Gizmos.DrawSphere(blockR.bounds.center, 0.01f);
+            Gizmos.DrawSphere(blockR.bounds.center, 0.07f);
             Gizmos.DrawLine(blockRoot.position, blockR.bounds.center);
         }
 
         if (targetR != null)
         {
             Gizmos.color = Color.cyan;
-            Gizmos.DrawSphere(targetR.bounds.center, 0.01f);
+            Gizmos.DrawSphere(targetR.bounds.center, 0.05f);
             Gizmos.DrawLine(targetSlotRoot.position, targetR.bounds.center);
         }
 
