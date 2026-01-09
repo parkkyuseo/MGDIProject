@@ -105,22 +105,43 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private Dictionary<string, System.Action> keywordActions;
 
     // ---------------- Public ----------------
+    private float _dbgNextTime = 0f;
+
     void OnDrawGizmos()
     {
         if (blockRoot == null || targetSlotRoot == null) return;
 
-        // target 기준점
+        if (Application.isPlaying && Time.time >= _dbgNextTime)
+        {
+            _dbgNextTime = Time.time + 1f;
+            Debug.Log($"[GizmoRefs] blockRoot={blockRoot.name} path={GetPath(blockRoot)}");
+            Debug.Log($"[GizmoRefs] targetSlotRoot={targetSlotRoot.name} path={GetPath(targetSlotRoot)}");
+        }
+
         Gizmos.color = Color.green;
         Gizmos.DrawSphere(targetSlotRoot.position, 0.01f);
 
-        // block 기준점
         Gizmos.color = Color.yellow;
         Gizmos.DrawSphere(blockRoot.position, 0.01f);
 
-        // 두 점 사이 선
         Gizmos.color = Color.cyan;
         Gizmos.DrawLine(blockRoot.position, targetSlotRoot.position);
     }
+
+    static string GetPath(Transform t)
+    {
+        if (t == null) return "<null>";
+        string p = t.name;
+        while (t.parent != null)
+        {
+            t = t.parent;
+            p = t.name + "/" + p;
+        }
+        return p;
+    }
+
+
+    // up to this
 
     public void StartBlock()
     {
