@@ -3116,6 +3116,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1551205279}
+  - component: {fileID: 1551205280}
   m_Layer: 0
   m_Name: StudyRuntime
   m_TagString: Untagged
@@ -3143,6 +3144,28 @@ Transform:
   - {fileID: 489815358}
   m_Father: {fileID: 770468291}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1551205280
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1551205278}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 78569c1da24b8334895f27ad984fd8e4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  workspaceController: {fileID: 489815359}
+  placementTask: {fileID: 1964408501}
+  autoApplyWorkspaceOnStart: 1
+  enableVoice: 1
+  cmdStart: start
+  cmdNext: next
+  cmdNear: near
+  cmdSideLeft: side left
+  cmdSideRight: side right
+  cmdRestart: restart
 --- !u!1 &1555681463
 GameObject:
   m_ObjectHideFlags: 0
@@ -4316,7 +4339,7 @@ MonoBehaviour:
   postSnapHoldSeconds: 0.35
   resetBlockToStartAfterTrial: 1
   totalTrials: 20
-  enableVoiceStart: 1
+  enableVoiceStart: 0
   startKeyword: start
   restartKeyword: restart
   autoStartInEditor: 1
