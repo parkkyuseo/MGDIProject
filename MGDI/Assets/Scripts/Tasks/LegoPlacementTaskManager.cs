@@ -105,7 +105,17 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private Dictionary<string, System.Action> keywordActions;
 
     // ---------------- Public ----------------
-    
+    static string GetPath(Transform t)
+    {
+        if (t == null) return "<null>";
+        string p = t.name;
+        while (t.parent != null)
+        {
+            t = t.parent;
+            p = t.name + "/" + p;
+        }
+        return p;
+    }
     void OnDrawGizmos()
     {
         if (blockRoot == null || targetSlotRoot == null) return;
