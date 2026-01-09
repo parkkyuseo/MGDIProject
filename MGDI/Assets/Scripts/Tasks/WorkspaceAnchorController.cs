@@ -15,46 +15,70 @@ public class WorkspaceAnchorController : MonoBehaviour
         SideOfBodyRight
     }
 
+    [System.Serializable]
+    public class WorkspaceProfile
+    {
+        [Tooltip("If false, no position change is applied.")]
+        public bool applyPosition = true;
+
+        [Tooltip("If false, no rotation change is applied.")]
+        public bool applyRotation = true;
+
+        [Tooltip("Offset in the chosen basis frame (meters). x=right, y=up, z=forward.")]
+        public Vector3 offset = new Vector3(0f, 0.05f, 0.60f);
+
+        [Tooltip("Extra yaw added on top of the chosen basis yaw (degrees).")]
+        public float yawOffsetDeg = 0f;
+    }
+
     [Header("References")]
     public Transform workspaceAnchor;
-    public Transform viewFrame;    // usually Camera.main
-    public Transform webcamFrame;  // WebcamFrame (Empty)
+    public Transform viewFrame;     // usually Camera.main.transform
+    public Transform webcamFrame;   // can be null for now
 
-    [Header("Offsets (meters)")]
-    public Vector3 nearHeadOffset = new Vector3(0f, 0.05f, 0.6f);
-    public Vector3 sideLeftOffset = new Vector3(-0.25f, 0f, 0.6f);
-    public Vector3 sideRightOffset = new Vector3(0.25f, 0f, 0.6f);
+    [Header("Basis")]
+    public FrameBasis basis = FrameBasis.ViewBased;
 
-    [Header("Settings")]
-    public FrameBasis basis = FrameBasis.WebcamBased;
+    [Header("Debug state (set by FlowController)")]
     public HandLocation handLocation = HandLocation.NearHead;
 
-    public void ApplyWorkspace()
+    public void ApplyProfile(WorkspaceProfile profile)
     {
-        Transform frame = (basis == FrameBasis.ViewBased) ? viewFrame : webcamFrame;
-        if (frame == null || workspaceAnchor == null) return;
-
-        Vector3 offset = nearHeadOffset;
-        switch (handLocation)
+        if (workspaceAnchor == null)
         {
-            case HandLocation.SideOfBodyLeft:
-                offset = sideLeftOffset;
-                break;
-            case HandLocation.SideOfBodyRight:
-                offset = sideRightOffset;
-                break;
+            Debug.LogError("[WorkspaceAnchorController] workspaceAnchor is null.");
+            return;
         }
 
-        workspaceAnchor.position =
-            frame.position +
-            frame.right * offset.x +
-            frame.up * offset.y +
-            frame.forward * offset.z;
+        Transform frame = (basis == FrameBasis.ViewBased) ? viewFrame : webcamFrame;
+        if (frame == null)
+        {
+            Debug.LogError("[WorkspaceAnchorController] basis frame is null (viewFrame/webcamFrame).");
+            return;
+        }
 
-        // Yaw-only alignment (keep upright)
-        Vector3 fwd = frame.forward;
-        fwd.y = 0f;
-        if (fwd.sqrMagnitude > 1e-6f)
-            workspaceAnchor.rotation = Quaternion.LookRotation(fwd.normalized, Vector3.up);
+        // --- Position ---
+        if (profile != null && profile.applyPosition)
+        {
+            Vector3 off = profile.offset;
+            workspaceAnchor.position =
+                frame.position +
+                frame.right * off.x +
+                frame.up * off.y +
+                frame.forward * off.z;
+        }
+
+        // --- Rotation (yaw only) ---
+        if (profile != null && profile.applyRotation)
+        {
+            Vector3 fwd = frame.forward;
+            fwd.y = 0f;
+            if (fwd.sqrMagnitude > 1e-6f)
+            {
+                Quaternion baseYaw = Quaternion.LookRotation(fwd.normalized, Vector3.up);
+                Quaternion extraYaw = Quaternion.Euler(0f, profile.yawOffsetDeg, 0f);
+                workspaceAnchor.rotation = baseYaw * extraYaw;
+            }
+        }
     }
 }

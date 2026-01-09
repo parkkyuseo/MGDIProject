@@ -11,31 +11,40 @@ public class StudyFlowController : MonoBehaviour
     [Header("References")]
     public WorkspaceAnchorController workspaceController;
 
-    [Tooltip("Placement task manager.")]
     public LegoPlacementTaskManager placementTask;
-
-    [Tooltip("Rotation task manager.")]
     public LegoRotationTaskManager rotationTask;
 
     [Header("Technique Controllers (optional)")]
-    [Tooltip("Enable this GameObject for Macro technique (e.g., macro grab controller).")]
-    public GameObject macroControllerRoot;
-
-    [Tooltip("Enable this GameObject for Micro technique (to be added later).")]
-    public GameObject microControllerRoot;
+    public GameObject macroControllerRoot; // e.g., ProxyHandR
+    public GameObject microControllerRoot; // later
 
     [Header("Current State")]
     public TaskType currentTask = TaskType.Placement;
     public Technique currentTechnique = Technique.Macro;
+    public WorkspaceAnchorController.HandLocation currentHandLocation = WorkspaceAnchorController.HandLocation.NearHead;
 
-    [Header("Flow Settings")]
-    public bool autoApplyWorkspaceOnStart = true;
+    [Header("Workspace Profiles (Task × Technique × Location)")]
+    public WorkspaceAnchorController.WorkspaceProfile placement_macro_near;
+    public WorkspaceAnchorController.WorkspaceProfile placement_macro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile placement_macro_sideRight;
+
+    public WorkspaceAnchorController.WorkspaceProfile placement_micro_near;
+    public WorkspaceAnchorController.WorkspaceProfile placement_micro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile placement_micro_sideRight;
+
+    public WorkspaceAnchorController.WorkspaceProfile rotation_macro_near;
+    public WorkspaceAnchorController.WorkspaceProfile rotation_macro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile rotation_macro_sideRight;
+
+    public WorkspaceAnchorController.WorkspaceProfile rotation_micro_near;
+    public WorkspaceAnchorController.WorkspaceProfile rotation_micro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile rotation_micro_sideRight;
 
     [Header("Voice Commands")]
     public bool enableVoice = true;
 
     public string cmdStartPlacement = "start placement";
-    public string cmdStartRotation  = "start rotation";
+    public string cmdStartRotation = "start rotation";
     public string cmdRestart = "restart";
     public string cmdNext = "next";
 
@@ -57,16 +66,16 @@ public class StudyFlowController : MonoBehaviour
         {
             { cmdStartPlacement, () => StartTask(TaskType.Placement) },
             { cmdStartRotation,  () => StartTask(TaskType.Rotation) },
-            { cmdRestart,        RestartCurrent },
 
-            { cmdNext,           NextConditionAndRestart },
+            { cmdRestart, RestartCurrent },
+            { cmdNext,    NextConditionAndRestart },
 
-            { cmdMacro,          () => SetTechnique(Technique.Macro, restart:true) },
-            { cmdMicro,          () => SetTechnique(Technique.Micro, restart:true) },
+            { cmdMacro, () => SetTechnique(Technique.Macro, restart:true) },
+            { cmdMicro, () => SetTechnique(Technique.Micro, restart:true) },
 
-            { cmdNear,           () => SetHandLocation(WorkspaceAnchorController.HandLocation.NearHead, restart:false) },
-            { cmdSideLeft,       () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyLeft, restart:false) },
-            { cmdSideRight,      () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyRight, restart:false) },
+            { cmdNear,      () => SetHandLocation(WorkspaceAnchorController.HandLocation.NearHead, restart:false) },
+            { cmdSideLeft,  () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyLeft, restart:false) },
+            { cmdSideRight, () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyRight, restart:false) },
         };
 
         recognizer = new KeywordRecognizer(actions.Keys.ToArray());
@@ -90,25 +99,22 @@ public class StudyFlowController : MonoBehaviour
         }
     }
 
-    // ---------------- Core actions ----------------
+    // ---------------- Flow ----------------
     public void StartTask(TaskType t)
     {
         currentTask = t;
 
         if (workspaceController == null)
         {
-            Debug.LogError("[StudyFlowController] workspaceController is missing.");
+            Debug.LogError("[StudyFlowController] workspaceController missing.");
             return;
         }
 
         ApplyTechnique();
-        if (autoApplyWorkspaceOnStart)
-            workspaceController.ApplyWorkspace();
+        ApplyWorkspaceProfile();
 
-        // Stop other tasks to avoid both running
         StopAllTasks();
 
-        // Start selected task
         switch (currentTask)
         {
             case TaskType.Placement:
@@ -122,7 +128,7 @@ public class StudyFlowController : MonoBehaviour
                 break;
         }
 
-        Debug.Log($"[StudyFlowController] Started {currentTask} / {currentTechnique} / {workspaceController.handLocation}");
+        Debug.Log($"[StudyFlowController] Started {currentTask} / {currentTechnique} / {currentHandLocation}");
     }
 
     public void RestartCurrent()
@@ -130,26 +136,18 @@ public class StudyFlowController : MonoBehaviour
         StartTask(currentTask);
     }
 
-    // 2×2×(location 3-state) 중에서: 우선 Technique×Location을 순환 (Near, SideLeft, SideRight)
-    // Macro/Micro를 먼저 바꾸고, 그 안에서 Near/Left/Right를 돌리는 식으로 설계
     public void NextConditionAndRestart()
     {
-        if (workspaceController == null) return;
-
-        // Cycle location first
-        var loc = workspaceController.handLocation;
-        if (loc == WorkspaceAnchorController.HandLocation.NearHead)
-            loc = WorkspaceAnchorController.HandLocation.SideOfBodyLeft;
-        else if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft)
-            loc = WorkspaceAnchorController.HandLocation.SideOfBodyRight;
+        // Cycle location first, then flip technique
+        if (currentHandLocation == WorkspaceAnchorController.HandLocation.NearHead)
+            currentHandLocation = WorkspaceAnchorController.HandLocation.SideOfBodyLeft;
+        else if (currentHandLocation == WorkspaceAnchorController.HandLocation.SideOfBodyLeft)
+            currentHandLocation = WorkspaceAnchorController.HandLocation.SideOfBodyRight;
         else
         {
-            // if we completed location cycle, flip technique
-            loc = WorkspaceAnchorController.HandLocation.NearHead;
+            currentHandLocation = WorkspaceAnchorController.HandLocation.NearHead;
             currentTechnique = (currentTechnique == Technique.Macro) ? Technique.Micro : Technique.Macro;
         }
-
-        workspaceController.handLocation = loc;
 
         RestartCurrent();
     }
@@ -158,30 +156,72 @@ public class StudyFlowController : MonoBehaviour
     {
         currentTechnique = tech;
         ApplyTechnique();
-
-        if (restart)
-            RestartCurrent();
-        else
-            Debug.Log($"[StudyFlowController] Technique set to {currentTechnique}");
+        if (restart) RestartCurrent();
     }
 
     public void SetHandLocation(WorkspaceAnchorController.HandLocation loc, bool restart)
     {
-        if (workspaceController == null) return;
-
-        workspaceController.handLocation = loc;
-        workspaceController.ApplyWorkspace();
-
-        if (restart)
-            RestartCurrent();
-        else
-            Debug.Log($"[StudyFlowController] HandLocation set to {loc}");
+        currentHandLocation = loc;
+        if (restart) RestartCurrent();
+        else ApplyWorkspaceProfile();
     }
 
-    // ---------------- Helpers ----------------
+    // ---------------- Apply workspace ----------------
+    private void ApplyWorkspaceProfile()
+    {
+        var profile = GetProfile(currentTask, currentTechnique, currentHandLocation);
+        if (profile == null)
+        {
+            Debug.LogWarning("[StudyFlowController] Workspace profile is null. No workspace movement will be applied.");
+            return;
+        }
+
+        workspaceController.handLocation = currentHandLocation;
+        workspaceController.ApplyProfile(profile);
+    }
+
+    private WorkspaceAnchorController.WorkspaceProfile GetProfile(TaskType task, Technique tech, WorkspaceAnchorController.HandLocation loc)
+    {
+        // Placement
+        if (task == TaskType.Placement)
+        {
+            if (tech == Technique.Macro)
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) return placement_macro_near;
+                if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return placement_macro_sideLeft;
+                return placement_macro_sideRight;
+            }
+            else
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) return placement_micro_near;
+                if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return placement_micro_sideLeft;
+                return placement_micro_sideRight;
+            }
+        }
+
+        // Rotation
+        if (task == TaskType.Rotation)
+        {
+            if (tech == Technique.Macro)
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) return rotation_macro_near;
+                if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return rotation_macro_sideLeft;
+                return rotation_macro_sideRight;
+            }
+            else
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) return rotation_micro_near;
+                if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return rotation_micro_sideLeft;
+                return rotation_micro_sideRight;
+            }
+        }
+
+        return null;
+    }
+
+    // ---------------- Technique toggles ----------------
     private void ApplyTechnique()
     {
-        // Simple enable/disable toggles. Later, connect micro controller here.
         if (macroControllerRoot != null)
             macroControllerRoot.SetActive(currentTechnique == Technique.Macro);
 
@@ -191,21 +231,11 @@ public class StudyFlowController : MonoBehaviour
 
     private void StopAllTasks()
     {
-        // We don't have a Stop API, so the simplest safe approach is:
-        // disable the GameObject containing the manager, then re-enable when starting.
-        // If you prefer, we can add StopBlock() to each manager later.
+        // Disable both, then enable the current one (simple but effective)
+        if (placementTask != null) placementTask.gameObject.SetActive(false);
+        if (rotationTask != null) rotationTask.gameObject.SetActive(false);
 
-        if (placementTask != null && placementTask.gameObject.activeSelf)
-            placementTask.gameObject.SetActive(false);
-
-        if (rotationTask != null && rotationTask.gameObject.activeSelf)
-            rotationTask.gameObject.SetActive(false);
-
-        // Re-enable the one we actually start in StartTask()
-        if (currentTask == TaskType.Placement && placementTask != null)
-            placementTask.gameObject.SetActive(true);
-
-        if (currentTask == TaskType.Rotation && rotationTask != null)
-            rotationTask.gameObject.SetActive(true);
+        if (currentTask == TaskType.Placement && placementTask != null) placementTask.gameObject.SetActive(true);
+        if (currentTask == TaskType.Rotation && rotationTask != null) rotationTask.gameObject.SetActive(true);
     }
 }
