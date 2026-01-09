@@ -142,7 +142,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &5334210
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3201,7 +3201,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1568458988}
-  - component: {fileID: 1568458989}
   m_Layer: 0
   m_Name: TargetSlotRoot
   m_TagString: Untagged
@@ -3218,28 +3217,13 @@ Transform:
   m_GameObject: {fileID: 1568458987}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.363, y: -0.348, z: 1.573}
+  m_LocalPosition: {x: 0.635, y: -0.416, z: 1.451}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 481999432}
   m_Father: {fileID: 913397330}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1568458989
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1568458987}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c32335ead13af904aa5d433c6274267b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  targetSlotRoot: {fileID: 1568458988}
-  targetSlotVisual: {fileID: 481999432}
-  targetRenderer: {fileID: 0}
 --- !u!1 &1585729301
 GameObject:
   m_ObjectHideFlags: 0
@@ -4240,7 +4224,7 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 300
+  trialTimeoutSeconds: 12
   dwellSeconds: 0.2
   minTolMeters: 0.02
   snapOnSuccess: 1
@@ -4251,11 +4235,11 @@ MonoBehaviour:
   startKeyword: start
   restartKeyword: restart
   autoStartInEditor: 1
-  localXRange: {x: -0.3, y: 0.4}
-  localYRange: {x: 0, y: 0.1}
-  localZRange: {x: -0.05, y: 0.05}
-  centerNoGoHalfWidthX: 0.12
-  minPlanarOffsetMeters: 0.3
+  localXRange: {x: -0.35, y: 0.45}
+  localYRange: {x: -0.3, y: 0.1}
+  localZRange: {x: -0.1, y: 0.1}
+  centerNoGoHalfWidthX: 0.1
+  minPlanarOffsetMeters: 0.25
   maxResampleAttempts: 20
   useBoundsCenterForSuccess: 1
 --- !u!1 &1992353097
