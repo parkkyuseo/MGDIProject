@@ -89,6 +89,10 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [Tooltip("Max resampling attempts.")]
     [SerializeField] private int maxResampleAttempts = 40;
 
+    [Header("Robust success metric")]
+    [Tooltip("If true, success uses Renderer.bounds.center distance (robust to pivot offsets).")]
+    [SerializeField] private bool useBoundsCenterForSuccess = true;
+
     // Runtime
     private int trialIndex = 0;
     private float trialTimer = 0f;
@@ -100,11 +104,15 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private bool trialRunning = false;
     private bool inTransition = false;
 
+    // Cached renderers (refreshed each trial)
+    private Renderer _blockR;
+    private Renderer _targetR;
+
     // Voice
     private KeywordRecognizer keywordRecognizer;
     private Dictionary<string, System.Action> keywordActions;
 
-    // ---------------- Public ----------------
+    // ---------------- Debug helpers ----------------
     static string GetPath(Transform t)
     {
         if (t == null) return "<null>";
@@ -116,6 +124,8 @@ public class LegoPlacementTaskManager : MonoBehaviour
         }
         return p;
     }
+
+    // Optional gizmo drawing (kept from your version)
     void OnDrawGizmos()
     {
         if (blockRoot == null || targetSlotRoot == null) return;
@@ -145,17 +155,19 @@ public class LegoPlacementTaskManager : MonoBehaviour
             Gizmos.DrawLine(targetSlotRoot.position, targetR.bounds.center);
         }
 
-        // Root-to-root line (what your success check uses)
+        // Root-to-root line (what pivot success check uses)
         Gizmos.color = Color.magenta;
         Gizmos.DrawLine(blockRoot.position, targetSlotRoot.position);
 
-        // Mesh-center-to-mesh-center line (what your eyes use)
+        // Mesh-center-to-mesh-center line (what bounds-center success check uses)
         if (blockR != null && targetR != null)
         {
             Gizmos.color = Color.white;
             Gizmos.DrawLine(blockR.bounds.center, targetR.bounds.center);
         }
     }
+
+    // ---------------- Public ----------------
     public void StartBlock()
     {
         StopAllCoroutines();
@@ -188,7 +200,8 @@ public class LegoPlacementTaskManager : MonoBehaviour
             return;
         }
 
-        float err = Vector3.Distance(blockRoot.position, targetSlotRoot.position);
+        // --- Robust error metric (bounds center) or pivot metric ---
+        float err = ComputeErrorMeters();
 
         if (err <= tolerance)
         {
@@ -201,22 +214,15 @@ public class LegoPlacementTaskManager : MonoBehaviour
             dwellTimer = 0f;
         }
 
-
-        // ERROR LOG
-        /* if (Time.frameCount % 12 == 0)
-         * {
-         *     float errDbg = Vector3.Distance(blockRoot.position, targetSlotRoot.position);
-         *     DebugHUD.Log($"[PlacementDebug] err={errDbg:F4} tol={tolerance:F4} dwell={dwellTimer:F3}/{dwellSeconds:F3} " +
-         *               $"block={blockRoot.position} target={targetSlotRoot.position}");
-         * } */
+        // Debug: show reference paths occasionally
         if (Time.frameCount % 60 == 0)
         {
             DebugHUD.Log($"blockRoot={blockRoot.name} pos={blockRoot.position}");
             DebugHUD.Log($"targetSlotRoot={targetSlotRoot.name} pos={targetSlotRoot.position}");
             DebugHUD.Log($"blockRootPath={GetPath(blockRoot)}");
             DebugHUD.Log($"targetSlotRootPath={GetPath(targetSlotRoot)}");
+            DebugHUD.Log($"err={err:F4} tol={tolerance:F4} dwell={dwellTimer:F3}/{dwellSeconds:F3}");
         }
-
     }
 
     // ---------------- Trial Flow ----------------
@@ -244,7 +250,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
         // Anchor referenceFrame position to the block start position each trial (POSITION ONLY).
         if (anchorReferenceFrameToBlock)
         {
-            // Keep referenceFrame rotation as-is; only move position.
             referenceFrame.position = blockRoot.position + referenceFrame.TransformVector(referenceFrameOffsetLocal);
         }
 
@@ -261,8 +266,12 @@ public class LegoPlacementTaskManager : MonoBehaviour
             targetSlotVisual.rotation = blockRoot.rotation;
         }
 
-        // Compute tolerance
-        float targetDistance = Vector3.Distance(startPos, targetSlotRoot.position);
+        // Refresh renderers each trial (target visual is updated/repositioned)
+        _blockR = blockRoot.GetComponentInChildren<Renderer>(true);
+        _targetR = targetSlotRoot.GetComponentInChildren<Renderer>(true);
+
+        // Compute tolerance using the same metric as success
+        float targetDistance = ComputeDistanceAtTrialStart();
         tolerance = Mathf.Max(0.05f * targetDistance, minTolMeters);
 
         // Reset timers
@@ -317,7 +326,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
             ForceReleaseIfPossible();
 
             if (snapOnSuccess)
-                SnapBlockToTarget();
+                SnapBlockToTarget(); // now snaps by bounds center
 
             PlaySnapSound();
             ShowStar();
@@ -345,11 +354,59 @@ public class LegoPlacementTaskManager : MonoBehaviour
         BeginNextTrial();
     }
 
+    // ---------------- Core metric helpers ----------------
+    private float ComputeErrorMeters()
+    {
+        if (!useBoundsCenterForSuccess)
+        {
+            return Vector3.Distance(blockRoot.position, targetSlotRoot.position);
+        }
+
+        // bounds-center metric (robust)
+        if (_blockR == null) _blockR = blockRoot.GetComponentInChildren<Renderer>(true);
+        if (_targetR == null) _targetR = targetSlotRoot.GetComponentInChildren<Renderer>(true);
+
+        if (_blockR == null || _targetR == null)
+        {
+            // fallback to pivot distance if renderer missing
+            return Vector3.Distance(blockRoot.position, targetSlotRoot.position);
+        }
+
+        return Vector3.Distance(_blockR.bounds.center, _targetR.bounds.center);
+    }
+
+    private float ComputeDistanceAtTrialStart()
+    {
+        // Use the same metric as err so tolerance stays consistent
+        return ComputeErrorMeters();
+    }
+
     // ---------------- Helpers ----------------
     private void SnapBlockToTarget()
     {
-        // Placement: snap position only (rotation already locked during grab)
-        blockRoot.position = targetSlotRoot.position;
+        if (!useBoundsCenterForSuccess)
+        {
+            // Pivot snap
+            blockRoot.position = targetSlotRoot.position;
+            return;
+        }
+
+        if (_blockR == null) _blockR = blockRoot.GetComponentInChildren<Renderer>(true);
+        if (_targetR == null) _targetR = targetSlotRoot.GetComponentInChildren<Renderer>(true);
+
+        if (_blockR == null || _targetR == null)
+        {
+            // fallback
+            blockRoot.position = targetSlotRoot.position;
+            return;
+        }
+
+        // Move blockRoot so that block bounds center matches target bounds center.
+        Vector3 blockCenter = _blockR.bounds.center;
+        Vector3 targetCenter = _targetR.bounds.center;
+
+        Vector3 delta = targetCenter - blockCenter;
+        blockRoot.position += delta;
     }
 
     private void ForceReleaseIfPossible()
