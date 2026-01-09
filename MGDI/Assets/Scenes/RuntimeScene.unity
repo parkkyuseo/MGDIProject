@@ -1049,6 +1049,73 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1722393064}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &584929086
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 584929087}
+  - component: {fileID: 584929088}
+  m_Layer: 0
+  m_Name: LegoRotationTask
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &584929087
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 584929086}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1551205279}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &584929088
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 584929086}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e9aac8cd82df224295d438e752b44b4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  blockRoot: {fileID: 168584006}
+  targetSlotRoot: {fileID: 1568458988}
+  targetSlotVisual: {fileID: 481999432}
+  grabReleaseComponent: {fileID: 4217352218302390358}
+  audioSource: {fileID: 1481024369}
+  snapClip: {fileID: 8300000, guid: 61eb6ff0ade160e47ae0945392535fe9, type: 3}
+  starUI: {fileID: 1610688646}
+  xUI: {fileID: 991644837}
+  feedbackShowSeconds: 0.5
+  trialTimeoutSeconds: 12
+  dwellSeconds: 0.2
+  yawToleranceDeg: 10
+  postSnapHoldSeconds: 0.35
+  resetBlockYawAfterTrial: 1
+  resetBlockPositionAfterTrial: 0
+  yawMinDeg: 30
+  yawMaxDeg: 90
+  randomizeYawSign: 1
+  totalTrials: 20
+  enableVoiceStart: 0
+  startKeyword: start
+  restartKeyword: restart
+  autoStartInEditor: 0
 --- !u!1 &672060782
 GameObject:
   m_ObjectHideFlags: 0
@@ -3142,6 +3209,7 @@ Transform:
   - {fileID: 1246044927}
   - {fileID: 67424054}
   - {fileID: 489815358}
+  - {fileID: 584929087}
   m_Father: {fileID: 770468291}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1551205280
@@ -3158,14 +3226,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   workspaceController: {fileID: 489815359}
   placementTask: {fileID: 1964408501}
+  rotationTask: {fileID: 584929088}
+  macroControllerRoot: {fileID: 3588484702831311607}
+  microControllerRoot: {fileID: 0}
+  currentTask: 0
+  currentTechnique: 0
   autoApplyWorkspaceOnStart: 1
   enableVoice: 1
-  cmdStart: start
+  cmdStartPlacement: start placement
+  cmdStartRotation: start rotation
+  cmdRestart: restart
   cmdNext: next
+  cmdMacro: macro
+  cmdMicro: micro
   cmdNear: near
   cmdSideLeft: side left
   cmdSideRight: side right
-  cmdRestart: restart
 --- !u!1 &1555681463
 GameObject:
   m_ObjectHideFlags: 0
@@ -4332,7 +4408,7 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 2
+  trialTimeoutSeconds: 12
   dwellSeconds: 0.2
   minTolMeters: 0.02
   snapOnSuccess: 1
