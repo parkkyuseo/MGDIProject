@@ -4224,7 +4224,7 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 2
+  trialTimeoutSeconds: 300
   dwellSeconds: 0.2
   minTolMeters: 0.02
   snapOnSuccess: 1
@@ -4241,6 +4241,7 @@ MonoBehaviour:
   centerNoGoHalfWidthX: 0.12
   minPlanarOffsetMeters: 0.3
   maxResampleAttempts: 20
+  useBoundsCenterForSuccess: 1
 --- !u!1 &1992353097
 GameObject:
   m_ObjectHideFlags: 0
