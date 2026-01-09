@@ -3,17 +3,41 @@ using UnityEngine;
 public class TargetPivotAligner : MonoBehaviour
 {
     [Header("Assign these")]
-    [Tooltip("Empty root pivot to be aligned (TargetSlotRoot).")]
-    public Transform targetSlotRoot;
+    public Transform targetSlotRoot;    // TargetSlotRoot (Empty)
+    public Transform targetSlotVisual;  // TargetSlotVisual (Empty)
+    public Renderer targetRenderer;     // Renderer under the visual (transparent lego)
 
-    [Tooltip("Visual parent under the root (TargetSlotVisual).")]
-    public Transform targetSlotVisual;
+    private Renderer ResolveRenderer()
+    {
+        if (targetRenderer != null) return targetRenderer;
+        if (targetSlotVisual == null) return null;
+        return targetSlotVisual.GetComponentInChildren<Renderer>(true);
+    }
 
-    [Tooltip("Renderer inside the visual (the transparent lego). If null, auto-finds under targetSlotVisual.")]
-    public Renderer targetRenderer;
+    [ContextMenu("Align Root To Visual Center (MOVE ROOT ONLY)")]
+    public void AlignRoot_MoveRootOnly()
+    {
+        if (targetSlotRoot == null)
+        {
+            Debug.LogError("[TargetPivotAligner] targetSlotRoot is null.");
+            return;
+        }
 
-    [ContextMenu("Align TargetSlotRoot To Visual Center (Keep Visual World Pose)")]
-    public void AlignRootToVisualCenter()
+        var r = ResolveRenderer();
+        if (r == null)
+        {
+            Debug.LogError("[TargetPivotAligner] No Renderer found under targetSlotVisual.");
+            return;
+        }
+
+        Vector3 center = r.bounds.center;
+        targetSlotRoot.position = center;
+
+        Debug.Log("[TargetPivotAligner] Root moved to visual center (move root only).");
+    }
+
+    [ContextMenu("Align Root To Visual Center (KEEP VISUAL WORLD POSE)")]
+    public void AlignRoot_KeepVisualWorldPose()
     {
         if (targetSlotRoot == null || targetSlotVisual == null)
         {
@@ -21,30 +45,23 @@ public class TargetPivotAligner : MonoBehaviour
             return;
         }
 
-        if (targetRenderer == null)
-            targetRenderer = targetSlotVisual.GetComponentInChildren<Renderer>(true);
-
-        if (targetRenderer == null)
+        var r = ResolveRenderer();
+        if (r == null)
         {
             Debug.LogError("[TargetPivotAligner] No Renderer found under targetSlotVisual.");
             return;
         }
 
-        // Current world center of the visible target mesh
-        Vector3 visualCenterWorld = targetRenderer.bounds.center;
+        Vector3 visualCenterWorld = r.bounds.center;
 
-        // Keep visual world pose while moving the root pivot to the visual center
         Vector3 rootPosBefore = targetSlotRoot.position;
         Vector3 visualPosBefore = targetSlotVisual.position;
 
         Vector3 delta = visualCenterWorld - rootPosBefore;
 
-        // Move root to the visual center
         targetSlotRoot.position = rootPosBefore + delta;
-
-        // Move visual back so its world position doesn't change (keep appearance stable)
         targetSlotVisual.position = visualPosBefore - delta;
 
-        Debug.Log($"[TargetPivotAligner] Aligned root by delta={delta}.");
+        Debug.Log($"[TargetPivotAligner] Root aligned while keeping visual pose. delta={delta}");
     }
 }
