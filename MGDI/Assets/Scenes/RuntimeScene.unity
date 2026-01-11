@@ -1013,9 +1013,6 @@ MonoBehaviour:
   workspaceAnchor: {fileID: 489815358}
   viewFrame: {fileID: 963194228}
   webcamFrame: {fileID: 963194228}
-  nearHeadOffset: {x: 0, y: 0.05, z: 0.6}
-  sideLeftOffset: {x: -0.25, y: 0, z: 0.6}
-  sideRightOffset: {x: 0.25, y: 0, z: 0.6}
   basis: 1
   handLocation: 0
 --- !u!1 &584725952
@@ -3231,7 +3228,67 @@ MonoBehaviour:
   microControllerRoot: {fileID: 0}
   currentTask: 0
   currentTechnique: 0
-  autoApplyWorkspaceOnStart: 1
+  currentHandLocation: 0
+  placement_macro_near:
+    applyPosition: 0
+    applyRotation: 0
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  placement_macro_sideLeft:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  placement_macro_sideRight:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  placement_micro_near:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  placement_micro_sideLeft:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  placement_micro_sideRight:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  rotation_macro_near:
+    applyPosition: 0
+    applyRotation: 0
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  rotation_macro_sideLeft:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  rotation_macro_sideRight:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  rotation_micro_near:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  rotation_micro_sideLeft:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
+  rotation_micro_sideRight:
+    applyPosition: 1
+    applyRotation: 1
+    offset: {x: 0, y: 0.05, z: 0.6}
+    yawOffsetDeg: 0
   enableVoice: 1
   cmdStartPlacement: start placement
   cmdStartRotation: start rotation
