@@ -1094,6 +1094,7 @@ MonoBehaviour:
   targetSlotRoot: {fileID: 1568458988}
   targetSlotVisual: {fileID: 481999432}
   grabReleaseComponent: {fileID: 4217352218302390358}
+  remoteHand: {fileID: 1722393066}
   audioSource: {fileID: 1481024369}
   snapClip: {fileID: 8300000, guid: 61eb6ff0ade160e47ae0945392535fe9, type: 3}
   starUI: {fileID: 1610688646}
@@ -1102,9 +1103,11 @@ MonoBehaviour:
   trialTimeoutSeconds: 12
   dwellSeconds: 0.2
   yawToleranceDeg: 10
+  twistToYawGain: 1.5
+  yawMaxDegPerSec: 240
+  yawLerp: 0.15
   postSnapHoldSeconds: 0.35
   resetBlockYawAfterTrial: 1
-  resetBlockPositionAfterTrial: 0
   yawMinDeg: 30
   yawMaxDeg: 90
   randomizeYawSign: 1
