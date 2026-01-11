@@ -154,7 +154,9 @@ public class LegoRotationTaskManager : MonoBehaviour
 
     private void Update()
     {
+        DebugHUD.Log("[RotationTM] Update alive");
         if (!trialRunning || inTransition) return;
+        DebugHUD.Log($"[RotationTM] trialRunning={trialRunning} inTransition={inTransition}");
 
         trialTimer += Time.deltaTime;
 
