@@ -42,6 +42,9 @@ public class ProxyHandGrabber : MonoBehaviour
     [Header("Debug")]
     public bool logDebug = true;
 
+    public bool IsHolding => _heldBody != null;
+    public Rigidbody HeldBody => _heldBody;
+
     Collider[] _overlapBuffer = new Collider[32];
 
     Rigidbody _heldBody;

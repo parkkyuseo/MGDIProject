@@ -7,14 +7,22 @@ using UnityEngine.Windows.Speech;
 public class LegoRotationTaskManager : MonoBehaviour
 {
     [Header("References")]
+    [Tooltip("The transform that rotates (use LegoBlockRoot).")]
     [SerializeField] private Transform blockRoot;
+
+    [Tooltip("The target slot root transform (EMPTY root). Used for position anchoring.")]
     [SerializeField] private Transform targetSlotRoot;
+
+    [Tooltip("Target visual transform (EMPTY visual parent). Used for yaw reference.")]
     [SerializeField] private Transform targetSlotVisual;
 
     [Tooltip("ProxyHandGrabber (or similar) that supports ForceRelease() and SetFollowHeldRotation(bool).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
 
-    [Tooltip("RemoteHandRuntime that provides TwistDegrees.")]
+    [Tooltip("ProxyHandGrabber instance (for gating rotation only when holding).")]
+    [SerializeField] private ProxyHandGrabber grabber;
+
+    [Tooltip("RemoteHandRuntime that provides TwistDegrees / TwistReady.")]
     [SerializeField] private RemoteHandRuntime remoteHand;
 
     [Header("Feedback (Audio / UI)")]
@@ -35,12 +43,22 @@ public class LegoRotationTaskManager : MonoBehaviour
     [Tooltip("Yaw change per 1 degree of twist. 1.0 = 1:1, 2.0 = 2x.")]
     [SerializeField] private float twistToYawGain = 1.5f;
 
+    [Tooltip("If true, invert twist sign for yaw mapping.")]
+    [SerializeField] private bool invertTwistToYaw = false;
+
     [Tooltip("Clamp yaw speed (deg/sec) to prevent jumps.")]
     [SerializeField] private float yawMaxDegPerSec = 240f;
 
     [Tooltip("Extra smoothing for yaw command (0=no extra smoothing, 1=very slow).")]
     [Range(0f, 1f)]
     [SerializeField] private float yawLerp = 0.15f;
+
+    [Header("Rotation gating")]
+    [Tooltip("If true, block yaw is driven only while grabber is holding something (more natural).")]
+    [SerializeField] private bool rotateOnlyWhenHolding = true;
+
+    [Tooltip("If true, rotation is driven only when grabber is holding THIS block rigidbody.")]
+    [SerializeField] private bool requireHoldingThisBlock = true;
 
     [Header("Inter-trial behavior")]
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
@@ -55,7 +73,7 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private int totalTrials = 20;
 
     [Header("Voice Start (HoloLens)")]
-    [SerializeField] private bool enableVoiceStart = true;
+    [SerializeField] private bool enableVoiceStart = false; // 보통 FlowController가 담당
     [SerializeField] private string startKeyword = "start rotation";
     [SerializeField] private string restartKeyword = "restart rotation";
     [SerializeField] private bool autoStartInEditor = false;
@@ -75,6 +93,9 @@ public class LegoRotationTaskManager : MonoBehaviour
     private bool trialRunning = false;
     private bool inTransition = false;
 
+    // Cached block rigidbody (for holding check)
+    private Rigidbody _blockBody;
+
     // Voice
     private KeywordRecognizer keywordRecognizer;
     private Dictionary<string, System.Action> keywordActions;
@@ -91,6 +112,10 @@ public class LegoRotationTaskManager : MonoBehaviour
     private void Start()
     {
         HideFeedbackUI();
+
+        // cache block rigidbody if available
+        if (blockRoot != null)
+            _blockBody = blockRoot.GetComponentInParent<Rigidbody>() ?? blockRoot.GetComponentInChildren<Rigidbody>();
 
         if (enableVoiceStart)
             SetupVoiceCommands();
@@ -111,8 +136,16 @@ public class LegoRotationTaskManager : MonoBehaviour
             return;
         }
 
-        // 1) Update block yaw from twist (yaw-only)
-        UpdateYawFromTwist();
+        // 1) Drive yaw from twist ONLY when allowed
+        if (ShouldDriveRotationThisFrame())
+        {
+            UpdateYawFromTwist();
+        }
+        else
+        {
+            // If rotation is gated off, do not accumulate dwell
+            dwellTimer = 0f;
+        }
 
         // 2) Evaluate yaw error
         float yawErr = ComputeYawErrorDeg();
@@ -128,11 +161,34 @@ public class LegoRotationTaskManager : MonoBehaviour
         }
     }
 
+    private bool ShouldDriveRotationThisFrame()
+    {
+        if (!rotateOnlyWhenHolding) return true;
+
+        if (grabber == null) return false;
+        if (!grabber.IsHolding) return false;
+
+        if (!requireHoldingThisBlock) return true;
+
+        // Need block body and grabber held body
+        if (_blockBody == null) return false;
+        if (grabber.HeldBody == null) return false;
+
+        return grabber.HeldBody == _blockBody;
+    }
+
     private void BeginNextTrial()
     {
         if (blockRoot == null || targetSlotRoot == null || targetSlotVisual == null)
         {
             Debug.LogError("[LegoRotationTaskManager] Missing references.");
+            trialRunning = false;
+            return;
+        }
+
+        if (remoteHand == null)
+        {
+            Debug.LogError("[LegoRotationTaskManager] remoteHand is null (RemoteHandRuntime).");
             trialRunning = false;
             return;
         }
@@ -144,12 +200,8 @@ public class LegoRotationTaskManager : MonoBehaviour
             return;
         }
 
-        // Rotation task: DO NOT follow full hand rotation.
-        // We will drive yaw ourselves from twist.
+        // Rotation task: we drive yaw ourselves from twist, so we do NOT follow full hand rotation.
         SetGrabberFollowRotation(false);
-
-        // Optional: ensure not held
-        ForceReleaseIfPossible();
 
         // Record start pose
         startPos = blockRoot.position;
@@ -158,14 +210,14 @@ public class LegoRotationTaskManager : MonoBehaviour
         // Anchor target position to current block position (pure rotation task)
         targetSlotRoot.position = startPos;
 
-        // Sample target yaw offset
+        // Sample target yaw offset and apply to target visual
         float offset = Random.Range(yawMinDeg, yawMaxDeg);
         if (randomizeYawSign && Random.value < 0.5f) offset = -offset;
 
         float targetYaw = startYawDeg + offset;
         targetSlotVisual.rotation = Quaternion.Euler(0f, targetYaw, 0f);
 
-        // Capture twist baseline (so user can twist relative to current neutral)
+        // Capture twist baseline (trial-specific)
         twistBaselineDeg = GetTwistSafe();
         yawCmdDeg = startYawDeg;
         yawCmdInit = true;
@@ -181,8 +233,7 @@ public class LegoRotationTaskManager : MonoBehaviour
     private float GetTwistSafe()
     {
         if (remoteHand == null) return 0f;
-        if (!remoteHand.TwistReady) return remoteHand.TwistDegrees; // best effort
-        return remoteHand.TwistDegrees;
+        return remoteHand.TwistDegrees; // best effort (TwistReady may still be false early)
     }
 
     private void UpdateYawFromTwist()
@@ -190,13 +241,14 @@ public class LegoRotationTaskManager : MonoBehaviour
         float twistNow = GetTwistSafe();
         float dTwist = twistNow - twistBaselineDeg; // degrees
 
+        float sign = invertTwistToYaw ? -1f : 1f;
+
         // Desired yaw
-        float desiredYaw = startYawDeg + dTwist * twistToYawGain;
+        float desiredYaw = startYawDeg + dTwist * twistToYawGain * sign;
 
         // Smooth + clamp speed
         float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
 
-        // Initialize smoothing on first use
         if (!yawCmdInit)
         {
             yawCmdDeg = desiredYaw;
@@ -271,16 +323,16 @@ public class LegoRotationTaskManager : MonoBehaviour
         yawCmdDeg = startYawDeg;
     }
 
-    private void ForceReleaseIfPossible()
-    {
-        if (grabReleaseComponent != null)
-            grabReleaseComponent.SendMessage("ForceRelease", SendMessageOptions.DontRequireReceiver);
-    }
-
     private void SetGrabberFollowRotation(bool follow)
     {
         if (grabReleaseComponent != null)
             grabReleaseComponent.SendMessage("SetFollowHeldRotation", follow, SendMessageOptions.DontRequireReceiver);
+    }
+
+    private void ForceReleaseIfPossible()
+    {
+        if (grabReleaseComponent != null)
+            grabReleaseComponent.SendMessage("ForceRelease", SendMessageOptions.DontRequireReceiver);
     }
 
     private void PlaySnapSound()
