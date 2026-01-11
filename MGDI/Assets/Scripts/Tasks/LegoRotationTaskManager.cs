@@ -202,6 +202,19 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         if (grabber.HeldBody == null) return false;
 
+
+        // LOG
+        if (Time.frameCount % 30 == 0)
+        {
+            bool isHolding = (grabber != null && grabber.IsHolding);
+            var held = (grabber != null) ? grabber.HeldBody : null;
+
+            DebugHUD.Log($"[RotateGate] rotateOnlyWhenHolding={rotateOnlyWhenHolding} requireThis={requireHoldingThisBlock} " +
+                      $"isHolding={isHolding} heldBody={(held != null ? held.name : "null")} " +
+                      $"blockBody={(_blockBody != null ? _blockBody.name : "null")}");
+        }
+        // LOG END
+
         return grabber.HeldBody == _blockBody;
     }
 
