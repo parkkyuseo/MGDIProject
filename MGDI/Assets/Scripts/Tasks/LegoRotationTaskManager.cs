@@ -7,14 +7,9 @@ using UnityEngine.Windows.Speech;
 public class LegoRotationTaskManager : MonoBehaviour
 {
     [Header("References")]
-    [Tooltip("The transform that rotates (use LegoBlockRoot).")]
     [SerializeField] private Transform blockRoot;
-
-    [Tooltip("The target slot root transform (EMPTY root). Used for position anchoring.")]
-    [SerializeField] private Transform targetSlotRoot;
-
-    [Tooltip("Target visual transform (EMPTY visual parent). Used for yaw reference.")]
-    [SerializeField] private Transform targetSlotVisual;
+    [SerializeField] private Transform targetSlotRoot;    // EMPTY root for target pose
+    [SerializeField] private Transform targetSlotVisual;  // EMPTY visual parent (yaw reference)
 
     [Tooltip("ProxyHandGrabber (or similar) that supports ForceRelease() and SetFollowHeldRotation(bool).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
@@ -40,25 +35,24 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private float yawToleranceDeg = 10f;
 
     [Header("Twist → Yaw mapping")]
-    [Tooltip("Yaw change per 1 degree of twist. 1.0 = 1:1, 2.0 = 2x.")]
     [SerializeField] private float twistToYawGain = 1.5f;
-
-    [Tooltip("If true, invert twist sign for yaw mapping.")]
     [SerializeField] private bool invertTwistToYaw = false;
-
-    [Tooltip("Clamp yaw speed (deg/sec) to prevent jumps.")]
     [SerializeField] private float yawMaxDegPerSec = 240f;
-
-    [Tooltip("Extra smoothing for yaw command (0=no extra smoothing, 1=very slow).")]
     [Range(0f, 1f)]
     [SerializeField] private float yawLerp = 0.15f;
 
     [Header("Rotation gating")]
-    [Tooltip("If true, block yaw is driven only while grabber is holding something (more natural).")]
     [SerializeField] private bool rotateOnlyWhenHolding = true;
 
-    [Tooltip("If true, rotation is driven only when grabber is holding THIS block rigidbody.")]
+    [Tooltip("If true, drive rotation only when the grabber is holding THIS block rigidbody.")]
     [SerializeField] private bool requireHoldingThisBlock = true;
+
+    [Header("Target position policy")]
+    [Tooltip("If true, target position is fixed (does not change across trials).")]
+    [SerializeField] private bool lockTargetPosition = true;
+
+    [Tooltip("If lockTargetPosition is true, use this fixed world position. If not set, first trial captures current targetSlotRoot position.")]
+    [SerializeField] private Transform fixedTargetPose; // optional anchor transform
 
     [Header("Inter-trial behavior")]
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
@@ -73,7 +67,7 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private int totalTrials = 20;
 
     [Header("Voice Start (HoloLens)")]
-    [SerializeField] private bool enableVoiceStart = false; // 보통 FlowController가 담당
+    [SerializeField] private bool enableVoiceStart = false; // FlowController 권장
     [SerializeField] private string startKeyword = "start rotation";
     [SerializeField] private string restartKeyword = "restart rotation";
     [SerializeField] private bool autoStartInEditor = false;
@@ -83,9 +77,7 @@ public class LegoRotationTaskManager : MonoBehaviour
     private float trialTimer = 0f;
     private float dwellTimer = 0f;
 
-    private Vector3 startPos;
     private float startYawDeg;
-
     private float twistBaselineDeg;
     private float yawCmdDeg;
     private bool yawCmdInit = false;
@@ -93,8 +85,11 @@ public class LegoRotationTaskManager : MonoBehaviour
     private bool trialRunning = false;
     private bool inTransition = false;
 
-    // Cached block rigidbody (for holding check)
     private Rigidbody _blockBody;
+
+    // Fixed target position state
+    private bool _fixedTargetCaptured = false;
+    private Vector3 _fixedTargetPosWorld;
 
     // Voice
     private KeywordRecognizer keywordRecognizer;
@@ -106,6 +101,10 @@ public class LegoRotationTaskManager : MonoBehaviour
         inTransition = false;
         trialRunning = false;
         trialIndex = 0;
+
+        EnsureBlockBody();
+        EnsureFixedTarget();
+
         BeginNextTrial();
     }
 
@@ -113,15 +112,44 @@ public class LegoRotationTaskManager : MonoBehaviour
     {
         HideFeedbackUI();
 
-        // cache block rigidbody if available
-        if (blockRoot != null)
-            _blockBody = blockRoot.GetComponentInParent<Rigidbody>() ?? blockRoot.GetComponentInChildren<Rigidbody>();
+        EnsureBlockBody();
+        EnsureFixedTarget();
 
         if (enableVoiceStart)
             SetupVoiceCommands();
 
         if (autoStartInEditor && Application.isEditor)
             StartBlock();
+    }
+
+    private void EnsureBlockBody()
+    {
+        if (_blockBody != null) return;
+        if (blockRoot == null) return;
+
+        // IMPORTANT: use blockRoot itself first (avoid grabbing parent rigidbodies)
+        _blockBody = blockRoot.GetComponent<Rigidbody>();
+        if (_blockBody == null)
+            _blockBody = blockRoot.GetComponentInChildren<Rigidbody>(true);
+    }
+
+    private void EnsureFixedTarget()
+    {
+        if (!lockTargetPosition) return;
+        if (_fixedTargetCaptured) return;
+
+        if (fixedTargetPose != null)
+        {
+            _fixedTargetPosWorld = fixedTargetPose.position;
+            _fixedTargetCaptured = true;
+            return;
+        }
+
+        if (targetSlotRoot != null)
+        {
+            _fixedTargetPosWorld = targetSlotRoot.position;
+            _fixedTargetCaptured = true;
+        }
     }
 
     private void Update()
@@ -136,18 +164,17 @@ public class LegoRotationTaskManager : MonoBehaviour
             return;
         }
 
-        // 1) Drive yaw from twist ONLY when allowed
+        // Drive yaw from twist ONLY when allowed
         if (ShouldDriveRotationThisFrame())
         {
             UpdateYawFromTwist();
         }
         else
         {
-            // If rotation is gated off, do not accumulate dwell
+            // If gated off, do not allow dwell accumulation
             dwellTimer = 0f;
         }
 
-        // 2) Evaluate yaw error
         float yawErr = ComputeYawErrorDeg();
         if (yawErr <= yawToleranceDeg)
         {
@@ -170,8 +197,9 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         if (!requireHoldingThisBlock) return true;
 
-        // Need block body and grabber held body
-        if (_blockBody == null) return false;
+        EnsureBlockBody();
+        if (_blockBody == null) return false; // cannot verify holding
+
         if (grabber.HeldBody == null) return false;
 
         return grabber.HeldBody == _blockBody;
@@ -200,53 +228,57 @@ public class LegoRotationTaskManager : MonoBehaviour
             return;
         }
 
-        // Rotation task: we drive yaw ourselves from twist, so we do NOT follow full hand rotation.
+        // We drive yaw ourselves from twist, so do NOT follow held rotation
         SetGrabberFollowRotation(false);
 
-        // Record start pose
-        startPos = blockRoot.position;
+        // Rotation-only task: keep target position fixed (if enabled)
+        if (lockTargetPosition)
+        {
+            EnsureFixedTarget();
+            targetSlotRoot.position = _fixedTargetPosWorld;
+        }
+        else
+        {
+            // fallback: place target at current block position
+            targetSlotRoot.position = blockRoot.position;
+        }
+
+        // Optionally keep block at target position to make it pure rotation task
+        // (If you want block always at target, uncomment next line)
+        // blockRoot.position = targetSlotRoot.position;
+
+        // Record start yaw and baseline twist
         startYawDeg = blockRoot.eulerAngles.y;
+        twistBaselineDeg = remoteHand.TwistDegrees;
+        yawCmdDeg = startYawDeg;
+        yawCmdInit = true;
 
-        // Anchor target position to current block position (pure rotation task)
-        targetSlotRoot.position = startPos;
-
-        // Sample target yaw offset and apply to target visual
+        // Sample target yaw offset and apply to target visual (yaw-only)
         float offset = Random.Range(yawMinDeg, yawMaxDeg);
         if (randomizeYawSign && Random.value < 0.5f) offset = -offset;
 
         float targetYaw = startYawDeg + offset;
         targetSlotVisual.rotation = Quaternion.Euler(0f, targetYaw, 0f);
 
-        // Capture twist baseline (trial-specific)
-        twistBaselineDeg = GetTwistSafe();
-        yawCmdDeg = startYawDeg;
-        yawCmdInit = true;
-
         trialTimer = 0f;
         dwellTimer = 0f;
         trialRunning = true;
         inTransition = false;
 
-        Debug.Log($"[LegoRotationTaskManager] Trial {trialIndex + 1}/{totalTrials} targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg");
-    }
-
-    private float GetTwistSafe()
-    {
-        if (remoteHand == null) return 0f;
-        return remoteHand.TwistDegrees; // best effort (TwistReady may still be false early)
+        Debug.Log($"[LegoRotationTaskManager] Trial {trialIndex + 1}/{totalTrials} " +
+                  $"targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg " +
+                  $"targetPosFixed={lockTargetPosition}");
     }
 
     private void UpdateYawFromTwist()
     {
-        float twistNow = GetTwistSafe();
-        float dTwist = twistNow - twistBaselineDeg; // degrees
+        float twistNow = remoteHand.TwistDegrees;
+        float dTwist = twistNow - twistBaselineDeg;
 
         float sign = invertTwistToYaw ? -1f : 1f;
 
-        // Desired yaw
         float desiredYaw = startYawDeg + dTwist * twistToYawGain * sign;
 
-        // Smooth + clamp speed
         float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
 
         if (!yawCmdInit)
@@ -255,18 +287,17 @@ public class LegoRotationTaskManager : MonoBehaviour
             yawCmdInit = true;
         }
 
-        // Clamp yaw speed (deg/sec)
+        // Clamp yaw speed
         float maxStep = Mathf.Max(10f, yawMaxDegPerSec) * dt;
         float step = Mathf.DeltaAngle(yawCmdDeg, desiredYaw);
         step = Mathf.Clamp(step, -maxStep, maxStep);
-
         float yawNext = yawCmdDeg + step;
 
         // Extra LPF
         float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(yawLerp), dt * 60f);
         yawCmdDeg = Mathf.LerpAngle(yawCmdDeg, yawNext, k);
 
-        // Apply yaw-only rotation (keep upright)
+        // Apply yaw-only rotation
         blockRoot.rotation = Quaternion.Euler(0f, yawCmdDeg, 0f);
     }
 
@@ -287,12 +318,9 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         if (success)
         {
-            // Snap yaw exactly
             SnapYawToTarget();
-
             PlaySnapSound();
             ShowStar();
-
             yield return new WaitForSeconds(Mathf.Max(feedbackShowSeconds, postSnapHoldSeconds));
         }
         else
@@ -377,8 +405,6 @@ public class LegoRotationTaskManager : MonoBehaviour
                 action.Invoke();
         };
         keywordRecognizer.Start();
-
-        Debug.Log($"[LegoRotationTaskManager] Voice enabled: '{startKeyword}', '{restartKeyword}'");
     }
 
     private void OnDisable()
