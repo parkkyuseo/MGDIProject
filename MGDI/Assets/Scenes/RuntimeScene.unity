@@ -1110,6 +1110,8 @@ MonoBehaviour:
   yawLerp: 0.15
   rotateOnlyWhenHolding: 1
   requireHoldingThisBlock: 0
+  lockTargetPosition: 1
+  fixedTargetPose: {fileID: 0}
   postSnapHoldSeconds: 0.35
   resetBlockYawAfterTrial: 1
   yawMinDeg: 30
