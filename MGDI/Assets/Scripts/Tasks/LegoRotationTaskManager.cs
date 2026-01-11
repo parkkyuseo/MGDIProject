@@ -7,17 +7,15 @@ using UnityEngine.Windows.Speech;
 public class LegoRotationTaskManager : MonoBehaviour
 {
     [Header("References")]
-    [Tooltip("The transform that rotates (use LegoBlockRoot).")]
     [SerializeField] private Transform blockRoot;
-
-    [Tooltip("The target slot root transform (EMPTY root). Used for position anchoring.")]
     [SerializeField] private Transform targetSlotRoot;
-
-    [Tooltip("Target visual transform (EMPTY visual parent). Used for yaw reference.")]
     [SerializeField] private Transform targetSlotVisual;
 
-    [Tooltip("Grab controller (e.g., ProxyHandGrabber) supporting ForceRelease() and SetFollowHeldRotation(bool).")]
+    [Tooltip("ProxyHandGrabber (or similar) that supports ForceRelease() and SetFollowHeldRotation(bool).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
+
+    [Tooltip("RemoteHandRuntime that provides TwistDegrees.")]
+    [SerializeField] private RemoteHandRuntime remoteHand;
 
     [Header("Feedback (Audio / UI)")]
     [SerializeField] private AudioSource audioSource;
@@ -31,20 +29,26 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private float dwellSeconds = 0.20f;
 
     [Header("Yaw Success Threshold")]
-    [Tooltip("Success if absolute yaw error <= this threshold (degrees).")]
     [SerializeField] private float yawToleranceDeg = 10f;
+
+    [Header("Twist → Yaw mapping")]
+    [Tooltip("Yaw change per 1 degree of twist. 1.0 = 1:1, 2.0 = 2x.")]
+    [SerializeField] private float twistToYawGain = 1.5f;
+
+    [Tooltip("Clamp yaw speed (deg/sec) to prevent jumps.")]
+    [SerializeField] private float yawMaxDegPerSec = 240f;
+
+    [Tooltip("Extra smoothing for yaw command (0=no extra smoothing, 1=very slow).")]
+    [Range(0f, 1f)]
+    [SerializeField] private float yawLerp = 0.15f;
 
     [Header("Inter-trial behavior")]
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
     [SerializeField] private bool resetBlockYawAfterTrial = true;
-    [SerializeField] private bool resetBlockPositionAfterTrial = false;
 
     [Header("Target yaw sampling")]
-    [Tooltip("Allowed yaw offsets (degrees). Sampled per trial.")]
     [SerializeField] private float yawMinDeg = 30f;
     [SerializeField] private float yawMaxDeg = 90f;
-
-    [Tooltip("If true, randomly choose left/right (negative/positive) offset.")]
     [SerializeField] private bool randomizeYawSign = true;
 
     [Header("Trial Count")]
@@ -52,8 +56,8 @@ public class LegoRotationTaskManager : MonoBehaviour
 
     [Header("Voice Start (HoloLens)")]
     [SerializeField] private bool enableVoiceStart = true;
-    [SerializeField] private string startKeyword = "start";
-    [SerializeField] private string restartKeyword = "restart";
+    [SerializeField] private string startKeyword = "start rotation";
+    [SerializeField] private string restartKeyword = "restart rotation";
     [SerializeField] private bool autoStartInEditor = false;
 
     // Runtime
@@ -63,6 +67,10 @@ public class LegoRotationTaskManager : MonoBehaviour
 
     private Vector3 startPos;
     private float startYawDeg;
+
+    private float twistBaselineDeg;
+    private float yawCmdDeg;
+    private bool yawCmdInit = false;
 
     private bool trialRunning = false;
     private bool inTransition = false;
@@ -103,6 +111,10 @@ public class LegoRotationTaskManager : MonoBehaviour
             return;
         }
 
+        // 1) Update block yaw from twist (yaw-only)
+        UpdateYawFromTwist();
+
+        // 2) Evaluate yaw error
         float yawErr = ComputeYawErrorDeg();
         if (yawErr <= yawToleranceDeg)
         {
@@ -114,9 +126,6 @@ public class LegoRotationTaskManager : MonoBehaviour
         {
             dwellTimer = 0f;
         }
-
-        // Optional debug
-        // if (Time.frameCount % 30 == 0) Debug.Log($"yawErr={yawErr:F2} tol={yawToleranceDeg:F1}");
     }
 
     private void BeginNextTrial()
@@ -135,8 +144,12 @@ public class LegoRotationTaskManager : MonoBehaviour
             return;
         }
 
-        // Rotation task: allow rotation follow
-        SetGrabberFollowRotation(true);
+        // Rotation task: DO NOT follow full hand rotation.
+        // We will drive yaw ourselves from twist.
+        SetGrabberFollowRotation(false);
+
+        // Optional: ensure not held
+        ForceReleaseIfPossible();
 
         // Record start pose
         startPos = blockRoot.position;
@@ -145,15 +158,17 @@ public class LegoRotationTaskManager : MonoBehaviour
         // Anchor target position to current block position (pure rotation task)
         targetSlotRoot.position = startPos;
 
-        // Sample target yaw offset and apply to target visual
+        // Sample target yaw offset
         float offset = Random.Range(yawMinDeg, yawMaxDeg);
         if (randomizeYawSign && Random.value < 0.5f) offset = -offset;
 
-        // Target yaw = start yaw + offset
         float targetYaw = startYawDeg + offset;
-
-        // Apply yaw-only rotation to the visual (keep pitch/roll at 0 for clarity)
         targetSlotVisual.rotation = Quaternion.Euler(0f, targetYaw, 0f);
+
+        // Capture twist baseline (so user can twist relative to current neutral)
+        twistBaselineDeg = GetTwistSafe();
+        yawCmdDeg = startYawDeg;
+        yawCmdInit = true;
 
         trialTimer = 0f;
         dwellTimer = 0f;
@@ -161,6 +176,46 @@ public class LegoRotationTaskManager : MonoBehaviour
         inTransition = false;
 
         Debug.Log($"[LegoRotationTaskManager] Trial {trialIndex + 1}/{totalTrials} targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg");
+    }
+
+    private float GetTwistSafe()
+    {
+        if (remoteHand == null) return 0f;
+        if (!remoteHand.TwistReady) return remoteHand.TwistDegrees; // best effort
+        return remoteHand.TwistDegrees;
+    }
+
+    private void UpdateYawFromTwist()
+    {
+        float twistNow = GetTwistSafe();
+        float dTwist = twistNow - twistBaselineDeg; // degrees
+
+        // Desired yaw
+        float desiredYaw = startYawDeg + dTwist * twistToYawGain;
+
+        // Smooth + clamp speed
+        float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
+
+        // Initialize smoothing on first use
+        if (!yawCmdInit)
+        {
+            yawCmdDeg = desiredYaw;
+            yawCmdInit = true;
+        }
+
+        // Clamp yaw speed (deg/sec)
+        float maxStep = Mathf.Max(10f, yawMaxDegPerSec) * dt;
+        float step = Mathf.DeltaAngle(yawCmdDeg, desiredYaw);
+        step = Mathf.Clamp(step, -maxStep, maxStep);
+
+        float yawNext = yawCmdDeg + step;
+
+        // Extra LPF
+        float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(yawLerp), dt * 60f);
+        yawCmdDeg = Mathf.LerpAngle(yawCmdDeg, yawNext, k);
+
+        // Apply yaw-only rotation (keep upright)
+        blockRoot.rotation = Quaternion.Euler(0f, yawCmdDeg, 0f);
     }
 
     private float ComputeYawErrorDeg()
@@ -180,9 +235,7 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         if (success)
         {
-            ForceReleaseIfPossible();
-
-            // Snap rotation (yaw-only) to target
+            // Snap yaw exactly
             SnapYawToTarget();
 
             PlaySnapSound();
@@ -198,12 +251,8 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         HideFeedbackUI();
 
-        // Optional reset after each trial
-        ForceReleaseIfPossible();
         if (resetBlockYawAfterTrial)
             ResetBlockYaw();
-        if (resetBlockPositionAfterTrial)
-            blockRoot.position = startPos;
 
         trialIndex++;
         BeginNextTrial();
@@ -212,20 +261,14 @@ public class LegoRotationTaskManager : MonoBehaviour
     private void SnapYawToTarget()
     {
         float targetYaw = targetSlotVisual.eulerAngles.y;
-        Vector3 e = blockRoot.eulerAngles;
-        e.x = 0f; // optional: keep upright
-        e.z = 0f;
-        e.y = targetYaw;
-        blockRoot.rotation = Quaternion.Euler(e);
+        blockRoot.rotation = Quaternion.Euler(0f, targetYaw, 0f);
+        yawCmdDeg = targetYaw;
     }
 
     private void ResetBlockYaw()
     {
-        Vector3 e = blockRoot.eulerAngles;
-        e.x = 0f;
-        e.z = 0f;
-        e.y = startYawDeg;
-        blockRoot.rotation = Quaternion.Euler(e);
+        blockRoot.rotation = Quaternion.Euler(0f, startYawDeg, 0f);
+        yawCmdDeg = startYawDeg;
     }
 
     private void ForceReleaseIfPossible()
@@ -277,12 +320,13 @@ public class LegoRotationTaskManager : MonoBehaviour
         keywordRecognizer = new KeywordRecognizer(keywordActions.Keys.ToArray());
         keywordRecognizer.OnPhraseRecognized += args =>
         {
-            if (keywordActions.TryGetValue(args.text.ToLower(), out var action))
+            string key = args.text.ToLower();
+            if (keywordActions.TryGetValue(key, out var action))
                 action.Invoke();
         };
         keywordRecognizer.Start();
 
-        Debug.Log($"[LegoRotationTaskManager] Voice commands enabled: '{startKeyword}', '{restartKeyword}'");
+        Debug.Log($"[LegoRotationTaskManager] Voice enabled: '{startKeyword}', '{restartKeyword}'");
     }
 
     private void OnDisable()

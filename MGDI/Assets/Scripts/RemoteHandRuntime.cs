@@ -123,6 +123,12 @@ public class RemoteHandRuntime : MonoBehaviour
     [Tooltip("Invert twist sign if the direction feels reversed.")]
     public bool twistInvertSign = false;
 
+    // 현재 문고리 비틀기(roll/twist) 각도 (deg). UpdateTwist()에서 계산된 스무딩 값.
+    public float TwistDegrees => _twistSmoothedDeg;
+    // twist 중립이 준비되었는지(첫 몇 프레임 동안은 false일 수 있음)
+    public bool TwistReady => _twistNeutralReady;
+
+
     // Side-to-front remap settings
     [Header("Side-to-front remap")]
     public bool enableSideToFrontRemap = false;
