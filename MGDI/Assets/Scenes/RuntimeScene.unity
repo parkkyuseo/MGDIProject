@@ -1134,6 +1134,8 @@ MonoBehaviour:
   autoStartInEditor: 1
   rotationTrialGrabberMode: 2
   restoreGrabberModeOnDisable: 1
+  hardLockTargetEveryFrame: 1
+  logTargetDrift: 0
 --- !u!1 &672060782
 GameObject:
   m_ObjectHideFlags: 0
