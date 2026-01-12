@@ -434,7 +434,7 @@ public class LegoRotationTaskManager : MonoBehaviour
         else
         {
             ShowX();
-            yield return new WaitForSeconds(feedbackShowSeconds));
+            yield return new WaitForSeconds(feedbackShowSeconds);
         }
 
         HideFeedbackUI();
