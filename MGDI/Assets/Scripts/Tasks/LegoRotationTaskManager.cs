@@ -68,14 +68,21 @@ public class LegoRotationTaskManager : MonoBehaviour
     [Tooltip("Optional override if grabber is null. If set, this transform is used as the 'hand' for reset.")]
     [SerializeField] private Transform resetHandAnchorOverride;
 
-    [Tooltip("Additional distance from the hand when resetting (meters). Should be > grabber.attachDistance to require re-grab.")]
-    [SerializeField] private float resetHandForwardMeters = 0.09f;
+    [Header("Reset offset ranges (meters, randomized once per trial end)")]
+    [Tooltip("Forward distance range from hand (meters).")]
+    [SerializeField] private Vector2 resetForwardRange = new Vector2(0.08f, 0.12f);
 
-    [Tooltip("Additional vertical offset when resetting near hand (meters). Negative moves block down.")]
-    [SerializeField] private float resetHandUpMeters = -0.02f;
+    [Tooltip("Up offset range from hand (meters). Negative moves block down.")]
+    [SerializeField] private Vector2 resetUpRange = new Vector2(-0.03f, -0.01f);
 
-    [Tooltip("Additional right offset when resetting near hand (meters).")]
-    [SerializeField] private float resetHandRightMeters = 0.00f;
+    [Tooltip("Right offset range from hand (meters).")]
+    [SerializeField] private Vector2 resetRightRange = new Vector2(-0.01f, 0.01f);
+
+    [Tooltip("Ensures the forward reset distance is always > attachDistance + margin, so re-grab is required.")]
+    [SerializeField] private float resetAttachMargin = 0.02f;
+
+    [Tooltip("If true, logs the sampled reset offsets occasionally.")]
+    [SerializeField] private bool logResetSample = false;
 
     [Tooltip("If resetNearHand is false and this is assigned, reset block to this transform position.")]
     [SerializeField] private Transform fixedBlockStartPose;
@@ -364,42 +371,46 @@ public class LegoRotationTaskManager : MonoBehaviour
             // 2) Reposition block
             if (resetNearHand)
             {
-                Transform hand = null;
-
-                if (resetHandAnchorOverride != null) hand = resetHandAnchorOverride;
-                else if (grabber != null && grabber.grabAnchor != null) hand = grabber.grabAnchor;
+                Transform hand = GetResetHandAnchor();
 
                 if (hand != null)
                 {
+                    // Sample once per trial end
+                    float f = SampleRange(resetForwardRange);
+                    float u = SampleRange(resetUpRange);
+                    float r = SampleRange(resetRightRange);
+
                     // Ensure the reset distance is larger than attachDistance so the user must re-grab.
-                    float minDist = resetHandForwardMeters;
+                    float minForward = f;
                     if (grabber != null)
-                        minDist = Mathf.Max(minDist, grabber.attachDistance + 0.02f);
+                        minForward = Mathf.Max(minForward, grabber.attachDistance + Mathf.Max(0f, resetAttachMargin));
 
                     Vector3 pos =
                         hand.position +
-                        hand.forward * minDist +
-                        hand.up * resetHandUpMeters +
-                        hand.right * resetHandRightMeters;
+                        hand.forward * minForward +
+                        hand.up * u +
+                        hand.right * r;
 
                     blockRoot.position = pos;
+
+                    if (logResetSample)
+                        Debug.Log($"[RotationTM] Reset sample f={minForward:F3} u={u:F3} r={r:F3}");
                 }
                 else
                 {
                     // Fallback if no hand anchor is available
-                    blockRoot.position = _trialStartBlockPosWorld;
+                    if (resetBlockToTrialStartPos)
+                        blockRoot.position = _trialStartBlockPosWorld;
+                    else if (fixedBlockStartPose != null)
+                        blockRoot.position = fixedBlockStartPose.position;
                 }
             }
             else
             {
                 if (fixedBlockStartPose != null)
-                {
                     blockRoot.position = fixedBlockStartPose.position;
-                }
                 else if (resetBlockToTrialStartPos)
-                {
                     blockRoot.position = _trialStartBlockPosWorld;
-                }
             }
         }
 
@@ -445,6 +456,20 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         if (grabReleaseComponent != null)
             grabReleaseComponent.SendMessage("ForceRelease", SendMessageOptions.DontRequireReceiver);
+    }
+
+    private static float SampleRange(Vector2 r)
+    {
+        float a = Mathf.Min(r.x, r.y);
+        float b = Mathf.Max(r.x, r.y);
+        return Random.Range(a, b);
+    }
+
+    private Transform GetResetHandAnchor()
+    {
+        if (resetHandAnchorOverride != null) return resetHandAnchorOverride;
+        if (grabber != null && grabber.grabAnchor != null) return grabber.grabAnchor;
+        return null;
     }
 
     private void PlaySnapSound()
