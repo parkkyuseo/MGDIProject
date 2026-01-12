@@ -17,9 +17,12 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
     public ProxyHandGrabber grabber;
 
+    [Tooltip("Switches Targets parent depending on task (Rotation: world-locked, Placement: workspace-locked).")]
+    public TargetParentSwitcher targetParentSwitcher;
+
     [Header("Technique Controllers (optional)")]
-    public GameObject macroControllerRoot; // e.g., ProxyHandR
-    public GameObject microControllerRoot; // later
+    public GameObject macroControllerRoot;
+    public GameObject microControllerRoot;
 
     [Header("Current State")]
     public TaskType currentTask = TaskType.Placement;
@@ -44,10 +47,7 @@ public class StudyFlowController : MonoBehaviour
     public WorkspaceAnchorController.WorkspaceProfile rotation_micro_sideRight;
 
     [Header("Grabber rotation policy per task")]
-    [Tooltip("Recommended: Placement=LockAtGrab (translation-only), Rotation=ExternalControl (RotationTM controls yaw).")]
     public ProxyHandGrabber.HeldRotationMode placementGrabberMode = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
-
-    [Tooltip("Recommended: Rotation=ExternalControl (RotationTM controls yaw).")]
     public ProxyHandGrabber.HeldRotationMode rotationGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
 
     [Header("Voice Commands")]
@@ -72,7 +72,6 @@ public class StudyFlowController : MonoBehaviour
     {
         if (!enableVoice) return;
 
-        // Register commands in lowercase to match args.text.ToLower()
         actions = new Dictionary<string, System.Action>
         {
             { cmdStartPlacement.ToLower(), () => StartTask(TaskType.Placement) },
@@ -121,15 +120,18 @@ public class StudyFlowController : MonoBehaviour
             return;
         }
 
-        // Always release at task boundary to avoid carrying held state across tasks.
+        // Release at task boundary to avoid carrying held state across tasks.
         ForceReleaseIfPossible();
 
-        // Switch/activate the relevant task object first
+        // Enable the selected task object (and disable others)
         StopAllTasks();
 
-        // Apply technique + workspace after the correct task is active
+        // Apply technique + workspace for the current condition
         ApplyTechnique();
         ApplyWorkspaceProfile();
+
+        // Task-specific: lock/unlock Targets parent
+        ApplyTargetsParentPolicy();
 
         // Set grabber rotation policy per task (central, explicit)
         ApplyGrabberModeForCurrentTask();
@@ -158,7 +160,6 @@ public class StudyFlowController : MonoBehaviour
 
     public void NextConditionAndRestart()
     {
-        // Cycle location first, then flip technique
         if (currentHandLocation == WorkspaceAnchorController.HandLocation.NearHead)
             currentHandLocation = WorkspaceAnchorController.HandLocation.SideOfBodyLeft;
         else if (currentHandLocation == WorkspaceAnchorController.HandLocation.SideOfBodyLeft)
@@ -202,7 +203,6 @@ public class StudyFlowController : MonoBehaviour
 
     private WorkspaceAnchorController.WorkspaceProfile GetProfile(TaskType task, Technique tech, WorkspaceAnchorController.HandLocation loc)
     {
-        // Placement
         if (task == TaskType.Placement)
         {
             if (tech == Technique.Macro)
@@ -219,7 +219,6 @@ public class StudyFlowController : MonoBehaviour
             }
         }
 
-        // Rotation
         if (task == TaskType.Rotation)
         {
             if (tech == Technique.Macro)
@@ -249,6 +248,20 @@ public class StudyFlowController : MonoBehaviour
             microControllerRoot.SetActive(currentTechnique == Technique.Micro);
     }
 
+    // ---------------- Targets parent policy ----------------
+    private void ApplyTargetsParentPolicy()
+    {
+        if (targetParentSwitcher == null) return;
+
+        // Rotation: detach Targets so they become world-locked (do not follow workspaceAnchor)
+        if (currentTask == TaskType.Rotation)
+            targetParentSwitcher.DetachToWorld(true);
+
+        // Placement: attach Targets under workspaceAnchor (so sampling/anchoring works normally)
+        if (currentTask == TaskType.Placement)
+            targetParentSwitcher.AttachToWorkspace(true);
+    }
+
     // ---------------- Grabber policy at task boundaries ----------------
     private void ApplyGrabberModeForCurrentTask()
     {
@@ -263,14 +276,11 @@ public class StudyFlowController : MonoBehaviour
     private void ForceReleaseIfPossible()
     {
         if (grabber != null)
-        {
             grabber.ForceRelease();
-        }
     }
 
     private void StopAllTasks()
     {
-        // Disable both, then enable the current one (simple but effective)
         if (placementTask != null) placementTask.gameObject.SetActive(false);
         if (rotationTask != null) rotationTask.gameObject.SetActive(false);
 

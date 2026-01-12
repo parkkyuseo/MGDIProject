@@ -48,46 +48,29 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private bool requireHoldingThisBlock = true;
 
     [Header("Target position policy")]
-    [Tooltip("If true, target position is fixed (does not change across trials).")]
+    [Tooltip("If true, target is kept at fixedTargetPose.position each trial (Rotation task assumes Targets is detached to world by FlowController).")]
     [SerializeField] private bool lockTargetPosition = true;
 
-    [Tooltip("If lockTargetPosition is true, use this fixed world position. If not set, first trial captures current targetSlotRoot position.")]
-    [SerializeField] private Transform fixedTargetPose; // optional anchor transform
+    [Tooltip("REQUIRED for rotation task fixed target. Place this object under StudyRuntime or scene root (NOT under workspaceAnchor).")]
+    [SerializeField] private Transform fixedTargetPose;
 
     [Header("Inter-trial behavior")]
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
     [SerializeField] private bool resetBlockYawAfterTrial = true;
 
     [Header("B) Require re-grab every trial (hand-based reset)")]
-    [Tooltip("If true, force release and reposition the block at the end of every trial (success/fail).")]
     [SerializeField] private bool resetBlockAfterTrial = true;
-
-    [Tooltip("If true, reset near the hand (grabAnchor). If false, reset to a fixed pose or the recorded trial-start position.")]
     [SerializeField] private bool resetNearHand = true;
-
-    [Tooltip("Optional override if grabber is null. If set, this transform is used as the 'hand' for reset.")]
     [SerializeField] private Transform resetHandAnchorOverride;
 
     [Header("Reset offset ranges (meters, randomized once per trial end)")]
-    [Tooltip("Forward distance range from hand (meters).")]
     [SerializeField] private Vector2 resetForwardRange = new Vector2(0.08f, 0.12f);
-
-    [Tooltip("Up offset range from hand (meters). Negative moves block down.")]
     [SerializeField] private Vector2 resetUpRange = new Vector2(-0.03f, -0.01f);
-
-    [Tooltip("Right offset range from hand (meters).")]
     [SerializeField] private Vector2 resetRightRange = new Vector2(-0.01f, 0.01f);
-
-    [Tooltip("Ensures the forward reset distance is always > attachDistance + margin, so re-grab is required.")]
     [SerializeField] private float resetAttachMargin = 0.02f;
-
-    [Tooltip("If true, logs the sampled reset offsets occasionally.")]
     [SerializeField] private bool logResetSample = false;
 
-    [Tooltip("If resetNearHand is false and this is assigned, reset block to this transform position.")]
     [SerializeField] private Transform fixedBlockStartPose;
-
-    [Tooltip("If resetNearHand is false and fixedBlockStartPose is not assigned, reset block to trial-start position.")]
     [SerializeField] private bool resetBlockToTrialStartPos = true;
 
     [Header("Target yaw sampling")]
@@ -99,42 +82,14 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private int totalTrials = 20;
 
     [Header("Voice Start (HoloLens)")]
-    [SerializeField] private bool enableVoiceStart = false; // FlowController 권장
+    [SerializeField] private bool enableVoiceStart = false;
     [SerializeField] private string startKeyword = "start rotation";
     [SerializeField] private string restartKeyword = "restart rotation";
     [SerializeField] private bool autoStartInEditor = false;
 
     [Header("Grabber rotation policy")]
-    [Tooltip("During rotation trials, the task manager controls block rotation and the grabber must not override rotation.")]
     [SerializeField] private ProxyHandGrabber.HeldRotationMode rotationTrialGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
-
-    [Tooltip("When this manager stops/gets disabled, restore grabber to this rotation mode.")]
     [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeOnDisable = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
-
-    [Header("Target drift defense")]
-    [Tooltip("If true, enforces the captured fixed target pose every LateUpdate during trials.")]
-    [SerializeField] private bool hardLockTargetEveryFrame = true;
-
-    [Tooltip("If true, logs when target drift is detected and corrected.")]
-    [SerializeField] private bool logTargetDrift = true;
-
-    [Header("Target hard-fix (world-locked)")]
-    [Tooltip("If true, detaches targetSlotRoot to world during rotation trials so workspaceAnchor movement cannot affect it.")]
-    [SerializeField] private bool detachTargetToWorldDuringRotation = true;
-
-    // Runtime (target fixed pose)
-    private Vector3 _fixedTargetLocalPos;
-    private Transform _fixedTargetParent;
-    private bool _fixedTargetCaptured = false;
-
-    private bool _fixedTargetWorldCaptured = false;
-    private Vector3 _fixedTargetWorldPos;
-
-    // Runtime (detach restore)
-    private Transform _targetOriginalParent;
-    private Vector3 _targetOriginalLocalPos;
-    private Quaternion _targetOriginalLocalRot;
-    private bool _targetDetached = false;
 
     // Runtime
     private int trialIndex = 0;
@@ -150,8 +105,6 @@ public class LegoRotationTaskManager : MonoBehaviour
     private bool inTransition = false;
 
     private Rigidbody _blockBody;
-
-    // Used when resetNearHand is false
     private Vector3 _trialStartBlockPosWorld;
 
     // Voice
@@ -166,7 +119,6 @@ public class LegoRotationTaskManager : MonoBehaviour
         trialIndex = 0;
 
         EnsureBlockBody();
-        EnsureFixedTarget();
 
         BeginNextTrial();
     }
@@ -174,9 +126,7 @@ public class LegoRotationTaskManager : MonoBehaviour
     private void Start()
     {
         HideFeedbackUI();
-
         EnsureBlockBody();
-        EnsureFixedTarget();
 
         if (enableVoiceStart)
             SetupVoiceCommands();
@@ -193,31 +143,6 @@ public class LegoRotationTaskManager : MonoBehaviour
         _blockBody = blockRoot.GetComponent<Rigidbody>();
         if (_blockBody == null)
             _blockBody = blockRoot.GetComponentInChildren<Rigidbody>(true);
-    }
-
-    private void EnsureFixedTarget()
-    {
-        if (!lockTargetPosition) return;
-        if (_fixedTargetCaptured) return;
-        if (targetSlotRoot == null) return;
-
-        _fixedTargetParent = targetSlotRoot.parent;
-
-        // local capture
-        if (fixedTargetPose != null && _fixedTargetParent != null)
-            _fixedTargetLocalPos = _fixedTargetParent.InverseTransformPoint(fixedTargetPose.position);
-        else
-            _fixedTargetLocalPos = targetSlotRoot.localPosition;
-
-        _fixedTargetCaptured = true;
-
-        // world capture
-        if (fixedTargetPose != null)
-            _fixedTargetWorldPos = fixedTargetPose.position;
-        else
-            _fixedTargetWorldPos = targetSlotRoot.position;
-
-        _fixedTargetWorldCaptured = true;
     }
 
     private void Update()
@@ -251,35 +176,6 @@ public class LegoRotationTaskManager : MonoBehaviour
         else
         {
             dwellTimer = 0f;
-        }
-    }
-
-    private void LateUpdate()
-    {
-        if (!hardLockTargetEveryFrame) return;
-        if (!trialRunning || inTransition) return;
-        if (!lockTargetPosition) return;
-        if (targetSlotRoot == null) return;
-
-        if (detachTargetToWorldDuringRotation)
-        {
-            if (_fixedTargetWorldCaptured && targetSlotRoot.position != _fixedTargetWorldPos)
-            {
-                if (logTargetDrift)
-                    Debug.Log($"[RotationTM] Target WORLD drift detected. pos was {targetSlotRoot.position}, restoring to {_fixedTargetWorldPos}");
-                targetSlotRoot.position = _fixedTargetWorldPos;
-            }
-        }
-        else
-        {
-            if (!_fixedTargetCaptured) return;
-
-            if (targetSlotRoot.localPosition != _fixedTargetLocalPos)
-            {
-                if (logTargetDrift)
-                    Debug.Log($"[RotationTM] Target LOCAL drift detected. local was {targetSlotRoot.localPosition}, restoring to {_fixedTargetLocalPos}");
-                targetSlotRoot.localPosition = _fixedTargetLocalPos;
-            }
         }
     }
 
@@ -325,34 +221,19 @@ public class LegoRotationTaskManager : MonoBehaviour
         // Rotation task: RotationTM controls rotation; grabber must NOT override rotation.
         SetGrabberRotationMode(rotationTrialGrabberMode);
 
-        // Record trial-start block pos (fallback reset path)
+        // record start pos (fallback reset)
         _trialStartBlockPosWorld = blockRoot.position;
 
-        // Target position policy
+        // Target fixed position (assumes Targets is detached to world by FlowController)
         if (lockTargetPosition)
         {
-            EnsureFixedTarget();
-
-            if (detachTargetToWorldDuringRotation)
+            if (fixedTargetPose == null)
             {
-                // Detach once (keep world pose)
-                if (!_targetDetached)
-                {
-                    _targetOriginalParent = targetSlotRoot.parent;
-                    _targetOriginalLocalPos = targetSlotRoot.localPosition;
-                    _targetOriginalLocalRot = targetSlotRoot.localRotation;
-
-                    targetSlotRoot.SetParent(null, true);
-                    _targetDetached = true;
-                }
-
-                if (_fixedTargetWorldCaptured)
-                    targetSlotRoot.position = _fixedTargetWorldPos;
+                Debug.LogError("[LegoRotationTaskManager] fixedTargetPose is required when lockTargetPosition is true.");
+                trialRunning = false;
+                return;
             }
-            else
-            {
-                targetSlotRoot.localPosition = _fixedTargetLocalPos;
-            }
+            targetSlotRoot.position = fixedTargetPose.position;
         }
         else
         {
@@ -378,8 +259,7 @@ public class LegoRotationTaskManager : MonoBehaviour
         inTransition = false;
 
         Debug.Log($"[LegoRotationTaskManager] Trial {trialIndex + 1}/{totalTrials} " +
-                  $"targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg " +
-                  $"targetPosFixed={lockTargetPosition}");
+                  $"targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg");
     }
 
     private void UpdateYawFromTwist()
@@ -434,29 +314,24 @@ public class LegoRotationTaskManager : MonoBehaviour
         else
         {
             ShowX();
-            yield return new WaitForSeconds(feedbackShowSeconds));
+            yield return new WaitForSeconds(feedbackShowSeconds);
         }
 
         HideFeedbackUI();
 
         if (resetBlockAfterTrial)
         {
-            // Release first so the block is not parented to the hand when moved.
             ForceReleaseIfPossible();
 
-            // Reposition block
             if (resetNearHand)
             {
                 Transform hand = GetResetHandAnchor();
-
                 if (hand != null)
                 {
-                    // Sample once per trial end
                     float f = SampleRange(resetForwardRange);
                     float u = SampleRange(resetUpRange);
                     float r = SampleRange(resetRightRange);
 
-                    // Ensure the reset distance is larger than attachDistance so the user must re-grab.
                     float minForward = f;
                     if (grabber != null)
                         minForward = Mathf.Max(minForward, grabber.attachDistance + Mathf.Max(0f, resetAttachMargin));
@@ -474,7 +349,6 @@ public class LegoRotationTaskManager : MonoBehaviour
                 }
                 else
                 {
-                    // Fallback if no hand anchor is available
                     if (resetBlockToTrialStartPos)
                         blockRoot.position = _trialStartBlockPosWorld;
                     else if (fixedBlockStartPose != null)
@@ -595,17 +469,6 @@ public class LegoRotationTaskManager : MonoBehaviour
     private void OnDisable()
     {
         SetGrabberRotationMode(restoreGrabberModeOnDisable);
-
-        // Restore target parent if detached
-        if (detachTargetToWorldDuringRotation && targetSlotRoot != null && _targetDetached && _targetOriginalParent != null)
-        {
-            targetSlotRoot.SetParent(_targetOriginalParent, true);
-            targetSlotRoot.localPosition = _targetOriginalLocalPos;
-            targetSlotRoot.localRotation = _targetOriginalLocalRot;
-
-            _targetDetached = false;
-            _targetOriginalParent = null;
-        }
 
         if (keywordRecognizer != null)
         {
