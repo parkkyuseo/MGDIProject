@@ -1114,10 +1114,16 @@ MonoBehaviour:
   fixedTargetPose: {fileID: 0}
   postSnapHoldSeconds: 0.35
   resetBlockYawAfterTrial: 1
-  resetBlockPosAfterTrial: 1
-  resetBlockToTrialStartPos: 1
+  resetBlockAfterTrial: 1
+  resetNearHand: 1
+  resetHandAnchorOverride: {fileID: 0}
+  resetForwardRange: {x: 0, y: 0}
+  resetUpRange: {x: -0.03, y: -0.01}
+  resetRightRange: {x: -0.3, y: 0.3}
+  resetAttachMargin: 0.02
+  logResetSample: 0
   fixedBlockStartPose: {fileID: 0}
-  resetPosWorldOffset: {x: 0, y: 0, z: 0}
+  resetBlockToTrialStartPos: 1
   yawMinDeg: 30
   yawMaxDeg: 90
   randomizeYawSign: 1
