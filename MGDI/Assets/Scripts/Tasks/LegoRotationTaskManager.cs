@@ -14,7 +14,7 @@ public class LegoRotationTaskManager : MonoBehaviour
     [Tooltip("ProxyHandGrabber (or similar) that supports ForceRelease() and SetHeldRotationMode(...).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
 
-    [Tooltip("ProxyHandGrabber instance (for gating rotation only when holding).")]
+    [Tooltip("ProxyHandGrabber instance (for gating rotation only when holding, and for hand-based reset).")]
     [SerializeField] private ProxyHandGrabber grabber;
 
     [Tooltip("RemoteHandRuntime that provides TwistDegrees / TwistReady.")]
@@ -58,18 +58,30 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
     [SerializeField] private bool resetBlockYawAfterTrial = true;
 
-    [Header("B) Make every trial require re-grab")]
-    [Tooltip("If true, force release and restore block position at the end of every trial (success/fail).")]
-    [SerializeField] private bool resetBlockPosAfterTrial = true;
+    [Header("B) Require re-grab every trial (hand-based reset)")]
+    [Tooltip("If true, force release and reposition the block at the end of every trial (success/fail).")]
+    [SerializeField] private bool resetBlockAfterTrial = true;
 
-    [Tooltip("If true, return block to its recorded position at trial start. If false, returns to a fixed transform (if provided).")]
-    [SerializeField] private bool resetBlockToTrialStartPos = true;
+    [Tooltip("If true, reset near the hand (grabAnchor). If false, reset to a fixed pose or the recorded trial-start position.")]
+    [SerializeField] private bool resetNearHand = true;
 
-    [Tooltip("Optional fixed start pose for block position reset (used only if resetBlockToTrialStartPos is false).")]
+    [Tooltip("Optional override if grabber is null. If set, this transform is used as the 'hand' for reset.")]
+    [SerializeField] private Transform resetHandAnchorOverride;
+
+    [Tooltip("Additional distance from the hand when resetting (meters). Should be > grabber.attachDistance to require re-grab.")]
+    [SerializeField] private float resetHandForwardMeters = 0.09f;
+
+    [Tooltip("Additional vertical offset when resetting near hand (meters). Negative moves block down.")]
+    [SerializeField] private float resetHandUpMeters = -0.02f;
+
+    [Tooltip("Additional right offset when resetting near hand (meters).")]
+    [SerializeField] private float resetHandRightMeters = 0.00f;
+
+    [Tooltip("If resetNearHand is false and this is assigned, reset block to this transform position.")]
     [SerializeField] private Transform fixedBlockStartPose;
 
-    [Tooltip("Extra world offset applied when resetting block position (meters). Use this to push the block slightly away from the hand.")]
-    [SerializeField] private Vector3 resetPosWorldOffset = Vector3.zero;
+    [Tooltip("If resetNearHand is false and fixedBlockStartPose is not assigned, reset block to trial-start position.")]
+    [SerializeField] private bool resetBlockToTrialStartPos = true;
 
     [Header("Target yaw sampling")]
     [SerializeField] private float yawMinDeg = 30f;
@@ -107,7 +119,7 @@ public class LegoRotationTaskManager : MonoBehaviour
 
     private Rigidbody _blockBody;
 
-    // Record block position at trial start (to reset after trial)
+    // Used when resetNearHand is false
     private Vector3 _trialStartBlockPosWorld;
 
     // Fixed target position state
@@ -250,10 +262,10 @@ public class LegoRotationTaskManager : MonoBehaviour
         // Rotation task: RotationTM controls rotation; grabber must NOT override rotation.
         SetGrabberRotationMode(rotationTrialGrabberMode);
 
-        // Record trial-start position (so we can reset later and require re-grab)
+        // Record trial-start block pos (fallback reset path)
         _trialStartBlockPosWorld = blockRoot.position;
 
-        // Rotation-only task: keep target position fixed (if enabled)
+        // Target position policy
         if (lockTargetPosition)
         {
             EnsureFixedTarget();
@@ -344,15 +356,51 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         HideFeedbackUI();
 
-        // B) Require re-grab: always release + reset position after each trial
-        if (resetBlockPosAfterTrial)
+        if (resetBlockAfterTrial)
         {
+            // 1) Release first so the block is not parented to the hand when moved.
             ForceReleaseIfPossible();
 
-            Vector3 resetPos = resetBlockToTrialStartPos ? _trialStartBlockPosWorld
-                                                        : (fixedBlockStartPose != null ? fixedBlockStartPose.position : _trialStartBlockPosWorld);
+            // 2) Reposition block
+            if (resetNearHand)
+            {
+                Transform hand = null;
 
-            blockRoot.position = resetPos + resetPosWorldOffset;
+                if (resetHandAnchorOverride != null) hand = resetHandAnchorOverride;
+                else if (grabber != null && grabber.grabAnchor != null) hand = grabber.grabAnchor;
+
+                if (hand != null)
+                {
+                    // Ensure the reset distance is larger than attachDistance so the user must re-grab.
+                    float minDist = resetHandForwardMeters;
+                    if (grabber != null)
+                        minDist = Mathf.Max(minDist, grabber.attachDistance + 0.02f);
+
+                    Vector3 pos =
+                        hand.position +
+                        hand.forward * minDist +
+                        hand.up * resetHandUpMeters +
+                        hand.right * resetHandRightMeters;
+
+                    blockRoot.position = pos;
+                }
+                else
+                {
+                    // Fallback if no hand anchor is available
+                    blockRoot.position = _trialStartBlockPosWorld;
+                }
+            }
+            else
+            {
+                if (fixedBlockStartPose != null)
+                {
+                    blockRoot.position = fixedBlockStartPose.position;
+                }
+                else if (resetBlockToTrialStartPos)
+                {
+                    blockRoot.position = _trialStartBlockPosWorld;
+                }
+            }
         }
 
         if (resetBlockYawAfterTrial)
