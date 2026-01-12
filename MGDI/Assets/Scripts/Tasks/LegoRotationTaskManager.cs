@@ -112,7 +112,6 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeOnDisable = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
     // Runtime
-    private bool _fixedTargetCaptured = false;
     private Vector3 _fixedTargetLocalPos;
     private Transform _fixedTargetParent;
 
