@@ -42,14 +42,14 @@ public class ProxyHandGrabber : MonoBehaviour
     [Header("Debug")]
     public bool logDebug = true;
 
-    public bool IsHolding => _heldBody != null;
-    public Rigidbody HeldBody => _heldBody;
-
     Collider[] _overlapBuffer = new Collider[32];
 
     Rigidbody _heldBody;
     Transform _heldOriginalParent;
     Collider[] _heldColliders;
+
+    public bool IsHolding => _heldBody != null;
+    public Rigidbody HeldBody => _heldBody;
 
     // initial offset captured at grab time
     Vector3 _heldLocalPosToAnchor;
