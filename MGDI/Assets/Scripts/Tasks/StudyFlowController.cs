@@ -14,6 +14,9 @@ public class StudyFlowController : MonoBehaviour
     public LegoPlacementTaskManager placementTask;
     public LegoRotationTaskManager rotationTask;
 
+    [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
+    public ProxyHandGrabber grabber;
+
     [Header("Technique Controllers (optional)")]
     public GameObject macroControllerRoot; // e.g., ProxyHandR
     public GameObject microControllerRoot; // later
@@ -40,6 +43,13 @@ public class StudyFlowController : MonoBehaviour
     public WorkspaceAnchorController.WorkspaceProfile rotation_micro_sideLeft;
     public WorkspaceAnchorController.WorkspaceProfile rotation_micro_sideRight;
 
+    [Header("Grabber rotation policy per task")]
+    [Tooltip("Recommended: Placement=LockAtGrab (translation-only), Rotation=ExternalControl (RotationTM controls yaw).")]
+    public ProxyHandGrabber.HeldRotationMode placementGrabberMode = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
+
+    [Tooltip("Recommended: Rotation=ExternalControl (RotationTM controls yaw).")]
+    public ProxyHandGrabber.HeldRotationMode rotationGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
+
     [Header("Voice Commands")]
     public bool enableVoice = true;
 
@@ -62,20 +72,21 @@ public class StudyFlowController : MonoBehaviour
     {
         if (!enableVoice) return;
 
+        // Register commands in lowercase to match args.text.ToLower()
         actions = new Dictionary<string, System.Action>
         {
-            { cmdStartPlacement, () => StartTask(TaskType.Placement) },
-            { cmdStartRotation,  () => StartTask(TaskType.Rotation) },
+            { cmdStartPlacement.ToLower(), () => StartTask(TaskType.Placement) },
+            { cmdStartRotation.ToLower(),  () => StartTask(TaskType.Rotation) },
 
-            { cmdRestart, RestartCurrent },
-            { cmdNext,    NextConditionAndRestart },
+            { cmdRestart.ToLower(), RestartCurrent },
+            { cmdNext.ToLower(),    NextConditionAndRestart },
 
-            { cmdMacro, () => SetTechnique(Technique.Macro, restart:true) },
-            { cmdMicro, () => SetTechnique(Technique.Micro, restart:true) },
+            { cmdMacro.ToLower(), () => SetTechnique(Technique.Macro, restart:true) },
+            { cmdMicro.ToLower(), () => SetTechnique(Technique.Micro, restart:true) },
 
-            { cmdNear,      () => SetHandLocation(WorkspaceAnchorController.HandLocation.NearHead, restart:false) },
-            { cmdSideLeft,  () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyLeft, restart:false) },
-            { cmdSideRight, () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyRight, restart:false) },
+            { cmdNear.ToLower(),      () => SetHandLocation(WorkspaceAnchorController.HandLocation.NearHead, restart:false) },
+            { cmdSideLeft.ToLower(),  () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyLeft, restart:false) },
+            { cmdSideRight.ToLower(), () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyRight, restart:false) },
         };
 
         recognizer = new KeywordRecognizer(actions.Keys.ToArray());
@@ -110,11 +121,20 @@ public class StudyFlowController : MonoBehaviour
             return;
         }
 
+        // Always release at task boundary to avoid carrying held state across tasks.
+        ForceReleaseIfPossible();
+
+        // Switch/activate the relevant task object first
+        StopAllTasks();
+
+        // Apply technique + workspace after the correct task is active
         ApplyTechnique();
         ApplyWorkspaceProfile();
 
-        StopAllTasks();
+        // Set grabber rotation policy per task (central, explicit)
+        ApplyGrabberModeForCurrentTask();
 
+        // Start the selected task
         switch (currentTask)
         {
             case TaskType.Placement:
@@ -227,6 +247,25 @@ public class StudyFlowController : MonoBehaviour
 
         if (microControllerRoot != null)
             microControllerRoot.SetActive(currentTechnique == Technique.Micro);
+    }
+
+    // ---------------- Grabber policy at task boundaries ----------------
+    private void ApplyGrabberModeForCurrentTask()
+    {
+        if (grabber == null) return;
+
+        if (currentTask == TaskType.Placement)
+            grabber.SetHeldRotationMode(placementGrabberMode);
+        else if (currentTask == TaskType.Rotation)
+            grabber.SetHeldRotationMode(rotationGrabberMode);
+    }
+
+    private void ForceReleaseIfPossible()
+    {
+        if (grabber != null)
+        {
+            grabber.ForceRelease();
+        }
     }
 
     private void StopAllTasks()

@@ -16,7 +16,10 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [Tooltip("Target visual transform (use TargetSlotVisual - the EMPTY visual parent).")]
     [SerializeField] private Transform targetSlotVisual;
 
-    [Tooltip("Grab controller (e.g., ProxyHandGrabber) supporting ForceRelease() and SetFollowHeldRotation(bool).")]
+    [Tooltip("ProxyHandGrabber instance (preferred). Used for setting rotation mode and optional force release.")]
+    [SerializeField] private ProxyHandGrabber grabber;
+
+    [Tooltip("Grab controller (fallback) supporting ForceRelease() and SetHeldRotationMode(...).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
 
     [Tooltip("Reference frame for target sampling (an empty object). This will be re-positioned each trial if anchoring is enabled.")]
@@ -30,11 +33,17 @@ public class LegoPlacementTaskManager : MonoBehaviour
     [SerializeField] private Vector3 referenceFrameOffsetLocal = new Vector3(0f, 0.05f, 0f);
 
     [Header("Grab behavior per task")]
-    [Tooltip("If true, lock rotation follow during placement trials (translation-only).")]
+    [Tooltip("If true, lock rotation during placement trials (translation-only).")]
     [SerializeField] private bool lockRotationDuringPlacement = true;
 
-    [Tooltip("If true, restore rotation follow after each trial (useful when later adding rotation tasks).")]
-    [SerializeField] private bool restoreRotationFollowAfterTrial = true;
+    [Tooltip("Rotation mode to use during placement trials when lockRotationDuringPlacement is true.")]
+    [SerializeField] private ProxyHandGrabber.HeldRotationMode placementGrabberMode = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
+
+    [Tooltip("If true, restore rotation mode after each trial.")]
+    [SerializeField] private bool restoreRotationModeAfterTrial = true;
+
+    [Tooltip("Rotation mode to restore after placement trial ends.")]
+    [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeAfterTrial = ProxyHandGrabber.HeldRotationMode.FollowAnchor;
 
     [Header("Target Visual Rotation")]
     [Tooltip("If true, copy blockRoot.rotation into targetSlotVisual.rotation each trial so the target looks aligned.")]
@@ -125,25 +134,23 @@ public class LegoPlacementTaskManager : MonoBehaviour
         return p;
     }
 
-    // Optional gizmo drawing (kept from your version)
+    // Optional gizmo drawing
     void OnDrawGizmos()
     {
         if (blockRoot == null || targetSlotRoot == null) return;
 
-        // Transform 기준점
         Gizmos.color = Color.yellow;
         Gizmos.DrawSphere(blockRoot.position, 0.05f);
 
         Gizmos.color = Color.green;
         Gizmos.DrawSphere(targetSlotRoot.position, 0.05f);
 
-        // Mesh 중심(Renderer bounds center)
         var blockR = blockRoot.GetComponentInChildren<Renderer>();
         var targetR = targetSlotRoot.GetComponentInChildren<Renderer>();
 
         if (blockR != null)
         {
-            Gizmos.color = new Color(1f, 0.5f, 0f, 1f); // orange
+            Gizmos.color = new Color(1f, 0.5f, 0f, 1f);
             Gizmos.DrawSphere(blockR.bounds.center, 0.07f);
             Gizmos.DrawLine(blockRoot.position, blockR.bounds.center);
         }
@@ -155,11 +162,9 @@ public class LegoPlacementTaskManager : MonoBehaviour
             Gizmos.DrawLine(targetSlotRoot.position, targetR.bounds.center);
         }
 
-        // Root-to-root line (what pivot success check uses)
         Gizmos.color = Color.magenta;
         Gizmos.DrawLine(blockRoot.position, targetSlotRoot.position);
 
-        // Mesh-center-to-mesh-center line (what bounds-center success check uses)
         if (blockR != null && targetR != null)
         {
             Gizmos.color = Color.white;
@@ -200,7 +205,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
             return;
         }
 
-        // --- Robust error metric (bounds center) or pivot metric ---
         float err = ComputeErrorMeters();
 
         if (err <= tolerance)
@@ -214,7 +218,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
             dwellTimer = 0f;
         }
 
-        // Debug: show reference paths occasionally
         if (Time.frameCount % 60 == 0)
         {
             DebugHUD.Log($"blockRoot={blockRoot.name} pos={blockRoot.position}");
@@ -241,40 +244,33 @@ public class LegoPlacementTaskManager : MonoBehaviour
             return;
         }
 
+        // Translation-only: lock rotation (so wrist twist doesn't unintentionally spin the block)
         if (lockRotationDuringPlacement)
-            SetGrabberFollowRotation(false);
+            SetGrabberRotationMode(placementGrabberMode);
 
-        // Record current block position as startPos for THIS trial
         startPos = blockRoot.position;
 
-        // Anchor referenceFrame position to the block start position each trial (POSITION ONLY).
         if (anchorReferenceFrameToBlock)
         {
             referenceFrame.position = blockRoot.position + referenceFrame.TransformVector(referenceFrameOffsetLocal);
         }
 
-        // Sample local offset and convert to world target
         Vector3 localOffset = SampleLocalOffset();
         Vector3 worldTarget = referenceFrame.TransformPoint(localOffset);
 
-        // Move only the ROOT position (visual follows as child)
         targetSlotRoot.position = worldTarget;
 
-        // Make the visual look aligned with the block (rotation only on visual parent)
         if (matchTargetVisualRotationToBlock && targetSlotVisual != null)
         {
             targetSlotVisual.rotation = blockRoot.rotation;
         }
 
-        // Refresh renderers each trial (target visual is updated/repositioned)
         _blockR = blockRoot.GetComponentInChildren<Renderer>(true);
         _targetR = targetSlotRoot.GetComponentInChildren<Renderer>(true);
 
-        // Compute tolerance using the same metric as success
         float targetDistance = ComputeDistanceAtTrialStart();
         tolerance = Mathf.Max(0.05f * targetDistance, minTolMeters);
 
-        // Reset timers
         trialTimer = 0f;
         dwellTimer = 0f;
         trialRunning = true;
@@ -293,11 +289,9 @@ public class LegoPlacementTaskManager : MonoBehaviour
             float ly = Random.Range(localYRange.x, localYRange.y);
             float lz = Random.Range(localZRange.x, localZRange.y);
 
-            // Forbidden center strip: X only
             if (Mathf.Abs(lx) < centerNoGoHalfWidthX)
                 continue;
 
-            // Minimum planar distance on XZ
             float planar = Mathf.Sqrt(lx * lx + lz * lz);
             if (planar < minPlanarOffsetMeters)
                 continue;
@@ -326,7 +320,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
             ForceReleaseIfPossible();
 
             if (snapOnSuccess)
-                SnapBlockToTarget(); // now snaps by bounds center
+                SnapBlockToTarget();
 
             PlaySnapSound();
             ShowStar();
@@ -341,8 +335,9 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
         HideFeedbackUI();
 
-        if (restoreRotationFollowAfterTrial)
-            SetGrabberFollowRotation(true);
+        // Restore rotation policy for the next task / next phase
+        if (restoreRotationModeAfterTrial)
+            SetGrabberRotationMode(restoreGrabberModeAfterTrial);
 
         if (resetBlockToStartAfterTrial)
         {
@@ -362,13 +357,11 @@ public class LegoPlacementTaskManager : MonoBehaviour
             return Vector3.Distance(blockRoot.position, targetSlotRoot.position);
         }
 
-        // bounds-center metric (robust)
         if (_blockR == null) _blockR = blockRoot.GetComponentInChildren<Renderer>(true);
         if (_targetR == null) _targetR = targetSlotRoot.GetComponentInChildren<Renderer>(true);
 
         if (_blockR == null || _targetR == null)
         {
-            // fallback to pivot distance if renderer missing
             return Vector3.Distance(blockRoot.position, targetSlotRoot.position);
         }
 
@@ -377,7 +370,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private float ComputeDistanceAtTrialStart()
     {
-        // Use the same metric as err so tolerance stays consistent
         return ComputeErrorMeters();
     }
 
@@ -386,7 +378,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
     {
         if (!useBoundsCenterForSuccess)
         {
-            // Pivot snap
             blockRoot.position = targetSlotRoot.position;
             return;
         }
@@ -396,12 +387,10 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
         if (_blockR == null || _targetR == null)
         {
-            // fallback
             blockRoot.position = targetSlotRoot.position;
             return;
         }
 
-        // Move blockRoot so that block bounds center matches target bounds center.
         Vector3 blockCenter = _blockR.bounds.center;
         Vector3 targetCenter = _targetR.bounds.center;
 
@@ -411,14 +400,26 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private void ForceReleaseIfPossible()
     {
+        if (grabber != null)
+        {
+            grabber.ForceRelease();
+            return;
+        }
+
         if (grabReleaseComponent != null)
             grabReleaseComponent.SendMessage("ForceRelease", SendMessageOptions.DontRequireReceiver);
     }
 
-    private void SetGrabberFollowRotation(bool follow)
+    private void SetGrabberRotationMode(ProxyHandGrabber.HeldRotationMode mode)
     {
+        if (grabber != null)
+        {
+            grabber.SetHeldRotationMode(mode);
+            return;
+        }
+
         if (grabReleaseComponent != null)
-            grabReleaseComponent.SendMessage("SetFollowHeldRotation", follow, SendMessageOptions.DontRequireReceiver);
+            grabReleaseComponent.SendMessage("SetHeldRotationMode", mode, SendMessageOptions.DontRequireReceiver);
     }
 
     private void PlaySnapSound()
@@ -469,6 +470,10 @@ public class LegoPlacementTaskManager : MonoBehaviour
 
     private void OnDisable()
     {
+        // Prevent mode leaking into other tasks if this manager is disabled mid-run
+        if (restoreRotationModeAfterTrial)
+            SetGrabberRotationMode(restoreGrabberModeAfterTrial);
+
         if (keywordRecognizer != null)
         {
             keywordRecognizer.Stop();

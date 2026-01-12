@@ -11,7 +11,7 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private Transform targetSlotRoot;    // EMPTY root for target pose
     [SerializeField] private Transform targetSlotVisual;  // EMPTY visual parent (yaw reference)
 
-    [Tooltip("ProxyHandGrabber (or similar) that supports ForceRelease() and SetFollowHeldRotation(bool).")]
+    [Tooltip("ProxyHandGrabber (or similar) that supports ForceRelease() and SetHeldRotationMode(...).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
 
     [Tooltip("ProxyHandGrabber instance (for gating rotation only when holding).")]
@@ -71,6 +71,13 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private string startKeyword = "start rotation";
     [SerializeField] private string restartKeyword = "restart rotation";
     [SerializeField] private bool autoStartInEditor = false;
+
+    [Header("Grabber rotation policy")]
+    [Tooltip("During rotation trials, the task manager controls block rotation and the grabber must not override rotation.")]
+    [SerializeField] private ProxyHandGrabber.HeldRotationMode rotationTrialGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
+
+    [Tooltip("When this manager stops/gets disabled, restore grabber to this rotation mode (to avoid leaking ExternalControl into other tasks).")]
+    [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeOnDisable = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
     // Runtime
     private int trialIndex = 0;
@@ -190,14 +197,6 @@ public class LegoRotationTaskManager : MonoBehaviour
 
     private bool ShouldDriveRotationThisFrame()
     {
-        if (Time.frameCount % 30 == 0)
-        {
-            DebugHUD.Log(
-                $"[RotateGate] IsHolding={(grabber != null ? grabber.IsHolding : false)} " +
-                $"HeldBody={(grabber != null && grabber.HeldBody != null ? grabber.HeldBody.name : "null")} " +
-                $"BlockBody={(_blockBody != null ? _blockBody.name : "null")}"
-            );
-        }
         if (!rotateOnlyWhenHolding) return true;
 
         if (grabber == null) return false;
@@ -210,18 +209,14 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         if (grabber.HeldBody == null) return false;
 
-
-        // LOG
+        // Debug: lightweight periodic log (optional)
         if (Time.frameCount % 30 == 0)
         {
-            bool isHolding = (grabber != null && grabber.IsHolding);
-            var held = (grabber != null) ? grabber.HeldBody : null;
-
-            DebugHUD.Log($"[RotateGate] rotateOnlyWhenHolding={rotateOnlyWhenHolding} requireThis={requireHoldingThisBlock} " +
-                      $"isHolding={isHolding} heldBody={(held != null ? held.name : "null")} " +
-                      $"blockBody={(_blockBody != null ? _blockBody.name : "null")}");
+            DebugHUD.Log(
+                $"[RotateGate] isHolding={grabber.IsHolding} heldBody={(grabber.HeldBody != null ? grabber.HeldBody.name : "null")} " +
+                $"blockBody={(_blockBody != null ? _blockBody.name : "null")}"
+            );
         }
-        // LOG END
 
         return grabber.HeldBody == _blockBody;
     }
@@ -249,8 +244,8 @@ public class LegoRotationTaskManager : MonoBehaviour
             return;
         }
 
-        // We drive yaw ourselves from twist, so do NOT follow held rotation
-        SetGrabberFollowRotation(false);
+        // Rotation task: RotationTM controls rotation; grabber must NOT override rotation.
+        SetGrabberRotationMode(rotationTrialGrabberMode);
 
         // Rotation-only task: keep target position fixed (if enabled)
         if (lockTargetPosition)
@@ -263,10 +258,6 @@ public class LegoRotationTaskManager : MonoBehaviour
             // fallback: place target at current block position
             targetSlotRoot.position = blockRoot.position;
         }
-
-        // Optionally keep block at target position to make it pure rotation task
-        // (If you want block always at target, uncomment next line)
-        // blockRoot.position = targetSlotRoot.position;
 
         // Record start yaw and baseline twist
         startYawDeg = blockRoot.eulerAngles.y;
@@ -297,7 +288,6 @@ public class LegoRotationTaskManager : MonoBehaviour
         float dTwist = twistNow - twistBaselineDeg;
 
         float sign = invertTwistToYaw ? -1f : 1f;
-
         float desiredYaw = startYawDeg + dTwist * twistToYawGain * sign;
 
         float dt = Mathf.Max(Time.deltaTime, 1f / 120f);
@@ -372,14 +362,28 @@ public class LegoRotationTaskManager : MonoBehaviour
         yawCmdDeg = startYawDeg;
     }
 
-    private void SetGrabberFollowRotation(bool follow)
+    private void SetGrabberRotationMode(ProxyHandGrabber.HeldRotationMode mode)
     {
+        // Preferred: direct call
+        if (grabber != null)
+        {
+            grabber.SetHeldRotationMode(mode);
+            return;
+        }
+
+        // Fallback: SendMessage (if grabber reference is not wired but a component exists)
         if (grabReleaseComponent != null)
-            grabReleaseComponent.SendMessage("SetFollowHeldRotation", follow, SendMessageOptions.DontRequireReceiver);
+            grabReleaseComponent.SendMessage("SetHeldRotationMode", mode, SendMessageOptions.DontRequireReceiver);
     }
 
     private void ForceReleaseIfPossible()
     {
+        if (grabber != null)
+        {
+            grabber.ForceRelease();
+            return;
+        }
+
         if (grabReleaseComponent != null)
             grabReleaseComponent.SendMessage("ForceRelease", SendMessageOptions.DontRequireReceiver);
     }
@@ -430,6 +434,9 @@ public class LegoRotationTaskManager : MonoBehaviour
 
     private void OnDisable()
     {
+        // Restore grabber mode so RotationTM doesn't leak its policy into other tasks
+        SetGrabberRotationMode(restoreGrabberModeOnDisable);
+
         if (keywordRecognizer != null)
         {
             keywordRecognizer.Stop();
