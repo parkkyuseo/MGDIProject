@@ -111,6 +111,13 @@ public class LegoRotationTaskManager : MonoBehaviour
     [Tooltip("When this manager stops/gets disabled, restore grabber to this rotation mode.")]
     [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeOnDisable = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
+    [Header("Target drift defense")]
+    [Tooltip("If true, enforces the captured fixed target localPosition every LateUpdate during trials.")]
+    [SerializeField] private bool hardLockTargetEveryFrame = true;
+
+    [Tooltip("If true, logs when target drift is detected and corrected.")]
+    [SerializeField] private bool logTargetDrift = true;
+
     // Runtime
     private Vector3 _fixedTargetLocalPos;
     private Transform _fixedTargetParent;
@@ -132,9 +139,8 @@ public class LegoRotationTaskManager : MonoBehaviour
     // Used when resetNearHand is false
     private Vector3 _trialStartBlockPosWorld;
 
-    // Fixed target position state
+    // Fixed target capture state
     private bool _fixedTargetCaptured = false;
-    private Vector3 _fixedTargetPosWorld;
 
     // Voice
     private KeywordRecognizer keywordRecognizer;
@@ -185,7 +191,7 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         _fixedTargetParent = targetSlotRoot.parent;
 
-        // fixedTargetPose가 있으면: 그 월드 위치를 부모 로컬로 변환해서 저장
+        // If a fixedTargetPose is provided, store its position in the parent's local space
         if (fixedTargetPose != null && _fixedTargetParent != null)
         {
             _fixedTargetLocalPos = _fixedTargetParent.InverseTransformPoint(fixedTargetPose.position);
@@ -193,7 +199,7 @@ public class LegoRotationTaskManager : MonoBehaviour
             return;
         }
 
-        // 아니면 현재 localPosition을 저장
+        // Otherwise, store the current localPosition
         _fixedTargetLocalPos = targetSlotRoot.localPosition;
         _fixedTargetCaptured = true;
     }
@@ -229,6 +235,25 @@ public class LegoRotationTaskManager : MonoBehaviour
         else
         {
             dwellTimer = 0f;
+        }
+    }
+
+    private void LateUpdate()
+    {
+        if (!hardLockTargetEveryFrame) return;
+        if (!trialRunning || inTransition) return;
+        if (!lockTargetPosition) return;
+        if (!_fixedTargetCaptured) return;
+        if (targetSlotRoot == null) return;
+
+        // Detect drift and restore
+        if (targetSlotRoot.localPosition != _fixedTargetLocalPos)
+        {
+            if (logTargetDrift)
+            {
+                Debug.Log($"[RotationTM] Target drift detected. local was {targetSlotRoot.localPosition}, restoring to {_fixedTargetLocalPos}");
+            }
+            targetSlotRoot.localPosition = _fixedTargetLocalPos;
         }
     }
 
@@ -281,7 +306,6 @@ public class LegoRotationTaskManager : MonoBehaviour
         if (lockTargetPosition)
         {
             EnsureFixedTarget();
-            /* targetSlotRoot.position = _fixedTargetPosWorld; */
             targetSlotRoot.localPosition = _fixedTargetLocalPos;
         }
         else
@@ -371,10 +395,10 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         if (resetBlockAfterTrial)
         {
-            // 1) Release first so the block is not parented to the hand when moved.
+            // Release first so the block is not parented to the hand when moved.
             ForceReleaseIfPossible();
 
-            // 2) Reposition block
+            // Reposition block
             if (resetNearHand)
             {
                 Transform hand = GetResetHandAnchor();
