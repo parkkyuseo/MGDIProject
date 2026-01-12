@@ -1121,7 +1121,9 @@ MonoBehaviour:
   enableVoiceStart: 0
   startKeyword: start
   restartKeyword: restart
-  autoStartInEditor: 0
+  autoStartInEditor: 1
+  rotationTrialGrabberMode: 2
+  restoreGrabberModeOnDisable: 1
 --- !u!1 &672060782
 GameObject:
   m_ObjectHideFlags: 0
@@ -3233,6 +3235,7 @@ MonoBehaviour:
   workspaceController: {fileID: 489815359}
   placementTask: {fileID: 1964408501}
   rotationTask: {fileID: 584929088}
+  grabber: {fileID: 4217352218302390359}
   macroControllerRoot: {fileID: 3588484702831311607}
   microControllerRoot: {fileID: 0}
   currentTask: 0
@@ -3269,9 +3272,9 @@ MonoBehaviour:
     offset: {x: 0, y: 0.05, z: 0.6}
     yawOffsetDeg: 0
   rotation_macro_near:
-    applyPosition: 0
+    applyPosition: 1
     applyRotation: 0
-    offset: {x: 0, y: 0.05, z: 0.6}
+    offset: {x: 0, y: -0.2, z: 0}
     yawOffsetDeg: 0
   rotation_macro_sideLeft:
     applyPosition: 1
@@ -3298,6 +3301,8 @@ MonoBehaviour:
     applyRotation: 1
     offset: {x: 0, y: 0.05, z: 0.6}
     yawOffsetDeg: 0
+  placementGrabberMode: 1
+  rotationGrabberMode: 2
   enableVoice: 1
   cmdStartPlacement: start placement
   cmdStartRotation: start rotation
@@ -4462,12 +4467,15 @@ MonoBehaviour:
   blockRoot: {fileID: 168584006}
   targetSlotRoot: {fileID: 1568458988}
   targetSlotVisual: {fileID: 481999432}
+  grabber: {fileID: 4217352218302390359}
   grabReleaseComponent: {fileID: 4217352218302390358}
   referenceFrame: {fileID: 838731307}
   anchorReferenceFrameToBlock: 1
   referenceFrameOffsetLocal: {x: 0, y: 0.05, z: 0}
   lockRotationDuringPlacement: 1
-  restoreRotationFollowAfterTrial: 1
+  placementGrabberMode: 1
+  restoreRotationModeAfterTrial: 1
+  restoreGrabberModeAfterTrial: 0
   matchTargetVisualRotationToBlock: 1
   audioSource: {fileID: 1481024369}
   snapClip: {fileID: 8300000, guid: 61eb6ff0ade160e47ae0945392535fe9, type: 3}
@@ -4484,7 +4492,7 @@ MonoBehaviour:
   enableVoiceStart: 0
   startKeyword: start
   restartKeyword: restart
-  autoStartInEditor: 1
+  autoStartInEditor: 0
   localXRange: {x: -0.35, y: 0.45}
   localYRange: {x: -0.3, y: 0.1}
   localZRange: {x: -0.1, y: 0.1}
@@ -5638,7 +5646,7 @@ MonoBehaviour:
   heldPosDeadZoneMeters: 0.006
   heldMaxStepMeters: 0.06
   heldTauSec: 0.08
-  followHeldRotation: 1
+  heldRotationMode: 0
   filterHeldRotation: 0
   heldMaxDegPerSec: 360
   heldRotTauSec: 0.1
