@@ -112,6 +112,10 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeOnDisable = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
     // Runtime
+    private bool _fixedTargetCaptured = false;
+    private Vector3 _fixedTargetLocalPos;
+    private Transform _fixedTargetParent;
+
     private int trialIndex = 0;
     private float trialTimer = 0f;
     private float dwellTimer = 0f;
@@ -178,19 +182,21 @@ public class LegoRotationTaskManager : MonoBehaviour
     {
         if (!lockTargetPosition) return;
         if (_fixedTargetCaptured) return;
+        if (targetSlotRoot == null) return;
 
-        if (fixedTargetPose != null)
+        _fixedTargetParent = targetSlotRoot.parent;
+
+        // fixedTargetPose가 있으면: 그 월드 위치를 부모 로컬로 변환해서 저장
+        if (fixedTargetPose != null && _fixedTargetParent != null)
         {
-            _fixedTargetPosWorld = fixedTargetPose.position;
+            _fixedTargetLocalPos = _fixedTargetParent.InverseTransformPoint(fixedTargetPose.position);
             _fixedTargetCaptured = true;
             return;
         }
 
-        if (targetSlotRoot != null)
-        {
-            _fixedTargetPosWorld = targetSlotRoot.position;
-            _fixedTargetCaptured = true;
-        }
+        // 아니면 현재 localPosition을 저장
+        _fixedTargetLocalPos = targetSlotRoot.localPosition;
+        _fixedTargetCaptured = true;
     }
 
     private void Update()
@@ -276,7 +282,8 @@ public class LegoRotationTaskManager : MonoBehaviour
         if (lockTargetPosition)
         {
             EnsureFixedTarget();
-            targetSlotRoot.position = _fixedTargetPosWorld;
+            /* targetSlotRoot.position = _fixedTargetPosWorld; */
+            targetSlotRoot.localPosition = _fixedTargetLocalPos;
         }
         else
         {
