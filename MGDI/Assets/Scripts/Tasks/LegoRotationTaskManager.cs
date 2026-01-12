@@ -154,9 +154,7 @@ public class LegoRotationTaskManager : MonoBehaviour
 
     private void Update()
     {
-        DebugHUD.Log("[RotationTM] Update alive");
         if (!trialRunning || inTransition) return;
-        DebugHUD.Log($"[RotationTM] trialRunning={trialRunning} inTransition={inTransition}");
 
         trialTimer += Time.deltaTime;
 
@@ -192,6 +190,14 @@ public class LegoRotationTaskManager : MonoBehaviour
 
     private bool ShouldDriveRotationThisFrame()
     {
+        if (Time.frameCount % 30 == 0)
+        {
+            DebugHUD.Log(
+                $"[RotateGate] IsHolding={(grabber != null ? grabber.IsHolding : false)} " +
+                $"HeldBody={(grabber != null && grabber.HeldBody != null ? grabber.HeldBody.name : "null")} " +
+                $"BlockBody={(_blockBody != null ? _blockBody.name : "null")}"
+            );
+        }
         if (!rotateOnlyWhenHolding) return true;
 
         if (grabber == null) return false;
