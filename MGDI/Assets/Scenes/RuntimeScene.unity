@@ -3233,7 +3233,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1551205279}
   - component: {fileID: 1551205280}
-  - component: {fileID: 1551205281}
   m_Layer: 0
   m_Name: StudyRuntime
   m_TagString: Untagged
@@ -3278,11 +3277,12 @@ MonoBehaviour:
   workspaceController: {fileID: 489815359}
   placementTask: {fileID: 1964408501}
   rotationTask: {fileID: 584929088}
+  nextTaskPlaceholder: {fileID: 0}
   grabber: {fileID: 4217352218302390359}
-  targetParentSwitcher: {fileID: 1551205281}
+  targetParentSwitcher: {fileID: 0}
   macroControllerRoot: {fileID: 3588484702831311607}
   microControllerRoot: {fileID: 0}
-  currentTask: 1
+  currentTask: 0
   currentTechnique: 0
   currentHandLocation: 0
   placement_macro_near:
@@ -3357,21 +3357,6 @@ MonoBehaviour:
   cmdNear: near
   cmdSideLeft: side left
   cmdSideRight: side right
---- !u!114 &1551205281
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1551205278}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e8cd0439eecb6bc46a405db42c798a6c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  targetsRoot: {fileID: 913397330}
-  workspaceAnchor: {fileID: 489815358}
-  worldParent: {fileID: 1551205279}
 --- !u!1 &1555681463
 GameObject:
   m_ObjectHideFlags: 0

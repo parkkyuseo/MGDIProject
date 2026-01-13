@@ -27,9 +27,6 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
     public ProxyHandGrabber grabber;
 
-    [Tooltip("Switches Targets parent depending on task (Rotation: world-locked, Placement: workspace-locked).")]
-    public TargetParentSwitcher targetParentSwitcher;
-
     [Header("Technique Controllers (optional)")]
     public GameObject macroControllerRoot;
     public GameObject microControllerRoot;
@@ -139,9 +136,6 @@ public class StudyFlowController : MonoBehaviour
         // 2) Apply technique + workspace for the current condition
         ApplyTechnique();
         ApplyWorkspaceProfile();
-
-        // 3) Task-specific: lock/unlock Targets parent
-        ApplyTargetsParentPolicy();
 
         // 4) Set grabber rotation policy per task (central, explicit)
         ApplyGrabberModeForCurrentTask();
@@ -269,27 +263,6 @@ public class StudyFlowController : MonoBehaviour
 
         if (microControllerRoot != null)
             microControllerRoot.SetActive(currentTechnique == Technique.Micro);
-    }
-
-    // ---------------- Targets parent policy ----------------
-    private void ApplyTargetsParentPolicy()
-    {
-        if (targetParentSwitcher == null) return;
-
-        // Rotation: detach Targets so they become world-locked (do not follow workspaceAnchor)
-        if (currentTask == TaskType.Rotation)
-            targetParentSwitcher.DetachToWorld(true);
-
-        // Placement: attach Targets under workspaceAnchor (so sampling/anchoring works normally)
-        if (currentTask == TaskType.Placement)
-            targetParentSwitcher.AttachToWorkspace(true);
-
-        // Future tasks: decide policy per task when implemented
-        if (currentTask == TaskType.NextTaskPlaceholder)
-        {
-            // Default: attach to workspace (safer for tasks that move targets)
-            targetParentSwitcher.AttachToWorkspace(true);
-        }
     }
 
     // ---------------- Grabber policy at task boundaries ----------------
