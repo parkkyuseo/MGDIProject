@@ -5,7 +5,14 @@ using UnityEngine.Windows.Speech;
 
 public class StudyFlowController : MonoBehaviour
 {
-    public enum TaskType { Placement, Rotation }
+    // Add new tasks here (safe placeholders included below)
+    public enum TaskType
+    {
+        Placement,
+        Rotation,
+        NextTaskPlaceholder // future task slot (won't error; handled safely)
+    }
+
     public enum Technique { Macro, Micro }
 
     [Header("References")]
@@ -13,6 +20,9 @@ public class StudyFlowController : MonoBehaviour
 
     public LegoPlacementTaskManager placementTask;
     public LegoRotationTaskManager rotationTask;
+
+    [Tooltip("Future task reference (optional). Keep null until the task is implemented.")]
+    public MonoBehaviour nextTaskPlaceholder;
 
     [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
     public ProxyHandGrabber grabber;
@@ -120,23 +130,23 @@ public class StudyFlowController : MonoBehaviour
             return;
         }
 
-        // Release at task boundary to avoid carrying held state across tasks.
+        // 0) Hard stop: ensure only one task can run (prevents Placement from moving Targets during Rotation)
+        SetOnlyTaskActive(currentTask);
+
+        // 1) Release at task boundary to avoid carrying held state across tasks.
         ForceReleaseIfPossible();
 
-        // Enable the selected task object (and disable others)
-        StopAllTasks();
-
-        // Apply technique + workspace for the current condition
+        // 2) Apply technique + workspace for the current condition
         ApplyTechnique();
         ApplyWorkspaceProfile();
 
-        // Task-specific: lock/unlock Targets parent
+        // 3) Task-specific: lock/unlock Targets parent
         ApplyTargetsParentPolicy();
 
-        // Set grabber rotation policy per task (central, explicit)
+        // 4) Set grabber rotation policy per task (central, explicit)
         ApplyGrabberModeForCurrentTask();
 
-        // Start the selected task
+        // 5) Start the selected task
         switch (currentTask)
         {
             case TaskType.Placement:
@@ -147,6 +157,15 @@ public class StudyFlowController : MonoBehaviour
             case TaskType.Rotation:
                 if (rotationTask == null) { Debug.LogError("[StudyFlowController] rotationTask missing."); return; }
                 rotationTask.StartBlock();
+                break;
+
+            case TaskType.NextTaskPlaceholder:
+                // Future task: safe no-op start (prevents errors before implementing)
+                Debug.LogWarning("[StudyFlowController] NextTaskPlaceholder selected. No task started (reference is optional).");
+                break;
+
+            default:
+                Debug.LogWarning("[StudyFlowController] Unknown task type. No task started.");
                 break;
         }
 
@@ -160,6 +179,7 @@ public class StudyFlowController : MonoBehaviour
 
     public void NextConditionAndRestart()
     {
+        // Cycle location first, then flip technique
         if (currentHandLocation == WorkspaceAnchorController.HandLocation.NearHead)
             currentHandLocation = WorkspaceAnchorController.HandLocation.SideOfBodyLeft;
         else if (currentHandLocation == WorkspaceAnchorController.HandLocation.SideOfBodyLeft)
@@ -203,6 +223,7 @@ public class StudyFlowController : MonoBehaviour
 
     private WorkspaceAnchorController.WorkspaceProfile GetProfile(TaskType task, Technique tech, WorkspaceAnchorController.HandLocation loc)
     {
+        // Placement
         if (task == TaskType.Placement)
         {
             if (tech == Technique.Macro)
@@ -219,6 +240,7 @@ public class StudyFlowController : MonoBehaviour
             }
         }
 
+        // Rotation
         if (task == TaskType.Rotation)
         {
             if (tech == Technique.Macro)
@@ -235,6 +257,7 @@ public class StudyFlowController : MonoBehaviour
             }
         }
 
+        // Future tasks: return null unless you add profiles for them
         return null;
     }
 
@@ -260,6 +283,13 @@ public class StudyFlowController : MonoBehaviour
         // Placement: attach Targets under workspaceAnchor (so sampling/anchoring works normally)
         if (currentTask == TaskType.Placement)
             targetParentSwitcher.AttachToWorkspace(true);
+
+        // Future tasks: decide policy per task when implemented
+        if (currentTask == TaskType.NextTaskPlaceholder)
+        {
+            // Default: attach to workspace (safer for tasks that move targets)
+            targetParentSwitcher.AttachToWorkspace(true);
+        }
     }
 
     // ---------------- Grabber policy at task boundaries ----------------
@@ -271,6 +301,8 @@ public class StudyFlowController : MonoBehaviour
             grabber.SetHeldRotationMode(placementGrabberMode);
         else if (currentTask == TaskType.Rotation)
             grabber.SetHeldRotationMode(rotationGrabberMode);
+        else
+            grabber.SetHeldRotationMode(placementGrabberMode); // sensible default
     }
 
     private void ForceReleaseIfPossible()
@@ -279,12 +311,54 @@ public class StudyFlowController : MonoBehaviour
             grabber.ForceRelease();
     }
 
-    private void StopAllTasks()
+    // ---------------- Hard gating: only one task can run ----------------
+    private void SetOnlyTaskActive(TaskType taskToRun)
     {
-        if (placementTask != null) placementTask.gameObject.SetActive(false);
-        if (rotationTask != null) rotationTask.gameObject.SetActive(false);
+        // Disable ALL known tasks first (both component + GameObject)
+        if (placementTask != null)
+        {
+            placementTask.enabled = false;
+            placementTask.gameObject.SetActive(false);
+        }
 
-        if (currentTask == TaskType.Placement && placementTask != null) placementTask.gameObject.SetActive(true);
-        if (currentTask == TaskType.Rotation && rotationTask != null) rotationTask.gameObject.SetActive(true);
+        if (rotationTask != null)
+        {
+            rotationTask.enabled = false;
+            rotationTask.gameObject.SetActive(false);
+        }
+
+        if (nextTaskPlaceholder != null)
+        {
+            nextTaskPlaceholder.enabled = false;
+            nextTaskPlaceholder.gameObject.SetActive(false);
+        }
+
+        // Enable ONLY the selected task
+        switch (taskToRun)
+        {
+            case TaskType.Placement:
+                if (placementTask != null)
+                {
+                    placementTask.gameObject.SetActive(true);
+                    placementTask.enabled = true;
+                }
+                break;
+
+            case TaskType.Rotation:
+                if (rotationTask != null)
+                {
+                    rotationTask.gameObject.SetActive(true);
+                    rotationTask.enabled = true;
+                }
+                break;
+
+            case TaskType.NextTaskPlaceholder:
+                if (nextTaskPlaceholder != null)
+                {
+                    nextTaskPlaceholder.gameObject.SetActive(true);
+                    nextTaskPlaceholder.enabled = true;
+                }
+                break;
+        }
     }
 }
