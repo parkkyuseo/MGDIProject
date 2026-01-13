@@ -3282,7 +3282,7 @@ MonoBehaviour:
   targetParentSwitcher: {fileID: 1551205281}
   macroControllerRoot: {fileID: 3588484702831311607}
   microControllerRoot: {fileID: 0}
-  currentTask: 0
+  currentTask: 1
   currentTechnique: 0
   currentHandLocation: 0
   placement_macro_near:
