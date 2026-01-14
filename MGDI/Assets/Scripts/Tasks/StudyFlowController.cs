@@ -5,14 +5,7 @@ using UnityEngine.Windows.Speech;
 
 public class StudyFlowController : MonoBehaviour
 {
-    // Add new tasks here (safe placeholders included below)
-    public enum TaskType
-    {
-        Placement,
-        Rotation,
-        NextTaskPlaceholder // future task slot (won't error; handled safely)
-    }
-
+    public enum TaskType { Placement, Rotation, NextTaskPlaceholder }
     public enum Technique { Macro, Micro }
 
     [Header("References")]
@@ -108,6 +101,8 @@ public class StudyFlowController : MonoBehaviour
 
     private void OnDisable()
     {
+        UnhookTaskFinishedEvents();
+
         if (recognizer != null)
         {
             recognizer.Stop();
@@ -127,20 +122,23 @@ public class StudyFlowController : MonoBehaviour
             return;
         }
 
-        // 0) Hard stop: ensure only one task can run (prevents Placement from moving Targets during Rotation)
+        // Ensure only one task can run (prevents cross-task side effects)
         SetOnlyTaskActive(currentTask);
 
-        // 1) Release at task boundary to avoid carrying held state across tasks.
+        // Release at task boundary
         ForceReleaseIfPossible();
 
-        // 2) Apply technique + workspace for the current condition
+        // Apply technique + workspace for the current condition
         ApplyTechnique();
         ApplyWorkspaceProfile();
 
-        // 4) Set grabber rotation policy per task (central, explicit)
+        // Grabber mode policy
         ApplyGrabberModeForCurrentTask();
 
-        // 5) Start the selected task
+        // Hook finish events
+        HookTaskFinishedEvents(currentTask);
+
+        // Start the selected task
         switch (currentTask)
         {
             case TaskType.Placement:
@@ -154,12 +152,7 @@ public class StudyFlowController : MonoBehaviour
                 break;
 
             case TaskType.NextTaskPlaceholder:
-                // Future task: safe no-op start (prevents errors before implementing)
-                Debug.LogWarning("[StudyFlowController] NextTaskPlaceholder selected. No task started (reference is optional).");
-                break;
-
-            default:
-                Debug.LogWarning("[StudyFlowController] Unknown task type. No task started.");
+                Debug.LogWarning("[StudyFlowController] NextTaskPlaceholder selected. No task started.");
                 break;
         }
 
@@ -173,7 +166,6 @@ public class StudyFlowController : MonoBehaviour
 
     public void NextConditionAndRestart()
     {
-        // Cycle location first, then flip technique
         if (currentHandLocation == WorkspaceAnchorController.HandLocation.NearHead)
             currentHandLocation = WorkspaceAnchorController.HandLocation.SideOfBodyLeft;
         else if (currentHandLocation == WorkspaceAnchorController.HandLocation.SideOfBodyLeft)
@@ -217,7 +209,6 @@ public class StudyFlowController : MonoBehaviour
 
     private WorkspaceAnchorController.WorkspaceProfile GetProfile(TaskType task, Technique tech, WorkspaceAnchorController.HandLocation loc)
     {
-        // Placement
         if (task == TaskType.Placement)
         {
             if (tech == Technique.Macro)
@@ -234,7 +225,6 @@ public class StudyFlowController : MonoBehaviour
             }
         }
 
-        // Rotation
         if (task == TaskType.Rotation)
         {
             if (tech == Technique.Macro)
@@ -251,7 +241,6 @@ public class StudyFlowController : MonoBehaviour
             }
         }
 
-        // Future tasks: return null unless you add profiles for them
         return null;
     }
 
@@ -275,7 +264,7 @@ public class StudyFlowController : MonoBehaviour
         else if (currentTask == TaskType.Rotation)
             grabber.SetHeldRotationMode(rotationGrabberMode);
         else
-            grabber.SetHeldRotationMode(placementGrabberMode); // sensible default
+            grabber.SetHeldRotationMode(placementGrabberMode);
     }
 
     private void ForceReleaseIfPossible()
@@ -284,10 +273,37 @@ public class StudyFlowController : MonoBehaviour
             grabber.ForceRelease();
     }
 
+    // ---------------- Task finished wiring ----------------
+    private void HookTaskFinishedEvents(TaskType task)
+    {
+        UnhookTaskFinishedEvents();
+
+        if (task == TaskType.Rotation && rotationTask != null)
+            rotationTask.OnBlockFinished += OnActiveTaskFinished;
+
+        if (task == TaskType.Placement && placementTask != null)
+            placementTask.OnBlockFinished += OnActiveTaskFinished;
+    }
+
+    private void UnhookTaskFinishedEvents()
+    {
+        if (rotationTask != null) rotationTask.OnBlockFinished -= OnActiveTaskFinished;
+        if (placementTask != null) placementTask.OnBlockFinished -= OnActiveTaskFinished;
+    }
+
+    private void OnActiveTaskFinished()
+    {
+        Debug.Log("[StudyFlowController] Task finished. Waiting for voice command to start the next task.");
+
+        // Disable tasks so nothing continues to mutate shared objects (e.g., Targets).
+        UnhookTaskFinishedEvents();
+        SetOnlyTaskActive(TaskType.NextTaskPlaceholder);
+    }
+
     // ---------------- Hard gating: only one task can run ----------------
     private void SetOnlyTaskActive(TaskType taskToRun)
     {
-        // Disable ALL known tasks first (both component + GameObject)
+        // Disable all known tasks (component + GameObject)
         if (placementTask != null)
         {
             placementTask.enabled = false;
@@ -306,7 +322,7 @@ public class StudyFlowController : MonoBehaviour
             nextTaskPlaceholder.gameObject.SetActive(false);
         }
 
-        // Enable ONLY the selected task
+        // Enable only the selected task
         switch (taskToRun)
         {
             case TaskType.Placement:
@@ -326,6 +342,8 @@ public class StudyFlowController : MonoBehaviour
                 break;
 
             case TaskType.NextTaskPlaceholder:
+                // Intentionally keep everything disabled
+                // (FlowController stays active and listens for voice commands)
                 if (nextTaskPlaceholder != null)
                 {
                     nextTaskPlaceholder.gameObject.SetActive(true);

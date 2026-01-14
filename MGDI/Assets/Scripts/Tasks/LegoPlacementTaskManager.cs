@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,6 +7,9 @@ using UnityEngine.Windows.Speech;
 
 public class LegoPlacementTaskManager : MonoBehaviour
 {
+    // Fired when the placement block finishes (all trials complete).
+    public event Action OnBlockFinished;
+
     [Header("References")]
     [Tooltip("The transform that moves (use LegoBlockRoot).")]
     [SerializeField] private Transform blockRoot;
@@ -234,13 +238,14 @@ public class LegoPlacementTaskManager : MonoBehaviour
         if (blockRoot == null || targetSlotRoot == null || referenceFrame == null)
         {
             Debug.LogError("[LegoPlacementTaskManager] Missing references (blockRoot/targetSlotRoot/referenceFrame).");
+            FinishBlock();
             return;
         }
 
         if (totalTrials > 0 && trialIndex >= totalTrials)
         {
             Debug.Log("[LegoPlacementTaskManager] Block finished.");
-            trialRunning = false;
+            FinishBlock();
             return;
         }
 
@@ -446,7 +451,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
         if (xUI != null) xUI.SetActive(false);
     }
 
-    // ---------------- Voice ----------------
     private void SetupVoiceCommands()
     {
         if (keywordRecognizer != null) return;
@@ -466,6 +470,15 @@ public class LegoPlacementTaskManager : MonoBehaviour
         keywordRecognizer.Start();
 
         Debug.Log($"[LegoPlacementTaskManager] Voice commands enabled: '{startKeyword}', '{restartKeyword}'");
+    }
+
+    private void FinishBlock()
+    {
+        trialRunning = false;
+        inTransition = false;
+        HideFeedbackUI();
+
+        try { OnBlockFinished?.Invoke(); } catch { /* ignore */ }
     }
 
     private void OnDisable()

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,10 +7,13 @@ using UnityEngine.Windows.Speech;
 
 public class LegoRotationTaskManager : MonoBehaviour
 {
+    // Fired when the rotation block finishes (all trials complete).
+    public event Action OnBlockFinished;
+
     [Header("References")]
     [SerializeField] private Transform blockRoot;
-    [SerializeField] private Transform targetSlotRoot;    // EMPTY root for target pose
-    [SerializeField] private Transform targetSlotVisual;  // EMPTY visual parent (yaw reference)
+    [SerializeField] private Transform targetSlotRoot;    // EMPTY root for target pose (position is NOT modified in this task)
+    [SerializeField] private Transform targetSlotVisual;  // EMPTY visual parent (yaw reference; kept for compatibility)
 
     [Tooltip("ProxyHandGrabber (or similar) that supports ForceRelease() and SetHeldRotationMode(...).")]
     [SerializeField] private MonoBehaviour grabReleaseComponent;
@@ -46,13 +50,6 @@ public class LegoRotationTaskManager : MonoBehaviour
 
     [Tooltip("If true, drive rotation only when the grabber is holding THIS block rigidbody.")]
     [SerializeField] private bool requireHoldingThisBlock = true;
-
-    [Header("Target position policy")]
-    [Tooltip("If true, target is kept at fixedTargetPose.position each trial (Rotation task assumes Targets is detached to world by FlowController).")]
-    [SerializeField] private bool lockTargetPosition = true;
-
-    [Tooltip("REQUIRED for rotation task fixed target. Place this object under StudyRuntime or scene root (NOT under workspaceAnchor).")]
-    [SerializeField] private Transform fixedTargetPose;
 
     [Header("Inter-trial behavior")]
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
@@ -91,6 +88,8 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private ProxyHandGrabber.HeldRotationMode rotationTrialGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
     [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeOnDisable = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
+    [Header("Target pivot (authoritative yaw target)")]
+    [Tooltip("Pivot transform that is centered on the target. Rotation is applied to this pivot.")]
     [SerializeField] private Transform targetPivot;
 
     // Runtime
@@ -109,6 +108,7 @@ public class LegoRotationTaskManager : MonoBehaviour
     private Rigidbody _blockBody;
     private Vector3 _trialStartBlockPosWorld;
 
+    // gating: drive only when holding + TwistReady
     private bool _prevEffectiveDriving = false;
 
     // Voice
@@ -169,6 +169,7 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         if (effectiveDriving)
         {
+            // When driving becomes active again, rebaseline to avoid jumps.
             if (!_prevEffectiveDriving)
                 RebaselineTwistBaselineToCurrentYaw();
 
@@ -215,21 +216,28 @@ public class LegoRotationTaskManager : MonoBehaviour
         if (blockRoot == null || targetSlotRoot == null || targetSlotVisual == null)
         {
             Debug.LogError("[LegoRotationTaskManager] Missing references.");
-            trialRunning = false;
+            FinishBlock();
             return;
         }
 
         if (remoteHand == null)
         {
             Debug.LogError("[LegoRotationTaskManager] remoteHand is null (RemoteHandRuntime).");
-            trialRunning = false;
+            FinishBlock();
+            return;
+        }
+
+        if (targetPivot == null)
+        {
+            Debug.LogError("[LegoRotationTaskManager] targetPivot is null. Assign the centered pivot (TargetPivot).");
+            FinishBlock();
             return;
         }
 
         if (totalTrials > 0 && trialIndex >= totalTrials)
         {
             Debug.Log("[LegoRotationTaskManager] Block finished.");
-            trialRunning = false;
+            FinishBlock();
             return;
         }
 
@@ -239,23 +247,10 @@ public class LegoRotationTaskManager : MonoBehaviour
         // record start pos (fallback reset)
         _trialStartBlockPosWorld = blockRoot.position;
 
-        // Target fixed position (assumes Targets is detached to world by FlowController)
-        if (lockTargetPosition)
-        {
-            if (fixedTargetPose == null)
-            {
-                Debug.LogError("[LegoRotationTaskManager] fixedTargetPose is required when lockTargetPosition is true.");
-                trialRunning = false;
-                return;
-            }
-            targetSlotRoot.position = fixedTargetPose.position;
-        }
-        else
-        {
-            targetSlotRoot.position = blockRoot.position;
-        }
+        // IMPORTANT (B option): Do NOT modify targetSlotRoot.position here.
+        // Target location is assumed to already be placed appropriately by the scene / FlowController / workspace logic.
 
-        // Record start yaw and baseline twist (TwistReady일 때만 유효)
+        // Record start yaw and baseline twist (valid only when TwistReady)
         startYawDeg = blockRoot.eulerAngles.y;
         twistBaselineDeg = remoteHand.TwistReady ? remoteHand.TwistDegrees : 0f;
         yawCmdDeg = startYawDeg;
@@ -263,12 +258,11 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         _prevEffectiveDriving = false;
 
-        // Sample target yaw offset and apply to target visual (yaw-only)
+        // Sample target yaw offset and apply to target pivot (yaw-only)
         float offset = Random.Range(yawMinDeg, yawMaxDeg);
         if (randomizeYawSign && Random.value < 0.5f) offset = -offset;
 
         float targetYaw = startYawDeg + offset;
-        // targetSlotVisual.rotation = Quaternion.Euler(0f, targetYaw, 0f);
         targetPivot.rotation = Quaternion.Euler(0f, targetYaw, 0f);
 
         trialTimer = 0f;
@@ -330,10 +324,14 @@ public class LegoRotationTaskManager : MonoBehaviour
         blockRoot.rotation = Quaternion.Euler(0f, yawCmdDeg, 0f);
     }
 
+    // (1) UPDATED: target yaw read from targetPivot (authoritative)
     private float ComputeYawErrorDeg()
     {
+        if (blockRoot == null) return float.MaxValue;
+
         float blockYaw = blockRoot.eulerAngles.y;
-        float targetYaw = targetSlotVisual.eulerAngles.y;
+        float targetYaw = (targetPivot != null) ? targetPivot.eulerAngles.y : targetSlotVisual.eulerAngles.y;
+
         return Mathf.Abs(Mathf.DeltaAngle(blockYaw, targetYaw));
     }
 
@@ -412,9 +410,11 @@ public class LegoRotationTaskManager : MonoBehaviour
         BeginNextTrial();
     }
 
+    // (2) UPDATED: snap target yaw read from targetPivot (authoritative)
     private void SnapYawToTarget()
     {
-        float targetYaw = targetSlotVisual.eulerAngles.y;
+        float targetYaw = (targetPivot != null) ? targetPivot.eulerAngles.y : targetSlotVisual.eulerAngles.y;
+
         blockRoot.rotation = Quaternion.Euler(0f, targetYaw, 0f);
         yawCmdDeg = targetYaw;
     }
@@ -505,6 +505,15 @@ public class LegoRotationTaskManager : MonoBehaviour
                 action.Invoke();
         };
         keywordRecognizer.Start();
+    }
+
+    private void FinishBlock()
+    {
+        trialRunning = false;
+        inTransition = false;
+        HideFeedbackUI();
+
+        try { OnBlockFinished?.Invoke(); } catch { /* ignore */ }
     }
 
     private void OnDisable()
