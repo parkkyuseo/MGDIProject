@@ -987,13 +987,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 481999431}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.15, y: 0, z: -0.235}
   m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1449244626}
-  m_Father: {fileID: 1568458988}
+  m_Father: {fileID: 1171035887}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &489815357
 GameObject:
@@ -1132,7 +1132,7 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 12
+  trialTimeoutSeconds: 2
   dwellSeconds: 0.2
   yawToleranceDeg: 10
   twistToYawGain: 1.5
@@ -1145,7 +1145,7 @@ MonoBehaviour:
   fixedTargetPose: {fileID: 342750685}
   postSnapHoldSeconds: 0.35
   resetBlockYawAfterTrial: 1
-  resetBlockAfterTrial: 1
+  resetBlockAfterTrial: 0
   resetNearHand: 1
   resetHandAnchorOverride: {fileID: 0}
   resetForwardRange: {x: 0, y: 0}
@@ -1165,6 +1165,7 @@ MonoBehaviour:
   autoStartInEditor: 1
   rotationTrialGrabberMode: 2
   restoreGrabberModeOnDisable: 1
+  targetPivot: {fileID: 1171035887}
 --- !u!1 &672060782
 GameObject:
   m_ObjectHideFlags: 0
@@ -2594,6 +2595,38 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1153635556}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1171035886
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1171035887}
+  m_Layer: 0
+  m_Name: TargetPivot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1171035887
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1171035886}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.15, y: 0, z: 0.235}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 481999432}
+  m_Father: {fileID: 1568458988}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1246044926
 GameObject:
   m_ObjectHideFlags: 0
@@ -3279,7 +3312,6 @@ MonoBehaviour:
   rotationTask: {fileID: 584929088}
   nextTaskPlaceholder: {fileID: 0}
   grabber: {fileID: 4217352218302390359}
-  targetParentSwitcher: {fileID: 0}
   macroControllerRoot: {fileID: 3588484702831311607}
   microControllerRoot: {fileID: 0}
   currentTask: 0
@@ -3500,6 +3532,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1568458988}
+  - component: {fileID: 1568458989}
   m_Layer: 0
   m_Name: TargetSlotRoot
   m_TagString: Untagged
@@ -3520,9 +3553,24 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 481999432}
+  - {fileID: 1171035887}
   m_Father: {fileID: 913397330}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1568458989
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1568458987}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c32335ead13af904aa5d433c6274267b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetSlotRoot: {fileID: 1568458988}
+  targetSlotVisual: {fileID: 481999432}
+  targetRenderer: {fileID: 0}
 --- !u!1 &1585729301
 GameObject:
   m_ObjectHideFlags: 0

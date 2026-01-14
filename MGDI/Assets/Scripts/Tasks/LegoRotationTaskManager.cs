@@ -91,6 +91,8 @@ public class LegoRotationTaskManager : MonoBehaviour
     [SerializeField] private ProxyHandGrabber.HeldRotationMode rotationTrialGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
     [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeOnDisable = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
+    [SerializeField] private Transform targetPivot;
+
     // Runtime
     private int trialIndex = 0;
     private float trialTimer = 0f;
@@ -251,7 +253,8 @@ public class LegoRotationTaskManager : MonoBehaviour
         if (randomizeYawSign && Random.value < 0.5f) offset = -offset;
 
         float targetYaw = startYawDeg + offset;
-        targetSlotVisual.rotation = Quaternion.Euler(0f, targetYaw, 0f);
+        // targetSlotVisual.rotation = Quaternion.Euler(0f, targetYaw, 0f);
+        targetPivot.rotation = Quaternion.Euler(0f, targetYaw, 0f);
 
         trialTimer = 0f;
         dwellTimer = 0f;
