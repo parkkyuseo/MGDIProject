@@ -109,6 +109,8 @@ public class LegoRotationTaskManager : MonoBehaviour
     private Rigidbody _blockBody;
     private Vector3 _trialStartBlockPosWorld;
 
+    private bool _prevEffectiveDriving = false;
+
     // Voice
     private KeywordRecognizer keywordRecognizer;
     private Dictionary<string, System.Action> keywordActions;
@@ -119,6 +121,8 @@ public class LegoRotationTaskManager : MonoBehaviour
         inTransition = false;
         trialRunning = false;
         trialIndex = 0;
+
+        _prevEffectiveDriving = false;
 
         EnsureBlockBody();
 
@@ -159,14 +163,23 @@ public class LegoRotationTaskManager : MonoBehaviour
             return;
         }
 
-        if (ShouldDriveRotationThisFrame())
+        bool drive = ShouldDriveRotationThisFrame();
+        bool twistReady = (remoteHand != null && remoteHand.TwistReady);
+        bool effectiveDriving = drive && twistReady;
+
+        if (effectiveDriving)
         {
+            if (!_prevEffectiveDriving)
+                RebaselineTwistBaselineToCurrentYaw();
+
             UpdateYawFromTwist();
         }
         else
         {
             dwellTimer = 0f;
         }
+
+        _prevEffectiveDriving = effectiveDriving;
 
         float yawErr = ComputeYawErrorDeg();
         if (yawErr <= yawToleranceDeg)
@@ -242,11 +255,13 @@ public class LegoRotationTaskManager : MonoBehaviour
             targetSlotRoot.position = blockRoot.position;
         }
 
-        // Record start yaw and baseline twist
+        // Record start yaw and baseline twist (TwistReady일 때만 유효)
         startYawDeg = blockRoot.eulerAngles.y;
-        twistBaselineDeg = remoteHand.TwistDegrees;
+        twistBaselineDeg = remoteHand.TwistReady ? remoteHand.TwistDegrees : 0f;
         yawCmdDeg = startYawDeg;
         yawCmdInit = true;
+
+        _prevEffectiveDriving = false;
 
         // Sample target yaw offset and apply to target visual (yaw-only)
         float offset = Random.Range(yawMinDeg, yawMaxDeg);
@@ -265,10 +280,33 @@ public class LegoRotationTaskManager : MonoBehaviour
                   $"targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg");
     }
 
+    private void RebaselineTwistBaselineToCurrentYaw()
+    {
+        if (remoteHand == null || blockRoot == null) return;
+        if (!remoteHand.TwistReady) return;
+
+        float twistNow = remoteHand.TwistDegrees;
+        float blockYawNow = blockRoot.eulerAngles.y;
+
+        float sign = invertTwistToYaw ? -1f : 1f;
+        float denom = twistToYawGain * sign;
+        if (Mathf.Abs(denom) < 1e-5f)
+            denom = (denom >= 0f ? 1e-5f : -1e-5f);
+
+        float yawDelta = Mathf.DeltaAngle(startYawDeg, blockYawNow);
+        twistBaselineDeg = twistNow - (yawDelta / denom);
+
+        yawCmdDeg = blockYawNow;
+        yawCmdInit = true;
+    }
+
     private void UpdateYawFromTwist()
     {
+        if (remoteHand == null || blockRoot == null) return;
+        if (!remoteHand.TwistReady) return;
+
         float twistNow = remoteHand.TwistDegrees;
-        float dTwist = twistNow - twistBaselineDeg;
+        float dTwist = Mathf.DeltaAngle(twistBaselineDeg, twistNow);
 
         float sign = invertTwistToYaw ? -1f : 1f;
         float desiredYaw = startYawDeg + dTwist * twistToYawGain * sign;
