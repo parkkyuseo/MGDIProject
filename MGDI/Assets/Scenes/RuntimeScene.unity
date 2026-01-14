@@ -1132,7 +1132,7 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 2
+  trialTimeoutSeconds: 12
   dwellSeconds: 0.2
   yawToleranceDeg: 10
   twistToYawGain: 1.5
@@ -1145,7 +1145,7 @@ MonoBehaviour:
   fixedTargetPose: {fileID: 342750685}
   postSnapHoldSeconds: 0.35
   resetBlockYawAfterTrial: 1
-  resetBlockAfterTrial: 0
+  resetBlockAfterTrial: 1
   resetNearHand: 1
   resetHandAnchorOverride: {fileID: 0}
   resetForwardRange: {x: 0, y: 0}
