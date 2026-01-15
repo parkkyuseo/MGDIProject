@@ -1141,8 +1141,6 @@ MonoBehaviour:
   yawLerp: 0.15
   rotateOnlyWhenHolding: 1
   requireHoldingThisBlock: 0
-  lockTargetPosition: 1
-  fixedTargetPose: {fileID: 342750685}
   postSnapHoldSeconds: 0.35
   resetBlockYawAfterTrial: 1
   resetBlockAfterTrial: 1
@@ -1158,7 +1156,7 @@ MonoBehaviour:
   yawMinDeg: 30
   yawMaxDeg: 90
   randomizeYawSign: 1
-  totalTrials: 20
+  totalTrials: 3
   enableVoiceStart: 0
   startKeyword: start
   restartKeyword: restart
@@ -4580,7 +4578,7 @@ MonoBehaviour:
   snapOnSuccess: 1
   postSnapHoldSeconds: 0.35
   resetBlockToStartAfterTrial: 1
-  totalTrials: 20
+  totalTrials: 3
   enableVoiceStart: 0
   startKeyword: start
   restartKeyword: restart

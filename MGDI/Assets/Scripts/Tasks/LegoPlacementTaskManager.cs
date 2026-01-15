@@ -223,14 +223,14 @@ public class LegoPlacementTaskManager : MonoBehaviour
             dwellTimer = 0f;
         }
 
-        if (Time.frameCount % 60 == 0)
-        {
-            DebugHUD.Log($"blockRoot={blockRoot.name} pos={blockRoot.position}");
-            DebugHUD.Log($"targetSlotRoot={targetSlotRoot.name} pos={targetSlotRoot.position}");
-            DebugHUD.Log($"blockRootPath={GetPath(blockRoot)}");
-            DebugHUD.Log($"targetSlotRootPath={GetPath(targetSlotRoot)}");
-            DebugHUD.Log($"err={err:F4} tol={tolerance:F4} dwell={dwellTimer:F3}/{dwellSeconds:F3}");
-        }
+        // if (Time.frameCount % 60 == 0)
+        // {
+        //     DebugHUD.Log($"blockRoot={blockRoot.name} pos={blockRoot.position}");
+        //     DebugHUD.Log($"targetSlotRoot={targetSlotRoot.name} pos={targetSlotRoot.position}");
+        //     DebugHUD.Log($"blockRootPath={GetPath(blockRoot)}");
+        //     DebugHUD.Log($"targetSlotRootPath={GetPath(targetSlotRoot)}");
+        //     DebugHUD.Log($"err={err:F4} tol={tolerance:F4} dwell={dwellTimer:F3}/{dwellSeconds:F3}");
+        // }
     }
 
     // ---------------- Trial Flow ----------------
