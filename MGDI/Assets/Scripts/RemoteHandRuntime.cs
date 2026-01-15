@@ -275,6 +275,39 @@ public class RemoteHandRuntime : MonoBehaviour
     float _joyInZSm = 0f;
     bool _joyHasInputPrev = false;
 
+
+    // =========================================================
+    // Preset helper
+    // =========================================================
+    public enum SmoothingPreset
+    {
+        Custom = 0,
+        Balanced = 1,
+        Smooth = 2,
+        VerySmooth = 3
+    }
+
+    [Header("Smoothing Preset")]
+    public SmoothingPreset smoothingPreset = SmoothingPreset.Custom;
+
+    [Tooltip("If true, the selected preset is applied automatically at startup.")]
+    public bool applyPresetOnAwake = true;
+
+    [Tooltip("If true, applying preset clears interpolation buffer (recommended).")]
+    public bool clearBufferOnPresetApply = true;
+
+    [Tooltip("If true, applying preset resets filter/smoothing state (recommended).")]
+    public bool resetStateOnPresetApply = true;
+
+#if UNITY_EDITOR
+    [Tooltip("If true, selecting a preset also writes values into the inspector in edit mode.")]
+    public bool applyPresetInEditorOnValidate = false;
+#endif
+
+    bool _presetAppliedOnce = false;
+    bool _applyingPresetGuard = false;
+
+
     // =========================================================
     // Internal state (position smoothing)
     // =========================================================
@@ -380,13 +413,37 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         EnsureBufferAllocated();
         EnsureOneEuroAllocated();
+        ApplyPresetIfNeeded();
     }
 
     void OnEnable()
     {
         EnsureBufferAllocated();
         EnsureOneEuroAllocated();
+        ApplyPresetIfNeeded();
     }
+
+    void ApplyPresetIfNeeded()
+    {
+        if (!applyPresetOnAwake) return;
+        if (_presetAppliedOnce) return;
+        if (smoothingPreset == SmoothingPreset.Custom) return;
+
+        ApplyPreset(smoothingPreset, resetStateOnPresetApply, clearBufferOnPresetApply);
+        _presetAppliedOnce = true;
+    }
+
+#if UNITY_EDITOR
+    void OnValidate()
+    {
+        if (!applyPresetInEditorOnValidate) return;
+        if (Application.isPlaying) return;
+        if (smoothingPreset == SmoothingPreset.Custom) return;
+
+        // 편집 중에는 상태 리셋/버퍼 클리어 불필요
+        ApplyPreset(smoothingPreset, resetState: false, clearBuffer: false);
+    }
+#endif
 
     void Update()
     {
@@ -1256,5 +1313,157 @@ public class RemoteHandRuntime : MonoBehaviour
 
         ResetSmoothingState(fullResetRemapAndGain: true);
         ClearInterpolationBuffer();
+    }
+
+    [ContextMenu("Preset/Apply Selected Preset Now")]
+    public void ContextApplySelectedPresetNow()
+    {
+        if (smoothingPreset == SmoothingPreset.Custom) return;
+        ApplyPreset(smoothingPreset, resetStateOnPresetApply, clearBufferOnPresetApply);
+    }
+
+    public void ApplyPreset(SmoothingPreset preset, bool resetState = true, bool clearBuffer = true)
+    {
+        if (_applyingPresetGuard) return;
+        _applyingPresetGuard = true;
+
+        // 공통: 프리셋은 기본적으로 '부드럽게' 목표라서 기능 ON
+        useInterpolationBuffer = true;
+        useJitterDeadZone = true;
+        stabilizeDepth = true;
+        stabilizeDepthWristOnly = true;
+        depthUseGating = true;
+
+        // A 버전 기준: OneEuro도 프리셋이면 ON
+        useOneEuro = true;
+
+        switch (preset)
+        {
+            case SmoothingPreset.Balanced:
+            {
+                // --- Interpolation buffer ---
+                interpolationDelaySeconds = 0.06f;
+                bufferMaxSeconds = 0.60f;
+                bufferMaxSamples = 120;
+
+                // --- One Euro ---
+                oneEuroDerivativeCutoffHz = 5.0f;
+                oneEuroMinCutoffWristHz = 1.5f;
+                oneEuroBetaWrist = 0.70f;
+                oneEuroMinCutoffHz = 1.6f;
+                oneEuroBeta = 0.50f;
+                oneEuroMinCutoffTipsHz = 0.9f;
+                oneEuroBetaTips = 0.35f;
+
+                // --- Speed clamp (m/s) ---
+                maxSpeedMps = 4.8f;
+                maxSpeedTipsMps = 0.90f;
+
+                // --- Soft dead-zone ---
+                jitterDeadZoneMeters = 0.0020f;
+
+                // --- Depth stabilization ---
+                depthDeadZoneMeters = 0.010f;
+                depthMaxSpeedMps = 0.30f;
+                depthCutoffHz = 2.0f;
+
+                depthGateMinNonDepthSpeed = 0.24f;
+                depthGateDepthToNonDepthRatio = 0.35f;
+
+                depthMaxSpeedMpsFree = 2.4f;
+                depthDeadZoneMetersFree = 0.0f;
+                depthCutoffHzFree = 10.0f;
+
+                // --- Aim (값이 작을수록 더 부드러움) ---
+                aimDirLerp = 0.20f;
+                break;
+            }
+
+            case SmoothingPreset.Smooth:
+            {
+                interpolationDelaySeconds = 0.09f;
+                bufferMaxSeconds = 0.75f;
+                bufferMaxSamples = 120;
+
+                oneEuroDerivativeCutoffHz = 3.0f;
+                oneEuroMinCutoffWristHz = 1.0f;
+                oneEuroBetaWrist = 0.45f;
+                oneEuroMinCutoffHz = 1.2f;
+                oneEuroBeta = 0.30f;
+                oneEuroMinCutoffTipsHz = 0.6f;
+                oneEuroBetaTips = 0.22f;
+
+                maxSpeedMps = 3.5f;
+                maxSpeedTipsMps = 0.70f;
+
+                jitterDeadZoneMeters = 0.0025f;
+
+                depthDeadZoneMeters = 0.010f;
+                depthMaxSpeedMps = 0.22f;
+                depthCutoffHz = 1.5f;
+
+                depthGateMinNonDepthSpeed = 0.14f;
+                depthGateDepthToNonDepthRatio = 0.45f;
+
+                depthMaxSpeedMpsFree = 2.0f;
+                depthDeadZoneMetersFree = 0.0f;
+                depthCutoffHzFree = 8.0f;
+
+                aimDirLerp = 0.12f;
+                break;
+            }
+
+            case SmoothingPreset.VerySmooth:
+            {
+                interpolationDelaySeconds = 0.12f;
+                bufferMaxSeconds = 1.0f;
+                bufferMaxSamples = 150;
+
+                oneEuroDerivativeCutoffHz = 2.0f;
+                oneEuroMinCutoffWristHz = 0.7f;
+                oneEuroBetaWrist = 0.30f;
+                oneEuroMinCutoffHz = 0.8f;
+                oneEuroBeta = 0.20f;
+                oneEuroMinCutoffTipsHz = 0.4f;
+                oneEuroBetaTips = 0.15f;
+
+                maxSpeedMps = 3.0f;
+                maxSpeedTipsMps = 0.55f;
+
+                jitterDeadZoneMeters = 0.0030f;
+
+                depthDeadZoneMeters = 0.010f;
+                depthMaxSpeedMps = 0.18f;
+                depthCutoffHz = 1.0f;
+
+                depthGateMinNonDepthSpeed = 0.10f;
+                depthGateDepthToNonDepthRatio = 0.50f;
+
+                depthMaxSpeedMpsFree = 1.6f;
+                depthDeadZoneMetersFree = 0.0f;
+                depthCutoffHzFree = 6.0f;
+
+                aimDirLerp = 0.08f;
+                break;
+            }
+
+            case SmoothingPreset.Custom:
+            default:
+                break;
+        }
+
+        // 안정장치: 버퍼 유지시간이 delay보다 짧으면 이상해지므로 보정
+        bufferMaxSeconds = Mathf.Max(bufferMaxSeconds, interpolationDelaySeconds + 0.05f);
+
+        // bufferMaxSamples 변경됐을 수 있으니 재할당 체크
+        EnsureBufferAllocated();
+
+        if (clearBuffer)
+            ClearInterpolationBuffer();
+
+        if (resetState)
+            ResetSmoothingState(fullResetRemapAndGain: false);
+
+        _applyingPresetGuard = false;
     }
 }
