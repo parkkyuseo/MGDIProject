@@ -56,6 +56,9 @@ public class StudyFlowController : MonoBehaviour
     [Header("Voice Commands")]
     public bool enableVoice = true;
 
+    [Header("Debug")]
+    [SerializeField] private bool showHUDInEditor = true;
+
     public string cmdStartPlacement = "start placement";
     public string cmdStartRotation = "start rotation";
     public string cmdRestart = "restart";
@@ -77,7 +80,10 @@ public class StudyFlowController : MonoBehaviour
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();
-            taskContextHUD.SetVisible(false);
+            if (Application.isEditor && showHUDInEditor)
+                taskContextHUD.SetVisible(true);
+            else
+                taskContextHUD.SetVisible(false);
         }
 
         if (!enableVoice) return;
