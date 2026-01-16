@@ -20,7 +20,7 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
     public ProxyHandGrabber grabber;
 
-    [Header("HUD (Head-locked)")]
+    [Header("HUD (Task Context)")]
     public TaskContextHUD taskContextHUD;
 
     [Header("Technique Controllers (optional)")]
@@ -73,6 +73,13 @@ public class StudyFlowController : MonoBehaviour
 
     private void Start()
     {
+        // HUD: runtime 상태에서는 안 보이게
+        if (taskContextHUD != null)
+        {
+            taskContextHUD.Clear();
+            taskContextHUD.SetVisible(false);
+        }
+
         if (!enableVoice) return;
 
         actions = new Dictionary<string, System.Action>
@@ -139,12 +146,17 @@ public class StudyFlowController : MonoBehaviour
         // Grabber mode policy
         ApplyGrabberModeForCurrentTask();
 
-        // Hook finish + trial events
+        // Hook events (finish + trial counter)
         HookTaskFinishedEvents(currentTask);
         HookTrialChangedEvents(currentTask);
 
-        // Update HUD static lines immediately
-        UpdateHUDStatic();
+        // HUD: 실제 태스크 시작 시에만 보이기
+        if (taskContextHUD != null)
+        {
+            taskContextHUD.Clear();
+            taskContextHUD.SetVisible(currentTask == TaskType.Placement || currentTask == TaskType.Rotation);
+            UpdateHUDStatic();
+        }
 
         // Start the selected task
         switch (currentTask)
@@ -161,7 +173,6 @@ public class StudyFlowController : MonoBehaviour
 
             case TaskType.NextTaskPlaceholder:
                 Debug.LogWarning("[StudyFlowController] NextTaskPlaceholder selected. No task started.");
-                // In this mode, we intentionally do not show a trial counter update.
                 break;
         }
 
@@ -192,8 +203,6 @@ public class StudyFlowController : MonoBehaviour
     {
         currentTechnique = tech;
         ApplyTechnique();
-
-        // keep HUD in sync even if not restarting
         UpdateHUDStatic();
 
         if (restart) RestartCurrent();
@@ -202,8 +211,6 @@ public class StudyFlowController : MonoBehaviour
     public void SetHandLocation(WorkspaceAnchorController.HandLocation loc, bool restart)
     {
         currentHandLocation = loc;
-
-        // If not restarting, apply profile now and update HUD condition label.
         if (restart) RestartCurrent();
         else
         {
@@ -292,23 +299,24 @@ public class StudyFlowController : MonoBehaviour
             grabber.ForceRelease();
     }
 
-    // ---------------- HUD ----------------
+    // ---------------- HUD helpers ----------------
     private void UpdateHUDStatic()
     {
         if (taskContextHUD == null) return;
 
+        if (currentTask != TaskType.Placement && currentTask != TaskType.Rotation)
+            return;
+
         string taskName =
             (currentTask == TaskType.Placement) ? "Placement Task" :
             (currentTask == TaskType.Rotation) ? "Rotation Task" :
-            "Ready";
+            "Task";
 
-        // Keep condition naming simple; you can map NearHead -> Near later if you want.
         string cond = $"{currentTechnique} / {currentHandLocation}";
 
         taskContextHUD.SetTaskLabel(taskName);
         taskContextHUD.SetCondition(cond);
-
-        // Trial line will be set by OnTrialChanged events.
+        // Trial line updates via OnTrialChanged event
     }
 
     private void OnTrialChanged(int current1Based, int total)
@@ -356,13 +364,15 @@ public class StudyFlowController : MonoBehaviour
     {
         Debug.Log("[StudyFlowController] Task finished. Waiting for voice command to start the next task.");
 
-        // Disable tasks so nothing continues to mutate shared objects (e.g., Targets).
         UnhookTaskFinishedEvents();
         UnhookTrialChangedEvents();
 
-        // Update HUD to a neutral state (trial count stays as last value; that's fine)
-        currentTask = TaskType.NextTaskPlaceholder;
-        UpdateHUDStatic();
+        // HUD 숨기기 (대기 상태로 복귀)
+        if (taskContextHUD != null)
+        {
+            taskContextHUD.Clear();
+            taskContextHUD.SetVisible(false);
+        }
 
         SetOnlyTaskActive(TaskType.NextTaskPlaceholder);
     }
@@ -370,7 +380,6 @@ public class StudyFlowController : MonoBehaviour
     // ---------------- Hard gating: only one task can run ----------------
     private void SetOnlyTaskActive(TaskType taskToRun)
     {
-        // Disable all known tasks (component + GameObject)
         if (placementTask != null)
         {
             placementTask.enabled = false;
@@ -389,7 +398,6 @@ public class StudyFlowController : MonoBehaviour
             nextTaskPlaceholder.gameObject.SetActive(false);
         }
 
-        // Enable only the selected task
         switch (taskToRun)
         {
             case TaskType.Placement:
@@ -409,8 +417,6 @@ public class StudyFlowController : MonoBehaviour
                 break;
 
             case TaskType.NextTaskPlaceholder:
-                // Intentionally keep everything disabled
-                // (FlowController stays active and listens for voice commands)
                 if (nextTaskPlaceholder != null)
                 {
                     nextTaskPlaceholder.gameObject.SetActive(true);
