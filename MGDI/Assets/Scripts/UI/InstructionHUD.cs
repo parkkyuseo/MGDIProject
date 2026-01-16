@@ -7,6 +7,8 @@ public class InstructionHUD : MonoBehaviour
     [SerializeField] private TMP_Text instructionText;
     [SerializeField] private float defaultShowSeconds = 1.8f;
 
+    public float DefaultShowSeconds => defaultShowSeconds;
+
     Coroutine _hideCo;
 
     public void HideImmediate()
@@ -18,9 +20,9 @@ public class InstructionHUD : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    public void Show(string text, float? seconds = null)
+    public float Show(string text, float? seconds = null)
     {
-        if (instructionText == null) return;
+        if (instructionText == null) return 0f;
 
         if (_hideCo != null) StopCoroutine(_hideCo);
         _hideCo = null;
@@ -30,6 +32,7 @@ public class InstructionHUD : MonoBehaviour
 
         float s = seconds ?? defaultShowSeconds;
         _hideCo = StartCoroutine(HideAfter(s));
+        return s;
     }
 
     IEnumerator HideAfter(float s)

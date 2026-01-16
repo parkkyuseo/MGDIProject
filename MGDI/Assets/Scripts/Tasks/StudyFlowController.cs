@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -10,7 +11,6 @@ public class StudyFlowController : MonoBehaviour
 
     [Header("References")]
     public WorkspaceAnchorController workspaceController;
-
     public LegoPlacementTaskManager placementTask;
     public LegoRotationTaskManager rotationTask;
 
@@ -39,7 +39,6 @@ public class StudyFlowController : MonoBehaviour
     public WorkspaceAnchorController.WorkspaceProfile placement_macro_near;
     public WorkspaceAnchorController.WorkspaceProfile placement_macro_sideLeft;
     public WorkspaceAnchorController.WorkspaceProfile placement_macro_sideRight;
-
     public WorkspaceAnchorController.WorkspaceProfile placement_micro_near;
     public WorkspaceAnchorController.WorkspaceProfile placement_micro_sideLeft;
     public WorkspaceAnchorController.WorkspaceProfile placement_micro_sideRight;
@@ -47,7 +46,6 @@ public class StudyFlowController : MonoBehaviour
     public WorkspaceAnchorController.WorkspaceProfile rotation_macro_near;
     public WorkspaceAnchorController.WorkspaceProfile rotation_macro_sideLeft;
     public WorkspaceAnchorController.WorkspaceProfile rotation_macro_sideRight;
-
     public WorkspaceAnchorController.WorkspaceProfile rotation_micro_near;
     public WorkspaceAnchorController.WorkspaceProfile rotation_micro_sideLeft;
     public WorkspaceAnchorController.WorkspaceProfile rotation_micro_sideRight;
@@ -77,16 +75,18 @@ public class StudyFlowController : MonoBehaviour
     private KeywordRecognizer recognizer;
     private Dictionary<string, System.Action> actions;
 
+    // countdown update throttle (10Hz)
+    float _nextCountdownUpdateTime = 0f;
+
+    // start coroutine handle
+    Coroutine _startTaskCo;
+
     private void Start()
     {
-        // HUD: runtime 상태에서는 안 보이게 (에디터에서만 옵션으로 보이게)
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();
-            if (Application.isEditor && showHUDInEditor)
-                taskContextHUD.SetVisible(true);
-            else
-                taskContextHUD.SetVisible(false);
+            taskContextHUD.SetVisible(Application.isEditor && showHUDInEditor);
         }
 
         if (instructionHUD != null)
@@ -117,14 +117,40 @@ public class StudyFlowController : MonoBehaviour
             if (actions.TryGetValue(k, out var a)) a.Invoke();
         };
         recognizer.Start();
+    }
 
-        Debug.Log($"[StudyFlowController] Voice enabled: {string.Join(", ", actions.Keys)}");
+    private void Update()
+    {
+        // Trial countdown update (only while a task is actually running)
+        if (taskContextHUD == null) return;
+        if (Time.unscaledTime < _nextCountdownUpdateTime) return;
+        _nextCountdownUpdateTime = Time.unscaledTime + 0.10f;
+
+        if (currentTask == TaskType.Rotation && rotationTask != null && rotationTask.IsTrialRunning)
+        {
+            taskContextHUD.SetTrialWithCountdown(
+                rotationTask.CurrentTrialIndex1Based,
+                rotationTask.TotalTrials,
+                rotationTask.TrialTimeRemainingSec
+            );
+        }
+        else if (currentTask == TaskType.Placement && placementTask != null && placementTask.IsTrialRunning)
+        {
+            taskContextHUD.SetTrialWithCountdown(
+                placementTask.CurrentTrialIndex1Based,
+                placementTask.TotalTrials,
+                placementTask.TrialTimeRemainingSec
+            );
+        }
     }
 
     private void OnDisable()
     {
         UnhookTaskFinishedEvents();
         UnhookTrialChangedEvents();
+
+        if (_startTaskCo != null) StopCoroutine(_startTaskCo);
+        _startTaskCo = null;
 
         if (recognizer != null)
         {
@@ -137,6 +163,10 @@ public class StudyFlowController : MonoBehaviour
     // ---------------- Flow ----------------
     public void StartTask(TaskType t)
     {
+        // stop any pending delayed start
+        if (_startTaskCo != null) StopCoroutine(_startTaskCo);
+        _startTaskCo = null;
+
         currentTask = t;
 
         if (workspaceController == null)
@@ -145,24 +175,19 @@ public class StudyFlowController : MonoBehaviour
             return;
         }
 
-        // Ensure only one task can run (prevents cross-task side effects)
+        // Ensure only one task can run
         SetOnlyTaskActive(currentTask);
 
-        // Release at task boundary
         ForceReleaseIfPossible();
 
-        // Apply technique + workspace for the current condition
         ApplyTechnique();
         ApplyWorkspaceProfile();
-
-        // Grabber mode policy
         ApplyGrabberModeForCurrentTask();
 
-        // Hook events (finish + trial counter)
         HookTaskFinishedEvents(currentTask);
         HookTrialChangedEvents(currentTask);
 
-        // HUD: 실제 태스크 시작 시에만 보이기
+        // HUD show/hide
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();
@@ -170,28 +195,34 @@ public class StudyFlowController : MonoBehaviour
             UpdateHUDStatic();
         }
 
-        // Instruction: 태스크 시작 시 1회 표시
-        ShowInstructionForCurrentState();
+        // Instruction: show now, but DO NOT start trials yet
+        float waitSec = ShowInstructionForCurrentState_ReturnSeconds();
 
-        // Start the selected task
+        // Delay real StartBlock so instruction time is not counted in trial timer
+        _startTaskCo = StartCoroutine(StartTaskAfterDelay(waitSec));
+    }
+
+    IEnumerator StartTaskAfterDelay(float waitSec)
+    {
+        if (waitSec > 0f)
+            yield return new WaitForSeconds(waitSec);
+
+        // Start selected task AFTER instruction
         switch (currentTask)
         {
             case TaskType.Placement:
-                if (placementTask == null) { Debug.LogError("[StudyFlowController] placementTask missing."); return; }
+                if (placementTask == null) { Debug.LogError("[StudyFlowController] placementTask missing."); yield break; }
                 placementTask.StartBlock();
                 break;
 
             case TaskType.Rotation:
-                if (rotationTask == null) { Debug.LogError("[StudyFlowController] rotationTask missing."); return; }
+                if (rotationTask == null) { Debug.LogError("[StudyFlowController] rotationTask missing."); yield break; }
                 rotationTask.StartBlock();
                 break;
 
             case TaskType.NextTaskPlaceholder:
-                Debug.LogWarning("[StudyFlowController] NextTaskPlaceholder selected. No task started.");
-                break;
+                yield break;
         }
-
-        Debug.Log($"[StudyFlowController] Started {currentTask} / {currentTechnique} / {currentHandLocation}");
     }
 
     public void RestartCurrent()
@@ -221,7 +252,7 @@ public class StudyFlowController : MonoBehaviour
         UpdateHUDStatic();
 
         if (restart) RestartCurrent();
-        else ShowInstructionForCurrentState();
+        else ShowInstructionForCurrentState_ReturnSeconds();
     }
 
     public void SetHandLocation(WorkspaceAnchorController.HandLocation loc, bool restart)
@@ -232,7 +263,7 @@ public class StudyFlowController : MonoBehaviour
         {
             ApplyWorkspaceProfile();
             UpdateHUDStatic();
-            ShowInstructionForCurrentState();
+            ShowInstructionForCurrentState_ReturnSeconds();
         }
     }
 
@@ -240,11 +271,7 @@ public class StudyFlowController : MonoBehaviour
     private void ApplyWorkspaceProfile()
     {
         var profile = GetProfile(currentTask, currentTechnique, currentHandLocation);
-        if (profile == null)
-        {
-            Debug.LogWarning("[StudyFlowController] Workspace profile is null. No workspace movement will be applied.");
-            return;
-        }
+        if (profile == null) return;
 
         workspaceController.handLocation = currentHandLocation;
         workspaceController.ApplyProfile(profile);
@@ -320,41 +347,34 @@ public class StudyFlowController : MonoBehaviour
     private void UpdateHUDStatic()
     {
         if (taskContextHUD == null) return;
-
-        if (currentTask != TaskType.Placement && currentTask != TaskType.Rotation)
-            return;
+        if (currentTask != TaskType.Placement && currentTask != TaskType.Rotation) return;
 
         string taskName =
             (currentTask == TaskType.Placement) ? "Placement Task" :
-            (currentTask == TaskType.Rotation) ? "Rotation Task" :
-            "";
+            (currentTask == TaskType.Rotation) ? "Rotation Task" : "";
 
         string cond = $"{currentTechnique} · {ShortHandLocation(currentHandLocation)}";
 
         taskContextHUD.SetTaskLabel(taskName);
         taskContextHUD.SetCondition(cond);
-        // Trial line updates via OnTrialChanged event
     }
 
     private string ShortHandLocation(WorkspaceAnchorController.HandLocation loc)
     {
         switch (loc)
         {
-            case WorkspaceAnchorController.HandLocation.NearHead:
-                return "Near";
-            case WorkspaceAnchorController.HandLocation.SideOfBodyLeft:
-                return "Side (L)";
-            case WorkspaceAnchorController.HandLocation.SideOfBodyRight:
-                return "Side (R)";
-            default:
-                return loc.ToString();
+            case WorkspaceAnchorController.HandLocation.NearHead: return "Near";
+            case WorkspaceAnchorController.HandLocation.SideOfBodyLeft: return "Side (L)";
+            case WorkspaceAnchorController.HandLocation.SideOfBodyRight: return "Side (R)";
+            default: return loc.ToString();
         }
     }
 
     private void OnTrialChanged(int current1Based, int total)
     {
+        // We still keep this to initialize the trial line right at trial start.
         if (taskContextHUD == null) return;
-        taskContextHUD.SetTrial(current1Based, total);
+        taskContextHUD.SetTrialWithCountdown(current1Based, total, 0f);
     }
 
     private void HookTrialChangedEvents(TaskType task)
@@ -375,20 +395,23 @@ public class StudyFlowController : MonoBehaviour
     }
 
     // ---------------- Instruction helpers ----------------
-    private void ShowInstructionForCurrentState()
+    private float ShowInstructionForCurrentState_ReturnSeconds()
     {
-        if (instructionHUD == null) return;
+        if (instructionHUD == null) return 0f;
 
         if (currentTask != TaskType.Placement && currentTask != TaskType.Rotation)
         {
             instructionHUD.HideImmediate();
-            return;
+            return 0f;
         }
 
         if (currentTask == TaskType.Placement)
-            instructionHUD.Show("Move the block into the highlighted slot.");
-        else if (currentTask == TaskType.Rotation)
-            instructionHUD.Show("Rotate the block to match the target.");
+            return instructionHUD.Show("Move the block into the highlighted slot.");
+
+        if (currentTask == TaskType.Rotation)
+            return instructionHUD.Show("Rotate the block to match the target.");
+
+        return 0f;
     }
 
     // ---------------- Task finished wiring ----------------
@@ -411,12 +434,12 @@ public class StudyFlowController : MonoBehaviour
 
     private void OnActiveTaskFinished()
     {
-        Debug.Log("[StudyFlowController] Task finished. Waiting for voice command to start the next task.");
-
         UnhookTaskFinishedEvents();
         UnhookTrialChangedEvents();
 
-        // HUD 숨기기 (대기 상태로 복귀)
+        if (_startTaskCo != null) StopCoroutine(_startTaskCo);
+        _startTaskCo = null;
+
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();
@@ -426,6 +449,7 @@ public class StudyFlowController : MonoBehaviour
         if (instructionHUD != null)
             instructionHUD.HideImmediate();
 
+        currentTask = TaskType.NextTaskPlaceholder;
         SetOnlyTaskActive(TaskType.NextTaskPlaceholder);
     }
 

@@ -127,6 +127,11 @@ public class LegoPlacementTaskManager : MonoBehaviour
     private KeywordRecognizer keywordRecognizer;
     private Dictionary<string, System.Action> keywordActions;
 
+    public bool IsTrialRunning => trialRunning && !inTransition;
+    public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - trialTimer);
+    public int TotalTrials => totalTrials;
+    public int CurrentTrialIndex1Based => trialIndex + 1;
+
     // ---------------- Debug helpers ----------------
     static string GetPath(Transform t)
     {
