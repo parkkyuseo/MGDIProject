@@ -3966,21 +3966,24 @@ MonoBehaviour:
   palmAimDistance: 0.08
   isLeft: 0
   manualTestMode: 0
-  useOneEuroFilter: 1
-  oneEuroMinCutoffHz: 1.5
-  oneEuroBeta: 0.8
-  oneEuroMinCutoffHzTips: 1
-  oneEuroBetaTips: 0.15
-  oneEuroDerivCutoffHz: 1.2
+  useInterpolationBuffer: 1
+  interpolationDelaySeconds: 0.06
+  bufferMaxSeconds: 0.5
+  bufferMaxSamples: 90
   cutoffHz: 3
   cutoffHzTips: 2
-  stepClampReferenceFps: 90
-  maxStepMeters: 0.02
-  maxStepTips: 0.008
+  maxSpeedMps: 4.8
+  maxSpeedTipsMps: 0.9
   useJitterDeadZone: 1
   jitterDeadZoneMeters: 0.01
-  useSoftJitterDeadZone: 1
-  jitterHysteresisMeters: 0.0015
+  useOneEuro: 1
+  oneEuroDerivativeCutoffHz: 5
+  oneEuroMinCutoffWristHz: 1.5
+  oneEuroBetaWrist: 0.7
+  oneEuroMinCutoffHz: 1.5
+  oneEuroBeta: 0.8
+  oneEuroMinCutoffTipsHz: 1
+  oneEuroBetaTips: 0.15
   armer: {fileID: 6310441031314089671}
   firstValidDistance: 0.02
   autoArm: 1
@@ -3998,12 +4001,12 @@ MonoBehaviour:
   stabilizeDepth: 1
   stabilizeDepthWristOnly: 1
   depthDeadZoneMeters: 0.005
-  depthMaxStepMeters: 0.008
+  depthMaxSpeedMps: 0.3
   depthCutoffHz: 4
   depthUseGating: 1
-  depthGateMinNonDepthStep: 0.004
+  depthGateMinNonDepthSpeed: 0.24
   depthGateDepthToNonDepthRatio: 0.45
-  depthMaxStepMetersFree: 0.04
+  depthMaxSpeedMpsFree: 2.4
   depthDeadZoneMetersFree: 0
   depthCutoffHzFree: 10
   wristTwist: {fileID: 1992353098}
@@ -4033,6 +4036,11 @@ MonoBehaviour:
   joyInvertYFromZ: 0
   joyInvertZFromY: 1
   joyInputLerp: 0.3
+  smoothingPreset: 2
+  applyPresetOnAwake: 1
+  clearBufferOnPresetApply: 1
+  resetStateOnPresetApply: 1
+  applyPresetInEditorOnValidate: 0
 --- !u!1 &1807694319
 GameObject:
   m_ObjectHideFlags: 0
