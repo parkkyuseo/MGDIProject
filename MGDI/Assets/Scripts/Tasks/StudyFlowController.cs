@@ -310,13 +310,28 @@ public class StudyFlowController : MonoBehaviour
         string taskName =
             (currentTask == TaskType.Placement) ? "Placement Task" :
             (currentTask == TaskType.Rotation) ? "Rotation Task" :
-            "Task";
+            "";
 
-        string cond = $"{currentTechnique} / {currentHandLocation}";
+        string cond = $"{currentTechnique} · {ShortHandLocation(currentHandLocation)}";
 
         taskContextHUD.SetTaskLabel(taskName);
         taskContextHUD.SetCondition(cond);
         // Trial line updates via OnTrialChanged event
+    }
+
+    private string ShortHandLocation(WorkspaceAnchorController.HandLocation loc)
+    {
+        switch (loc)
+        {
+            case WorkspaceAnchorController.HandLocation.NearHead:
+                return "Near";
+            case WorkspaceAnchorController.HandLocation.SideOfBodyLeft:
+                return "Side (L)";
+            case WorkspaceAnchorController.HandLocation.SideOfBodyRight:
+                return "Side (R)";
+            default:
+                return loc.ToString();
+        }
     }
 
     private void OnTrialChanged(int current1Based, int total)
