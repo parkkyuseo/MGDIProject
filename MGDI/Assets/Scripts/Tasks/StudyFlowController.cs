@@ -23,6 +23,9 @@ public class StudyFlowController : MonoBehaviour
     [Header("HUD (Task Context)")]
     public TaskContextHUD taskContextHUD;
 
+    [Header("HUD (Instruction)")]
+    public InstructionHUD instructionHUD;
+
     [Header("Technique Controllers (optional)")]
     public GameObject macroControllerRoot;
     public GameObject microControllerRoot;
@@ -76,7 +79,7 @@ public class StudyFlowController : MonoBehaviour
 
     private void Start()
     {
-        // HUD: runtime 상태에서는 안 보이게
+        // HUD: runtime 상태에서는 안 보이게 (에디터에서만 옵션으로 보이게)
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();
@@ -85,6 +88,9 @@ public class StudyFlowController : MonoBehaviour
             else
                 taskContextHUD.SetVisible(false);
         }
+
+        if (instructionHUD != null)
+            instructionHUD.HideImmediate();
 
         if (!enableVoice) return;
 
@@ -164,6 +170,9 @@ public class StudyFlowController : MonoBehaviour
             UpdateHUDStatic();
         }
 
+        // Instruction: 태스크 시작 시 1회 표시
+        ShowInstructionForCurrentState();
+
         // Start the selected task
         switch (currentTask)
         {
@@ -212,6 +221,7 @@ public class StudyFlowController : MonoBehaviour
         UpdateHUDStatic();
 
         if (restart) RestartCurrent();
+        else ShowInstructionForCurrentState();
     }
 
     public void SetHandLocation(WorkspaceAnchorController.HandLocation loc, bool restart)
@@ -222,6 +232,7 @@ public class StudyFlowController : MonoBehaviour
         {
             ApplyWorkspaceProfile();
             UpdateHUDStatic();
+            ShowInstructionForCurrentState();
         }
     }
 
@@ -363,6 +374,23 @@ public class StudyFlowController : MonoBehaviour
         if (placementTask != null) placementTask.OnTrialChanged -= OnTrialChanged;
     }
 
+    // ---------------- Instruction helpers ----------------
+    private void ShowInstructionForCurrentState()
+    {
+        if (instructionHUD == null) return;
+
+        if (currentTask != TaskType.Placement && currentTask != TaskType.Rotation)
+        {
+            instructionHUD.HideImmediate();
+            return;
+        }
+
+        if (currentTask == TaskType.Placement)
+            instructionHUD.Show("Move the block into the highlighted slot.");
+        else if (currentTask == TaskType.Rotation)
+            instructionHUD.Show("Rotate the block to match the target.");
+    }
+
     // ---------------- Task finished wiring ----------------
     private void HookTaskFinishedEvents(TaskType task)
     {
@@ -394,6 +422,9 @@ public class StudyFlowController : MonoBehaviour
             taskContextHUD.Clear();
             taskContextHUD.SetVisible(false);
         }
+
+        if (instructionHUD != null)
+            instructionHUD.HideImmediate();
 
         SetOnlyTaskActive(TaskType.NextTaskPlaceholder);
     }
