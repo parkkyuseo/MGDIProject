@@ -10,6 +10,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
 {
     // Fired when the placement block finishes (all trials complete).
     public event Action OnBlockFinished;
+    public event System.Action<int, int> OnTrialChanged; // (current1Based, total)
 
     [Header("References")]
     [Tooltip("The transform that moves (use LegoBlockRoot).")]
@@ -281,6 +282,7 @@ public class LegoPlacementTaskManager : MonoBehaviour
         dwellTimer = 0f;
         trialRunning = true;
         inTransition = false;
+        OnTrialChanged?.Invoke(trialIndex + 1, totalTrials);
 
         Debug.Log($"[LegoPlacementTaskManager] Trial {trialIndex + 1}/{totalTrials} " +
                   $"localOffset=({localOffset.x:F2},{localOffset.y:F2},{localOffset.z:F2}) " +

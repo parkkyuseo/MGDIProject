@@ -10,6 +10,7 @@ public class LegoRotationTaskManager : MonoBehaviour
 {
     // Fired when the rotation block finishes (all trials complete).
     public event Action OnBlockFinished;
+    public event System.Action<int, int> OnTrialChanged; // (current1Based, total)
 
     [Header("References")]
     [SerializeField] private Transform blockRoot;
@@ -270,6 +271,7 @@ public class LegoRotationTaskManager : MonoBehaviour
         dwellTimer = 0f;
         trialRunning = true;
         inTransition = false;
+        OnTrialChanged?.Invoke(trialIndex + 1, totalTrials);
 
         Debug.Log($"[LegoRotationTaskManager] Trial {trialIndex + 1}/{totalTrials} " +
                   $"targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg");

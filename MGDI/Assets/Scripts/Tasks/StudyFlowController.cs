@@ -20,6 +20,9 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
     public ProxyHandGrabber grabber;
 
+    [Header("HUD (Head-locked)")]
+    public TaskContextHUD taskContextHUD;
+
     [Header("Technique Controllers (optional)")]
     public GameObject macroControllerRoot;
     public GameObject microControllerRoot;
@@ -102,6 +105,7 @@ public class StudyFlowController : MonoBehaviour
     private void OnDisable()
     {
         UnhookTaskFinishedEvents();
+        UnhookTrialChangedEvents();
 
         if (recognizer != null)
         {
@@ -135,8 +139,12 @@ public class StudyFlowController : MonoBehaviour
         // Grabber mode policy
         ApplyGrabberModeForCurrentTask();
 
-        // Hook finish events
+        // Hook finish + trial events
         HookTaskFinishedEvents(currentTask);
+        HookTrialChangedEvents(currentTask);
+
+        // Update HUD static lines immediately
+        UpdateHUDStatic();
 
         // Start the selected task
         switch (currentTask)
@@ -153,6 +161,7 @@ public class StudyFlowController : MonoBehaviour
 
             case TaskType.NextTaskPlaceholder:
                 Debug.LogWarning("[StudyFlowController] NextTaskPlaceholder selected. No task started.");
+                // In this mode, we intentionally do not show a trial counter update.
                 break;
         }
 
@@ -183,14 +192,24 @@ public class StudyFlowController : MonoBehaviour
     {
         currentTechnique = tech;
         ApplyTechnique();
+
+        // keep HUD in sync even if not restarting
+        UpdateHUDStatic();
+
         if (restart) RestartCurrent();
     }
 
     public void SetHandLocation(WorkspaceAnchorController.HandLocation loc, bool restart)
     {
         currentHandLocation = loc;
+
+        // If not restarting, apply profile now and update HUD condition label.
         if (restart) RestartCurrent();
-        else ApplyWorkspaceProfile();
+        else
+        {
+            ApplyWorkspaceProfile();
+            UpdateHUDStatic();
+        }
     }
 
     // ---------------- Apply workspace ----------------
@@ -273,6 +292,48 @@ public class StudyFlowController : MonoBehaviour
             grabber.ForceRelease();
     }
 
+    // ---------------- HUD ----------------
+    private void UpdateHUDStatic()
+    {
+        if (taskContextHUD == null) return;
+
+        string taskName =
+            (currentTask == TaskType.Placement) ? "Placement Task" :
+            (currentTask == TaskType.Rotation) ? "Rotation Task" :
+            "Ready";
+
+        // Keep condition naming simple; you can map NearHead -> Near later if you want.
+        string cond = $"{currentTechnique} / {currentHandLocation}";
+
+        taskContextHUD.SetTaskLabel(taskName);
+        taskContextHUD.SetCondition(cond);
+
+        // Trial line will be set by OnTrialChanged events.
+    }
+
+    private void OnTrialChanged(int current1Based, int total)
+    {
+        if (taskContextHUD == null) return;
+        taskContextHUD.SetTrial(current1Based, total);
+    }
+
+    private void HookTrialChangedEvents(TaskType task)
+    {
+        UnhookTrialChangedEvents();
+
+        if (task == TaskType.Rotation && rotationTask != null)
+            rotationTask.OnTrialChanged += OnTrialChanged;
+
+        if (task == TaskType.Placement && placementTask != null)
+            placementTask.OnTrialChanged += OnTrialChanged;
+    }
+
+    private void UnhookTrialChangedEvents()
+    {
+        if (rotationTask != null) rotationTask.OnTrialChanged -= OnTrialChanged;
+        if (placementTask != null) placementTask.OnTrialChanged -= OnTrialChanged;
+    }
+
     // ---------------- Task finished wiring ----------------
     private void HookTaskFinishedEvents(TaskType task)
     {
@@ -297,6 +358,12 @@ public class StudyFlowController : MonoBehaviour
 
         // Disable tasks so nothing continues to mutate shared objects (e.g., Targets).
         UnhookTaskFinishedEvents();
+        UnhookTrialChangedEvents();
+
+        // Update HUD to a neutral state (trial count stays as last value; that's fine)
+        currentTask = TaskType.NextTaskPlaceholder;
+        UpdateHUDStatic();
+
         SetOnlyTaskActive(TaskType.NextTaskPlaceholder);
     }
 
