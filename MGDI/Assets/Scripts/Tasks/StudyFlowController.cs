@@ -6,13 +6,14 @@ using UnityEngine.Windows.Speech;
 
 public class StudyFlowController : MonoBehaviour
 {
-    public enum TaskType { Placement, Rotation, NextTaskPlaceholder }
+    public enum TaskType { Placement, Rotation, Scaling, NextTaskPlaceholder }
     public enum Technique { Macro, Micro }
 
     [Header("References")]
     public WorkspaceAnchorController workspaceController;
     public LegoPlacementTaskManager placementTask;
     public LegoRotationTaskManager rotationTask;
+    public LegoScalingTaskManager scalingTask;
 
     [Tooltip("Future task reference (optional). Keep null until the task is implemented.")]
     public MonoBehaviour nextTaskPlaceholder;
@@ -50,9 +51,17 @@ public class StudyFlowController : MonoBehaviour
     public WorkspaceAnchorController.WorkspaceProfile rotation_micro_sideLeft;
     public WorkspaceAnchorController.WorkspaceProfile rotation_micro_sideRight;
 
+    public WorkspaceAnchorController.WorkspaceProfile scaling_macro_near;
+    public WorkspaceAnchorController.WorkspaceProfile scaling_macro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile scaling_macro_sideRight;
+    public WorkspaceAnchorController.WorkspaceProfile scaling_micro_near;
+    public WorkspaceAnchorController.WorkspaceProfile scaling_micro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile scaling_micro_sideRight;
+
     [Header("Grabber rotation policy per task")]
     public ProxyHandGrabber.HeldRotationMode placementGrabberMode = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
     public ProxyHandGrabber.HeldRotationMode rotationGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
+    public ProxyHandGrabber.HeldRotationMode scalingGrabberMode = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
     [Header("Voice Commands")]
     public bool enableVoice = true;
@@ -62,6 +71,7 @@ public class StudyFlowController : MonoBehaviour
 
     public string cmdStartPlacement = "start placement";
     public string cmdStartRotation = "start rotation";
+    public string cmdStartScaling = "start scaling";
     public string cmdRestart = "restart";
     public string cmdNext = "next";
 
@@ -75,10 +85,7 @@ public class StudyFlowController : MonoBehaviour
     private KeywordRecognizer recognizer;
     private Dictionary<string, System.Action> actions;
 
-    // countdown update throttle (10Hz)
     float _nextCountdownUpdateTime = 0f;
-
-    // start coroutine handle
     Coroutine _startTaskCo;
 
     private void Start()
@@ -98,6 +105,7 @@ public class StudyFlowController : MonoBehaviour
         {
             { cmdStartPlacement.ToLower(), () => StartTask(TaskType.Placement) },
             { cmdStartRotation.ToLower(),  () => StartTask(TaskType.Rotation) },
+            { cmdStartScaling.ToLower(),   () => StartTask(TaskType.Scaling) },
 
             { cmdRestart.ToLower(), RestartCurrent },
             { cmdNext.ToLower(),    NextConditionAndRestart },
@@ -121,7 +129,6 @@ public class StudyFlowController : MonoBehaviour
 
     private void Update()
     {
-        // Trial countdown update (only while a task is actually running)
         if (taskContextHUD == null) return;
         if (Time.unscaledTime < _nextCountdownUpdateTime) return;
         _nextCountdownUpdateTime = Time.unscaledTime + 0.10f;
@@ -140,6 +147,14 @@ public class StudyFlowController : MonoBehaviour
                 placementTask.CurrentTrialIndex1Based,
                 placementTask.TotalTrials,
                 placementTask.TrialTimeRemainingSec
+            );
+        }
+        else if (currentTask == TaskType.Scaling && scalingTask != null && scalingTask.IsTrialRunning)
+        {
+            taskContextHUD.SetTrialWithCountdown(
+                scalingTask.CurrentTrialIndex1Based,
+                scalingTask.TotalTrials,
+                scalingTask.TrialTimeRemainingSec
             );
         }
     }
@@ -163,7 +178,6 @@ public class StudyFlowController : MonoBehaviour
     // ---------------- Flow ----------------
     public void StartTask(TaskType t)
     {
-        // stop any pending delayed start
         if (_startTaskCo != null) StopCoroutine(_startTaskCo);
         _startTaskCo = null;
 
@@ -175,7 +189,6 @@ public class StudyFlowController : MonoBehaviour
             return;
         }
 
-        // Ensure only one task can run
         SetOnlyTaskActive(currentTask);
 
         ForceReleaseIfPossible();
@@ -187,18 +200,14 @@ public class StudyFlowController : MonoBehaviour
         HookTaskFinishedEvents(currentTask);
         HookTrialChangedEvents(currentTask);
 
-        // HUD show/hide
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();
-            taskContextHUD.SetVisible(currentTask == TaskType.Placement || currentTask == TaskType.Rotation);
+            taskContextHUD.SetVisible(currentTask == TaskType.Placement || currentTask == TaskType.Rotation || currentTask == TaskType.Scaling);
             UpdateHUDStatic();
         }
 
-        // Instruction: show now, but DO NOT start trials yet
         float waitSec = ShowInstructionForCurrentState_ReturnSeconds();
-
-        // Delay real StartBlock so instruction time is not counted in trial timer
         _startTaskCo = StartCoroutine(StartTaskAfterDelay(waitSec));
     }
 
@@ -207,7 +216,6 @@ public class StudyFlowController : MonoBehaviour
         if (waitSec > 0f)
             yield return new WaitForSeconds(waitSec);
 
-        // Start selected task AFTER instruction
         switch (currentTask)
         {
             case TaskType.Placement:
@@ -218,6 +226,11 @@ public class StudyFlowController : MonoBehaviour
             case TaskType.Rotation:
                 if (rotationTask == null) { Debug.LogError("[StudyFlowController] rotationTask missing."); yield break; }
                 rotationTask.StartBlock();
+                break;
+
+            case TaskType.Scaling:
+                if (scalingTask == null) { Debug.LogError("[StudyFlowController] scalingTask missing."); yield break; }
+                scalingTask.StartBlock();
                 break;
 
             case TaskType.NextTaskPlaceholder:
@@ -311,6 +324,22 @@ public class StudyFlowController : MonoBehaviour
             }
         }
 
+        if (task == TaskType.Scaling)
+        {
+            if (tech == Technique.Macro)
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) return scaling_macro_near;
+                if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return scaling_macro_sideLeft;
+                return scaling_macro_sideRight;
+            }
+            else
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) return scaling_micro_near;
+                if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return scaling_micro_sideLeft;
+                return scaling_micro_sideRight;
+            }
+        }
+
         return null;
     }
 
@@ -333,6 +362,8 @@ public class StudyFlowController : MonoBehaviour
             grabber.SetHeldRotationMode(placementGrabberMode);
         else if (currentTask == TaskType.Rotation)
             grabber.SetHeldRotationMode(rotationGrabberMode);
+        else if (currentTask == TaskType.Scaling)
+            grabber.SetHeldRotationMode(scalingGrabberMode);
         else
             grabber.SetHeldRotationMode(placementGrabberMode);
     }
@@ -347,11 +378,12 @@ public class StudyFlowController : MonoBehaviour
     private void UpdateHUDStatic()
     {
         if (taskContextHUD == null) return;
-        if (currentTask != TaskType.Placement && currentTask != TaskType.Rotation) return;
+        if (currentTask != TaskType.Placement && currentTask != TaskType.Rotation && currentTask != TaskType.Scaling) return;
 
         string taskName =
             (currentTask == TaskType.Placement) ? "Placement Task" :
-            (currentTask == TaskType.Rotation) ? "Rotation Task" : "";
+            (currentTask == TaskType.Rotation) ? "Rotation Task" :
+            (currentTask == TaskType.Scaling) ? "Scaling Task" : "";
 
         string cond = $"{currentTechnique} · {ShortHandLocation(currentHandLocation)}";
 
@@ -372,7 +404,6 @@ public class StudyFlowController : MonoBehaviour
 
     private void OnTrialChanged(int current1Based, int total)
     {
-        // We still keep this to initialize the trial line right at trial start.
         if (taskContextHUD == null) return;
         taskContextHUD.SetTrialWithCountdown(current1Based, total, 0f);
     }
@@ -386,12 +417,16 @@ public class StudyFlowController : MonoBehaviour
 
         if (task == TaskType.Placement && placementTask != null)
             placementTask.OnTrialChanged += OnTrialChanged;
+
+        if (task == TaskType.Scaling && scalingTask != null)
+            scalingTask.OnTrialChanged += OnTrialChanged;
     }
 
     private void UnhookTrialChangedEvents()
     {
         if (rotationTask != null) rotationTask.OnTrialChanged -= OnTrialChanged;
         if (placementTask != null) placementTask.OnTrialChanged -= OnTrialChanged;
+        if (scalingTask != null) scalingTask.OnTrialChanged -= OnTrialChanged;
     }
 
     // ---------------- Instruction helpers ----------------
@@ -399,7 +434,7 @@ public class StudyFlowController : MonoBehaviour
     {
         if (instructionHUD == null) return 0f;
 
-        if (currentTask != TaskType.Placement && currentTask != TaskType.Rotation)
+        if (currentTask != TaskType.Placement && currentTask != TaskType.Rotation && currentTask != TaskType.Scaling)
         {
             instructionHUD.HideImmediate();
             return 0f;
@@ -410,6 +445,9 @@ public class StudyFlowController : MonoBehaviour
 
         if (currentTask == TaskType.Rotation)
             return instructionHUD.Show("Rotate the block to match the target.");
+
+        if (currentTask == TaskType.Scaling)
+            return instructionHUD.Show("Scale the block to match the target.");
 
         return 0f;
     }
@@ -424,12 +462,16 @@ public class StudyFlowController : MonoBehaviour
 
         if (task == TaskType.Placement && placementTask != null)
             placementTask.OnBlockFinished += OnActiveTaskFinished;
+
+        if (task == TaskType.Scaling && scalingTask != null)
+            scalingTask.OnBlockFinished += OnActiveTaskFinished;
     }
 
     private void UnhookTaskFinishedEvents()
     {
         if (rotationTask != null) rotationTask.OnBlockFinished -= OnActiveTaskFinished;
         if (placementTask != null) placementTask.OnBlockFinished -= OnActiveTaskFinished;
+        if (scalingTask != null) scalingTask.OnBlockFinished -= OnActiveTaskFinished;
     }
 
     private void OnActiveTaskFinished()
@@ -468,6 +510,12 @@ public class StudyFlowController : MonoBehaviour
             rotationTask.gameObject.SetActive(false);
         }
 
+        if (scalingTask != null)
+        {
+            scalingTask.enabled = false;
+            scalingTask.gameObject.SetActive(false);
+        }
+
         if (nextTaskPlaceholder != null)
         {
             nextTaskPlaceholder.enabled = false;
@@ -489,6 +537,14 @@ public class StudyFlowController : MonoBehaviour
                 {
                     rotationTask.gameObject.SetActive(true);
                     rotationTask.enabled = true;
+                }
+                break;
+
+            case TaskType.Scaling:
+                if (scalingTask != null)
+                {
+                    scalingTask.gameObject.SetActive(true);
+                    scalingTask.enabled = true;
                 }
                 break;
 
