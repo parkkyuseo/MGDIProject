@@ -28,7 +28,7 @@ public class LegoScalingTaskManager : MonoBehaviour
     [Header("Scale Success Threshold")]
     [SerializeField] private float scaleTolerance = 0.05f;
 
-    [Header("Target Scale Sampling")]
+    [Header("Target Scale Sampling (ABSOLUTE scalar)")]
     [SerializeField] private float targetScaleMin = 0.70f;
     [SerializeField] private float targetScaleMax = 1.60f;
 
@@ -46,10 +46,10 @@ public class LegoScalingTaskManager : MonoBehaviour
     [SerializeField] private float moveDeadZoneMeters = 0.0025f;
 
     [Range(0f, 1f)]
-    [Tooltip("Extra smoothing on scale command (0=no smoothing, 1=very slow).")]
+    [Tooltip("Extra smoothing on scale factor command (0=no smoothing, 1=very slow).")]
     [SerializeField] private float scaleLerp = 0.15f;
 
-    [Header("Scale clamp (safety)")]
+    [Header("Absolute scale clamp (safety, scalar)")]
     [SerializeField] private float minScale = 0.50f;
     [SerializeField] private float maxScale = 2.00f;
 
@@ -86,7 +86,10 @@ public class LegoScalingTaskManager : MonoBehaviour
     private bool trialRunning = false;
     private bool inTransition = false;
 
-    private float _targetScale = 1f;
+    // absolute scalar target (what the success metric uses)
+    private float _targetScaleAbs = 1f;
+
+    // starting scale at trial start (vector, preserves prefab)
     private Vector3 _trialStartLocalScale = Vector3.one;
 
     // drive state
@@ -97,13 +100,15 @@ public class LegoScalingTaskManager : MonoBehaviour
 
     // accumulated axis motion (meters) since baseline
     private float _axisAccum = 0f;
-    private float _scaleBase = 1f;
 
-    // command smoothing
-    private float _scaleCmd = 1f;
-    private bool _scaleCmdInit = false;
+    // baseline scale vector (captured when driving becomes active)
+    private Vector3 _baseScaleVec = Vector3.one;
 
-    // freeze pose
+    // commanded scale factor relative to base (1.0 = no change)
+    private float _scaleFactorCmd = 1f;
+    private bool _scaleFactorInit = false;
+
+    // freeze pose (captured once on baseline; NOT refreshed)
     private Vector3 _lockPos;
     private Quaternion _lockRot;
     private bool _poseLocked = false;
@@ -124,7 +129,7 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         _prevEffectiveDriving = false;
         _haveWristPrev = false;
-        _scaleCmdInit = false;
+        _scaleFactorInit = false;
         _poseLocked = false;
 
         EnsureBlockBody();
@@ -183,7 +188,7 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         _prevEffectiveDriving = effectiveDriving;
 
-        float err = Mathf.Abs(GetUniformScale(blockRoot.localScale) - _targetScale);
+        float err = Mathf.Abs(GetUniformScalar(blockRoot.localScale) - _targetScaleAbs);
         if (err <= scaleTolerance)
         {
             dwellTimer += Time.deltaTime;
@@ -208,9 +213,9 @@ public class LegoScalingTaskManager : MonoBehaviour
         if (freezeBlockRotationWhileScaling)
             blockRoot.rotation = _lockRot;
 
-        // Keep scale command authoritative (in case another script writes it).
-        if (_scaleCmdInit)
-            blockRoot.localScale = Vector3.one * Mathf.Clamp(_scaleCmd, minScale, maxScale);
+        // Keep scale authoritative (in case another script writes it).
+        if (_scaleFactorInit)
+            blockRoot.localScale = _baseScaleVec * _scaleFactorCmd;
     }
 
     private bool ShouldDriveScalingThisFrame()
@@ -254,9 +259,15 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         _trialStartLocalScale = blockRoot.localScale;
 
-        _targetScale = Random.Range(Mathf.Min(targetScaleMin, targetScaleMax), Mathf.Max(targetScaleMin, targetScaleMax));
+        _targetScaleAbs = Random.Range(Mathf.Min(targetScaleMin, targetScaleMax), Mathf.Max(targetScaleMin, targetScaleMax));
+
+        // Show target as "same base shape" scaled to the desired absolute scalar.
         if (targetPivot != null)
-            targetPivot.localScale = Vector3.one * _targetScale;
+        {
+            float baseScalar = GetUniformScalar(_trialStartLocalScale);
+            float factor = (baseScalar > 1e-6f) ? (_targetScaleAbs / baseScalar) : 1f;
+            targetPivot.localScale = _trialStartLocalScale * factor;
+        }
 
         trialTimer = 0f;
         dwellTimer = 0f;
@@ -265,12 +276,12 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         _prevEffectiveDriving = false;
         _haveWristPrev = false;
-        _scaleCmdInit = false;
+        _scaleFactorInit = false;
         _poseLocked = false;
 
         OnTrialChanged?.Invoke(trialIndex + 1, totalTrials);
 
-        Debug.Log($"[ScaleTM] Trial {trialIndex + 1}/{totalTrials} targetScale={_targetScale:F2} tol={scaleTolerance:F3}");
+        Debug.Log($"[ScaleTM] Trial {trialIndex + 1}/{totalTrials} targetScaleAbs={_targetScaleAbs:F2} tol={scaleTolerance:F3}");
     }
 
     private bool HasWrist()
@@ -313,14 +324,15 @@ public class LegoScalingTaskManager : MonoBehaviour
         _wristPrev = w;
         _haveWristPrev = true;
 
-        // baseline scale
-        _scaleBase = Mathf.Clamp(GetUniformScale(blockRoot.localScale), minScale, maxScale);
+        // baseline scale vector (preserve prefab scale; grabbing must NOT change size)
+        _baseScaleVec = blockRoot.localScale;
         _axisAccum = 0f;
 
-        _scaleCmd = _scaleBase;
-        _scaleCmdInit = true;
+        // factor starts at 1 => grabbing keeps initial size
+        _scaleFactorCmd = 1f;
+        _scaleFactorInit = true;
 
-        // lock pose so object doesn't translate while scaling
+        // lock pose ONCE (do NOT refresh later)
         _lockPos = blockRoot.position;
         _lockRot = blockRoot.rotation;
         _poseLocked = true;
@@ -348,26 +360,32 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         _axisAccum += delta;
 
-        float desired = _scaleBase * Mathf.Exp(moveToScaleGain * _axisAccum);
-        desired = Mathf.Clamp(desired, minScale, maxScale);
+        // desired factor relative to base
+        float desiredFactor = Mathf.Exp(moveToScaleGain * _axisAccum);
+
+        // clamp as absolute scalar bounds (minScale/maxScale are absolute)
+        float baseScalar = GetUniformScalar(_baseScaleVec);
+        if (baseScalar > 1e-6f)
+        {
+            float minFactor = minScale / baseScalar;
+            float maxFactor = maxScale / baseScalar;
+            desiredFactor = Mathf.Clamp(desiredFactor, minFactor, maxFactor);
+        }
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
         float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(scaleLerp), dt * 60f);
 
-        float cur = _scaleCmdInit ? _scaleCmd : _scaleBase;
-        _scaleCmd = Mathf.Lerp(cur, desired, k);
-        _scaleCmd = Mathf.Clamp(_scaleCmd, minScale, maxScale);
+        float curFactor = _scaleFactorInit ? _scaleFactorCmd : 1f;
+        _scaleFactorCmd = Mathf.Lerp(curFactor, desiredFactor, k);
+        _scaleFactorInit = true;
 
-        blockRoot.localScale = Vector3.one * _scaleCmd;
-        _scaleCmdInit = true;
+        blockRoot.localScale = _baseScaleVec * _scaleFactorCmd;
 
-        // Keep pose lock refreshed while driving (grabber may overwrite earlier in frame)
-        _lockPos = blockRoot.position;
-        _lockRot = blockRoot.rotation;
+        // IMPORTANT: do NOT refresh _lockPos/_lockRot here
         _poseLocked = true;
     }
 
-    private static float GetUniformScale(Vector3 s)
+    private static float GetUniformScalar(Vector3 s)
     {
         return (s.x + s.y + s.z) / 3f;
     }
@@ -387,10 +405,13 @@ public class LegoScalingTaskManager : MonoBehaviour
 
             if (snapOnSuccess)
             {
-                float s = Mathf.Clamp(_targetScale, minScale, maxScale);
-                blockRoot.localScale = Vector3.one * s;
-                _scaleCmd = s;
-                _scaleCmdInit = true;
+                float baseScalar = GetUniformScalar(_baseScaleVec);
+                float targetAbs = Mathf.Clamp(_targetScaleAbs, minScale, maxScale);
+                float factor = (baseScalar > 1e-6f) ? (targetAbs / baseScalar) : 1f;
+
+                blockRoot.localScale = _baseScaleVec * factor;
+                _scaleFactorCmd = factor;
+                _scaleFactorInit = true;
             }
 
             PlaySnapSound();
@@ -400,7 +421,7 @@ public class LegoScalingTaskManager : MonoBehaviour
         else
         {
             ShowX();
-            yield return new WaitForSeconds(feedbackShowSeconds);
+            yield return new WaitForSeconds(feedbackShowSeconds));
         }
 
         HideFeedbackUI();
