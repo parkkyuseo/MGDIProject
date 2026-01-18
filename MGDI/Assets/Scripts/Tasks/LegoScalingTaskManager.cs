@@ -10,7 +10,7 @@ public class LegoScalingTaskManager : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private Transform blockRoot;
-    [SerializeField] private Transform targetPivot; // reused target (ghost). Scaling uses localScale only.
+    [SerializeField] private Transform targetPivot; // reused target (ghost). Scaling uses world-scale only.
     [SerializeField] private ProxyHandGrabber grabber;
     [SerializeField] private RemoteHandRuntime remoteHand;
 
@@ -70,7 +70,10 @@ public class LegoScalingTaskManager : MonoBehaviour
     [Header("Inter-trial behavior")]
     [SerializeField] private bool snapOnSuccess = true;
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
+
+    [Tooltip("If true, reset to the trial baseline world-scale at trial end (recommended).")]
     [SerializeField] private bool resetScaleAfterTrial = true;
+
     [SerializeField] private bool forceReleaseAfterTrial = true;
 
     [Header("Trial Count")]
@@ -87,12 +90,8 @@ public class LegoScalingTaskManager : MonoBehaviour
     private bool trialRunning = false;
     private bool inTransition = false;
 
-    // baseline scale for THIS TRIAL (vector, preserves prefab)
-    private Vector3 _trialBaseScaleVec = Vector3.one;
-
-    // default/original scale (captured once at first StartBlock)
-    private Vector3 _blockDefaultLocalScale = Vector3.one;
-    private bool _defaultScaleCaptured = false;
+    // baseline WORLD scale for THIS TRIAL (robust to re-parenting)
+    private Vector3 _trialBaseWorldScale = Vector3.one;
 
     // target factor (relative to trial baseline)
     private float _targetFactor = 1f;
@@ -106,7 +105,7 @@ public class LegoScalingTaskManager : MonoBehaviour
     // accumulated axis motion (meters) since baseline
     private float _axisAccum = 0f;
 
-    // commanded scale factor relative to baseline (1.0 = no change)
+    // commanded factor (relative to baseline; 1.0 = no change)
     private float _scaleFactorCmd = 1f;
     private bool _scaleFactorInit = false;
 
@@ -141,13 +140,6 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         EnsureBlockBody();
         HideFeedbackUI();
-
-        // capture default scale once
-        if (!_defaultScaleCaptured && blockRoot != null)
-        {
-            _blockDefaultLocalScale = blockRoot.localScale;
-            _defaultScaleCaptured = true;
-        }
 
         BeginNextTrial();
     }
@@ -192,7 +184,7 @@ public class LegoScalingTaskManager : MonoBehaviour
             if (!_prevEffectiveDriving)
             {
                 RebaselineForScaling();
-                _skipScaleThisFrame = true; // IMPORTANT: skip first update right after baseline
+                _skipScaleThisFrame = true; // skip first update right after baseline
             }
 
             if (_skipScaleThisFrame)
@@ -238,7 +230,7 @@ public class LegoScalingTaskManager : MonoBehaviour
             blockRoot.rotation = _lockRot;
 
         if (_scaleFactorInit)
-            blockRoot.localScale = _trialBaseScaleVec * _scaleFactorCmd;
+            SetWorldScale(blockRoot, _trialBaseWorldScale * _scaleFactorCmd);
     }
 
     private bool ShouldDriveScalingThisFrame()
@@ -280,19 +272,24 @@ public class LegoScalingTaskManager : MonoBehaviour
             return;
         }
 
-        // Always reset to default scale at trial start (prevents drift across trials)
-        if (_defaultScaleCaptured)
-            blockRoot.localScale = _blockDefaultLocalScale;
+        // Capture baseline WORLD scale for this trial (robust to parent changes while holding)
+        _trialBaseWorldScale = blockRoot.lossyScale;
 
-        _trialBaseScaleVec = blockRoot.localScale;
+        // Initialize factor state
+        _axisAccum = 0f;
+        _scaleFactorCmd = 1f;
+        _scaleFactorInit = true;
 
         // sample target factor
         _targetFactor = Random.Range(Mathf.Min(targetFactorMin, targetFactorMax), Mathf.Max(targetFactorMin, targetFactorMax));
         _targetFactor = Mathf.Clamp(_targetFactor, minScaleFactor, maxScaleFactor);
 
-        // show target ghost at baseScale * targetFactor
+        // show target ghost at baseWorldScale * targetFactor
         if (targetPivot != null)
-            targetPivot.localScale = _trialBaseScaleVec * _targetFactor;
+            SetWorldScale(targetPivot, _trialBaseWorldScale * _targetFactor);
+
+        // Ensure block starts at baseline world scale (no drift)
+        SetWorldScale(blockRoot, _trialBaseWorldScale);
 
         trialTimer = 0f;
         dwellTimer = 0f;
@@ -301,10 +298,7 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         _prevEffectiveDriving = false;
         _haveWristPrev = false;
-        _scaleFactorInit = false;
         _poseLocked = false;
-        _axisAccum = 0f;
-        _scaleFactorCmd = 1f;
         _skipScaleThisFrame = false;
 
         OnTrialChanged?.Invoke(trialIndex + 1, totalTrials);
@@ -355,9 +349,13 @@ public class LegoScalingTaskManager : MonoBehaviour
         _scaleFactorCmd = 1f;
         _scaleFactorInit = true;
 
+        // lock pose ONCE (do NOT refresh later)
         _lockPos = blockRoot.position;
         _lockRot = blockRoot.rotation;
         _poseLocked = true;
+
+        // IMPORTANT: baseline world scale is captured at trial start;
+        // do NOT overwrite it here (prevents jumps when grabbing re-parents the object).
     }
 
     private void UpdateScaleFromDiagonalWristMotion()
@@ -392,22 +390,22 @@ public class LegoScalingTaskManager : MonoBehaviour
         _scaleFactorCmd = Mathf.Lerp(cur, desiredFactor, k);
         _scaleFactorInit = true;
 
-        blockRoot.localScale = _trialBaseScaleVec * _scaleFactorCmd;
+        SetWorldScale(blockRoot, _trialBaseWorldScale * _scaleFactorCmd);
 
         _poseLocked = true;
     }
 
     private float CurrentFactor()
     {
-        float baseScalar = GetUniformScalar(_trialBaseScaleVec);
-        float curScalar = GetUniformScalar(blockRoot.localScale);
-        if (baseScalar <= 1e-6f) return 1f;
-        return curScalar / baseScalar;
+        float baseS = AvgAbs(_trialBaseWorldScale);
+        float curS = AvgAbs(blockRoot.lossyScale);
+        if (baseS <= 1e-6f) return 1f;
+        return curS / baseS;
     }
 
-    private static float GetUniformScalar(Vector3 s)
+    private static float AvgAbs(Vector3 v)
     {
-        return (s.x + s.y + s.z) / 3f;
+        return (Mathf.Abs(v.x) + Mathf.Abs(v.y) + Mathf.Abs(v.z)) / 3f;
     }
 
     private IEnumerator EndTrialRoutine(bool success, bool timedOut)
@@ -425,7 +423,7 @@ public class LegoScalingTaskManager : MonoBehaviour
 
             if (snapOnSuccess)
             {
-                blockRoot.localScale = _trialBaseScaleVec * _targetFactor;
+                SetWorldScale(blockRoot, _trialBaseWorldScale * _targetFactor);
                 _scaleFactorCmd = _targetFactor;
                 _scaleFactorInit = true;
             }
@@ -442,9 +440,8 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         HideFeedbackUI();
 
-        // Always reset to default scale so next trial begins cleanly
-        if (resetScaleAfterTrial && _defaultScaleCaptured)
-            blockRoot.localScale = _blockDefaultLocalScale;
+        if (resetScaleAfterTrial)
+            SetWorldScale(blockRoot, _trialBaseWorldScale);
 
         if (forceReleaseAfterTrial) ForceReleaseIfPossible();
 
@@ -491,5 +488,28 @@ public class LegoScalingTaskManager : MonoBehaviour
         HideFeedbackUI();
 
         try { OnBlockFinished?.Invoke(); } catch { }
+    }
+
+    /// <summary>
+    /// Sets the world-scale of a transform by compensating for parent lossyScale.
+    /// This prevents scale jumps when the object is re-parented (e.g., on grab).
+    /// </summary>
+    private static void SetWorldScale(Transform t, Vector3 desiredWorldScale)
+    {
+        if (t == null) return;
+
+        Vector3 parentLossy = Vector3.one;
+        if (t.parent != null)
+            parentLossy = t.parent.lossyScale;
+
+        float px = Mathf.Abs(parentLossy.x) < 1e-6f ? 1e-6f : parentLossy.x;
+        float py = Mathf.Abs(parentLossy.y) < 1e-6f ? 1e-6f : parentLossy.y;
+        float pz = Mathf.Abs(parentLossy.z) < 1e-6f ? 1e-6f : parentLossy.z;
+
+        t.localScale = new Vector3(
+            desiredWorldScale.x / px,
+            desiredWorldScale.y / py,
+            desiredWorldScale.z / pz
+        );
     }
 }
