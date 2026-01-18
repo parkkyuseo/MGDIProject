@@ -5,21 +5,13 @@ using Random = UnityEngine.Random;
 
 public class LegoScalingTaskManager : MonoBehaviour
 {
-    // Fired when the scaling block finishes (all trials complete).
     public event Action OnBlockFinished;
-    public event System.Action<int, int> OnTrialChanged; // (current1Based, total)
+    public event Action<int, int> OnTrialChanged; // (current1Based, total)
 
     [Header("References")]
-    [Tooltip("The transform that scales (use LegoBlockRoot).")]
     [SerializeField] private Transform blockRoot;
-
-    [Tooltip("Optional target visual that shows the desired scale (set its localScale).")]
-    [SerializeField] private Transform targetPivot;
-
-    [Tooltip("ProxyHandGrabber instance (preferred). Used for gating and force release.")]
+    [SerializeField] private Transform targetPivot; // reused target (ghost). Scaling uses localScale only.
     [SerializeField] private ProxyHandGrabber grabber;
-
-    [Tooltip("RemoteHandRuntime that provides remote joint transforms (smoothed).")]
     [SerializeField] private RemoteHandRuntime remoteHand;
 
     [Header("Feedback (Audio / UI)")]
@@ -34,28 +26,27 @@ public class LegoScalingTaskManager : MonoBehaviour
     [SerializeField] private float dwellSeconds = 0.20f;
 
     [Header("Scale Success Threshold")]
-    [Tooltip("Success if abs(currentUniformScale - targetScale) <= tolerance.")]
     [SerializeField] private float scaleTolerance = 0.05f;
 
     [Header("Target Scale Sampling")]
     [SerializeField] private float targetScaleMin = 0.70f;
     [SerializeField] private float targetScaleMax = 1.60f;
 
-    [Header("Control: wrist diagonal movement -> scale")]
-    [Tooltip("Axis = normalize(cam.up + cam.forward). If false, uses world (Vector3.up + Vector3.forward).")]
+    [Header("Control: diagonal (up + side) movement -> scale")]
+    [Tooltip("Axis is based on camera up + side. Recommended true.")]
     [SerializeField] private bool axisFromCamera = true;
 
-    [Tooltip("Scale mapping gain for exp(gain * deltaMeters). Typical 3~6.")]
+    [Tooltip("If true, left hand uses cam.left (so 'up+away from body side' feels consistent).")]
+    [SerializeField] private bool flipSideAxisForLeftHand = true;
+
+    [Tooltip("Scale mapping gain for exp(gain * accumulatedMeters). Typical 3~6.")]
     [SerializeField] private float moveToScaleGain = 4.0f;
 
     [Tooltip("Ignore very small axis movement (meters).")]
-    [SerializeField] private float moveDeadZoneMeters = 0.002f;
-
-    [Tooltip("Max scale change speed (scale units per second) for safety. 0 = no limit.")]
-    [SerializeField] private float maxScaleRatePerSec = 3.0f;
+    [SerializeField] private float moveDeadZoneMeters = 0.0025f;
 
     [Range(0f, 1f)]
-    [Tooltip("Extra smoothing on commanded scale (0=no smoothing, 1=very slow).")]
+    [Tooltip("Extra smoothing on scale command (0=no smoothing, 1=very slow).")]
     [SerializeField] private float scaleLerp = 0.15f;
 
     [Header("Scale clamp (safety)")]
@@ -68,15 +59,24 @@ public class LegoScalingTaskManager : MonoBehaviour
     [Tooltip("If true, drive scaling only when the grabber is holding THIS block rigidbody.")]
     [SerializeField] private bool requireHoldingThisBlock = true;
 
+    [Header("Freeze block motion during scaling")]
+    [Tooltip("If true, while scaling is active, block position is locked (recommended).")]
+    [SerializeField] private bool freezeBlockPositionWhileScaling = true;
+
+    [Tooltip("If true, while scaling is active, block rotation is locked too (optional).")]
+    [SerializeField] private bool freezeBlockRotationWhileScaling = false;
+
     [Header("Inter-trial behavior")]
     [SerializeField] private bool snapOnSuccess = true;
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
-
     [SerializeField] private bool resetScaleAfterTrial = true;
     [SerializeField] private bool forceReleaseAfterTrial = true;
 
     [Header("Trial Count")]
     [SerializeField] private int totalTrials = 20;
+
+    [Header("Debug")]
+    [SerializeField] private bool logDriveState = false;
 
     // Runtime
     private int trialIndex = 0;
@@ -91,12 +91,22 @@ public class LegoScalingTaskManager : MonoBehaviour
 
     // drive state
     private bool _prevEffectiveDriving = false;
+
     private Vector3 _wristPrev;
     private bool _haveWristPrev = false;
+
+    // accumulated axis motion (meters) since baseline
+    private float _axisAccum = 0f;
+    private float _scaleBase = 1f;
 
     // command smoothing
     private float _scaleCmd = 1f;
     private bool _scaleCmdInit = false;
+
+    // freeze pose
+    private Vector3 _lockPos;
+    private Quaternion _lockRot;
+    private bool _poseLocked = false;
 
     private Rigidbody _blockBody;
 
@@ -115,6 +125,7 @@ public class LegoScalingTaskManager : MonoBehaviour
         _prevEffectiveDriving = false;
         _haveWristPrev = false;
         _scaleCmdInit = false;
+        _poseLocked = false;
 
         EnsureBlockBody();
         HideFeedbackUI();
@@ -154,16 +165,20 @@ public class LegoScalingTaskManager : MonoBehaviour
         bool ready = HasWrist();
         bool effectiveDriving = drive && ready;
 
+        if (logDriveState && effectiveDriving != _prevEffectiveDriving)
+            Debug.Log($"[ScaleTM] effectiveDriving={effectiveDriving} drive={drive} ready={ready} requireHoldingThisBlock={requireHoldingThisBlock}");
+
         if (effectiveDriving)
         {
             if (!_prevEffectiveDriving)
-                RebaselineWrist();
+                RebaselineForScaling();
 
-            UpdateScaleFromWristDiagonal();
+            UpdateScaleFromDiagonalWristMotion();
         }
         else
         {
             dwellTimer = 0f;
+            _poseLocked = false; // release pose lock when not actively driving
         }
 
         _prevEffectiveDriving = effectiveDriving;
@@ -179,6 +194,23 @@ public class LegoScalingTaskManager : MonoBehaviour
         {
             dwellTimer = 0f;
         }
+    }
+
+    private void LateUpdate()
+    {
+        // Override grabber-driven translation/rotation so scaling feels "size only".
+        if (!trialRunning || inTransition) return;
+        if (!_poseLocked) return;
+
+        if (freezeBlockPositionWhileScaling)
+            blockRoot.position = _lockPos;
+
+        if (freezeBlockRotationWhileScaling)
+            blockRoot.rotation = _lockRot;
+
+        // Keep scale command authoritative (in case another script writes it).
+        if (_scaleCmdInit)
+            blockRoot.localScale = Vector3.one * Mathf.Clamp(_scaleCmd, minScale, maxScale);
     }
 
     private bool ShouldDriveScalingThisFrame()
@@ -234,10 +266,11 @@ public class LegoScalingTaskManager : MonoBehaviour
         _prevEffectiveDriving = false;
         _haveWristPrev = false;
         _scaleCmdInit = false;
+        _poseLocked = false;
 
         OnTrialChanged?.Invoke(trialIndex + 1, totalTrials);
 
-        Debug.Log($"[LegoScalingTaskManager] Trial {trialIndex + 1}/{totalTrials} targetScale={_targetScale:F2} tol={scaleTolerance:F3}");
+        Debug.Log($"[ScaleTM] Trial {trialIndex + 1}/{totalTrials} targetScale={_targetScale:F2} tol={scaleTolerance:F3}");
     }
 
     private bool HasWrist()
@@ -250,33 +283,51 @@ public class LegoScalingTaskManager : MonoBehaviour
 
     private Vector3 GetAxis()
     {
-        Vector3 axis = Vector3.up + Vector3.forward;
+        Vector3 axis;
 
         if (axisFromCamera && Camera.main != null)
         {
             Transform cam = Camera.main.transform;
-            axis = cam.up + cam.forward;
+
+            Vector3 side = cam.right;
+            if (flipSideAxisForLeftHand && remoteHand != null && remoteHand.isLeft)
+                side = -side;
+
+            axis = cam.up + side;
+        }
+        else
+        {
+            axis = Vector3.up + Vector3.right;
+            if (flipSideAxisForLeftHand && remoteHand != null && remoteHand.isLeft)
+                axis = Vector3.up + Vector3.left;
         }
 
         if (axis.sqrMagnitude < 1e-8f) axis = Vector3.up;
         return axis.normalized;
     }
 
-    private void RebaselineWrist()
+    private void RebaselineForScaling()
     {
+        // baseline wrist
         Vector3 w = remoteHand.remoteByIndex[0].position;
         _wristPrev = w;
         _haveWristPrev = true;
 
-        float s0 = Mathf.Clamp(GetUniformScale(blockRoot.localScale), minScale, maxScale);
-        _scaleCmd = s0;
+        // baseline scale
+        _scaleBase = Mathf.Clamp(GetUniformScale(blockRoot.localScale), minScale, maxScale);
+        _axisAccum = 0f;
+
+        _scaleCmd = _scaleBase;
         _scaleCmdInit = true;
+
+        // lock pose so object doesn't translate while scaling
+        _lockPos = blockRoot.position;
+        _lockRot = blockRoot.rotation;
+        _poseLocked = true;
     }
 
-    private void UpdateScaleFromWristDiagonal()
+    private void UpdateScaleFromDiagonalWristMotion()
     {
-        if (!HasWrist()) return;
-
         Vector3 w = remoteHand.remoteByIndex[0].position;
 
         if (!_haveWristPrev)
@@ -295,27 +346,25 @@ public class LegoScalingTaskManager : MonoBehaviour
         if (Mathf.Abs(delta) < Mathf.Max(0f, moveDeadZoneMeters))
             return;
 
-        float s0 = _scaleCmdInit ? _scaleCmd : GetUniformScale(blockRoot.localScale);
-        s0 = Mathf.Clamp(s0, minScale, maxScale);
+        _axisAccum += delta;
 
-        float desired = s0 * Mathf.Exp(moveToScaleGain * delta);
+        float desired = _scaleBase * Mathf.Exp(moveToScaleGain * _axisAccum);
         desired = Mathf.Clamp(desired, minScale, maxScale);
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
-
-        if (maxScaleRatePerSec > 0f)
-        {
-            float maxStep = maxScaleRatePerSec * dt;
-            float dS = desired - s0;
-            dS = Mathf.Clamp(dS, -maxStep, maxStep);
-            desired = s0 + dS;
-        }
-
         float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(scaleLerp), dt * 60f);
-        _scaleCmd = Mathf.Lerp(s0, desired, k);
+
+        float cur = _scaleCmdInit ? _scaleCmd : _scaleBase;
+        _scaleCmd = Mathf.Lerp(cur, desired, k);
+        _scaleCmd = Mathf.Clamp(_scaleCmd, minScale, maxScale);
 
         blockRoot.localScale = Vector3.one * _scaleCmd;
         _scaleCmdInit = true;
+
+        // Keep pose lock refreshed while driving (grabber may overwrite earlier in frame)
+        _lockPos = blockRoot.position;
+        _lockRot = blockRoot.rotation;
+        _poseLocked = true;
     }
 
     private static float GetUniformScale(Vector3 s)
@@ -329,6 +378,7 @@ public class LegoScalingTaskManager : MonoBehaviour
         inTransition = true;
         trialRunning = false;
 
+        _poseLocked = false;
         HideFeedbackUI();
 
         if (success)
@@ -337,8 +387,9 @@ public class LegoScalingTaskManager : MonoBehaviour
 
             if (snapOnSuccess)
             {
-                blockRoot.localScale = Vector3.one * _targetScale;
-                _scaleCmd = _targetScale;
+                float s = Mathf.Clamp(_targetScale, minScale, maxScale);
+                blockRoot.localScale = Vector3.one * s;
+                _scaleCmd = s;
                 _scaleCmdInit = true;
             }
 
@@ -398,8 +449,9 @@ public class LegoScalingTaskManager : MonoBehaviour
     {
         trialRunning = false;
         inTransition = false;
+        _poseLocked = false;
         HideFeedbackUI();
 
-        try { OnBlockFinished?.Invoke(); } catch { /* ignore */ }
+        try { OnBlockFinished?.Invoke(); } catch { }
     }
 }
