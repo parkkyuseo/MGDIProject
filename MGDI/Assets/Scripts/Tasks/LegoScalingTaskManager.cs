@@ -115,6 +115,9 @@ public class LegoScalingTaskManager : MonoBehaviour
     private Quaternion _lockRot;
     private bool _poseLocked = false;
 
+    // baseline-frame skip (prevents "jump on grab" due to update order)
+    private bool _skipScaleThisFrame = false;
+
     // for holding correct rigidbody
     private Rigidbody _blockBody;
 
@@ -134,6 +137,7 @@ public class LegoScalingTaskManager : MonoBehaviour
         _haveWristPrev = false;
         _scaleFactorInit = false;
         _poseLocked = false;
+        _skipScaleThisFrame = false;
 
         EnsureBlockBody();
         HideFeedbackUI();
@@ -186,14 +190,25 @@ public class LegoScalingTaskManager : MonoBehaviour
         if (effectiveDriving)
         {
             if (!_prevEffectiveDriving)
+            {
                 RebaselineForScaling();
+                _skipScaleThisFrame = true; // IMPORTANT: skip first update right after baseline
+            }
 
-            UpdateScaleFromDiagonalWristMotion();
+            if (_skipScaleThisFrame)
+            {
+                _skipScaleThisFrame = false;
+            }
+            else
+            {
+                UpdateScaleFromDiagonalWristMotion();
+            }
         }
         else
         {
             dwellTimer = 0f;
             _poseLocked = false;
+            _skipScaleThisFrame = false;
         }
 
         _prevEffectiveDriving = effectiveDriving;
@@ -290,6 +305,7 @@ public class LegoScalingTaskManager : MonoBehaviour
         _poseLocked = false;
         _axisAccum = 0f;
         _scaleFactorCmd = 1f;
+        _skipScaleThisFrame = false;
 
         OnTrialChanged?.Invoke(trialIndex + 1, totalTrials);
 
@@ -335,12 +351,10 @@ public class LegoScalingTaskManager : MonoBehaviour
         _wristPrev = w;
         _haveWristPrev = true;
 
-        // baseline (trial base)
         _axisAccum = 0f;
         _scaleFactorCmd = 1f;
         _scaleFactorInit = true;
 
-        // lock pose ONCE (do NOT refresh later)
         _lockPos = blockRoot.position;
         _lockRot = blockRoot.rotation;
         _poseLocked = true;
