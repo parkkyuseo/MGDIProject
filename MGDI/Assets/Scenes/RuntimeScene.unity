@@ -3003,19 +3003,22 @@ MonoBehaviour:
   targetScaleMin: 0.7
   targetScaleMax: 1.6
   axisFromCamera: 1
-  moveToScaleGain: 4
+  flipSideAxisForLeftHand: 0
+  moveToScaleGain: 2
   moveDeadZoneMeters: 0.002
-  maxScaleRatePerSec: 3
   scaleLerp: 0.15
   minScale: 0.5
   maxScale: 2
   scaleOnlyWhenHolding: 1
-  requireHoldingThisBlock: 1
+  requireHoldingThisBlock: 0
+  freezeBlockPositionWhileScaling: 1
+  freezeBlockRotationWhileScaling: 1
   snapOnSuccess: 1
   postSnapHoldSeconds: 0.35
   resetScaleAfterTrial: 1
   forceReleaseAfterTrial: 1
   totalTrials: 20
+  logDriveState: 0
 --- !u!1 &1153635556
 GameObject:
   m_ObjectHideFlags: 0
