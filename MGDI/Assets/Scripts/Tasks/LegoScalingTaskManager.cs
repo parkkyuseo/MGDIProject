@@ -10,7 +10,7 @@ public class LegoScalingTaskManager : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private Transform blockRoot;
-    [SerializeField] private Transform targetPivot; // reused target (ghost). Scaling uses world-scale only.
+    [SerializeField] private Transform targetPivot; // reused target (ghost). Scaling uses LOCAL scale for display.
     [SerializeField] private ProxyHandGrabber grabber;
     [SerializeField] private RemoteHandRuntime remoteHand;
 
@@ -90,10 +90,13 @@ public class LegoScalingTaskManager : MonoBehaviour
     private bool trialRunning = false;
     private bool inTransition = false;
 
-    // baseline WORLD scale for THIS TRIAL (robust to re-parenting)
+    // baseline WORLD scale for THIS TRIAL (robust to re-parenting of block on grab)
     private Vector3 _trialBaseWorldScale = Vector3.one;
 
-    // target factor (relative to trial baseline)
+    // target display baseline LOCAL scale (robust to target being under scaled parent)
+    private Vector3 _targetBaseLocalScale = Vector3.one;
+
+    // target factor (relative to baseline)
     private float _targetFactor = 1f;
 
     // drive state
@@ -148,6 +151,9 @@ public class LegoScalingTaskManager : MonoBehaviour
     {
         HideFeedbackUI();
         EnsureBlockBody();
+
+        if (targetPivot != null)
+            _targetBaseLocalScale = targetPivot.localScale;
     }
 
     private void EnsureBlockBody()
@@ -272,21 +278,25 @@ public class LegoScalingTaskManager : MonoBehaviour
             return;
         }
 
-        // Capture baseline WORLD scale for this trial (robust to parent changes while holding)
+        // Capture baseline WORLD scale for block (robust to re-parenting on grab)
         _trialBaseWorldScale = blockRoot.lossyScale;
+
+        // Capture baseline LOCAL scale for target visual (so it stays visually consistent under its parent)
+        if (targetPivot != null)
+            _targetBaseLocalScale = targetPivot.localScale;
 
         // Initialize factor state
         _axisAccum = 0f;
         _scaleFactorCmd = 1f;
         _scaleFactorInit = true;
 
-        // sample target factor
+        // Sample target factor
         _targetFactor = Random.Range(Mathf.Min(targetFactorMin, targetFactorMax), Mathf.Max(targetFactorMin, targetFactorMax));
         _targetFactor = Mathf.Clamp(_targetFactor, minScaleFactor, maxScaleFactor);
 
-        // show target ghost at baseWorldScale * targetFactor
+        // Show target using LOCAL scale (prevents tiny target due to scaled parent)
         if (targetPivot != null)
-            SetWorldScale(targetPivot, _trialBaseWorldScale * _targetFactor);
+            targetPivot.localScale = _targetBaseLocalScale * _targetFactor;
 
         // Ensure block starts at baseline world scale (no drift)
         SetWorldScale(blockRoot, _trialBaseWorldScale);
@@ -353,9 +363,6 @@ public class LegoScalingTaskManager : MonoBehaviour
         _lockPos = blockRoot.position;
         _lockRot = blockRoot.rotation;
         _poseLocked = true;
-
-        // IMPORTANT: baseline world scale is captured at trial start;
-        // do NOT overwrite it here (prevents jumps when grabbing re-parents the object).
     }
 
     private void UpdateScaleFromDiagonalWristMotion()
@@ -492,7 +499,7 @@ public class LegoScalingTaskManager : MonoBehaviour
 
     /// <summary>
     /// Sets the world-scale of a transform by compensating for parent lossyScale.
-    /// This prevents scale jumps when the object is re-parented (e.g., on grab).
+    /// Use this ONLY for the grabbed block (re-parenting causes localScale jumps).
     /// </summary>
     private static void SetWorldScale(Transform t, Vector3 desiredWorldScale)
     {
