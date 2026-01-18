@@ -421,7 +421,7 @@ public class LegoScalingTaskManager : MonoBehaviour
         else
         {
             ShowX();
-            yield return new WaitForSeconds(feedbackShowSeconds));
+            yield return new WaitForSeconds(feedbackShowSeconds);
         }
 
         HideFeedbackUI();
