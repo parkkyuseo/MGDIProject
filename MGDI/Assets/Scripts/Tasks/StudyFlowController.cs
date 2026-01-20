@@ -69,9 +69,21 @@ public class StudyFlowController : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool showHUDInEditor = true;
 
+    // Existing task commands
     public string cmdStartPlacement = "start placement";
     public string cmdStartRotation = "start rotation";
     public string cmdStartScaling = "start scaling";
+
+    // NEW: one-shot micro starts (Technique + Task)
+    public string cmdStartMicroPlacement = "start micro placement";
+    public string cmdStartMicroRotation = "start micro rotation";
+    public string cmdStartMicroScaling = "start micro scaling";
+
+    // (Optional) one-shot macro starts (Technique + Task)
+    public string cmdStartMacroPlacement = "start macro placement";
+    public string cmdStartMacroRotation = "start macro rotation";
+    public string cmdStartMacroScaling = "start macro scaling";
+
     public string cmdRestart = "restart";
     public string cmdNext = "next";
 
@@ -103,9 +115,20 @@ public class StudyFlowController : MonoBehaviour
 
         actions = new Dictionary<string, System.Action>
         {
+            // Existing
             { cmdStartPlacement.ToLower(), () => StartTask(TaskType.Placement) },
             { cmdStartRotation.ToLower(),  () => StartTask(TaskType.Rotation) },
             { cmdStartScaling.ToLower(),   () => StartTask(TaskType.Scaling) },
+
+            // NEW: one-shot micro starts
+            { cmdStartMicroPlacement.ToLower(), () => StartTechniqueAndTask(Technique.Micro, TaskType.Placement) },
+            { cmdStartMicroRotation.ToLower(),  () => StartTechniqueAndTask(Technique.Micro, TaskType.Rotation) },
+            { cmdStartMicroScaling.ToLower(),   () => StartTechniqueAndTask(Technique.Micro, TaskType.Scaling) },
+
+            // Optional: one-shot macro starts
+            { cmdStartMacroPlacement.ToLower(), () => StartTechniqueAndTask(Technique.Macro, TaskType.Placement) },
+            { cmdStartMacroRotation.ToLower(),  () => StartTechniqueAndTask(Technique.Macro, TaskType.Rotation) },
+            { cmdStartMacroScaling.ToLower(),   () => StartTechniqueAndTask(Technique.Macro, TaskType.Scaling) },
 
             { cmdRestart.ToLower(), RestartCurrent },
             { cmdNext.ToLower(),    NextConditionAndRestart },
@@ -125,6 +148,13 @@ public class StudyFlowController : MonoBehaviour
             if (actions.TryGetValue(k, out var a)) a.Invoke();
         };
         recognizer.Start();
+    }
+
+    // NEW: one-shot starter helper
+    private void StartTechniqueAndTask(Technique tech, TaskType task)
+    {
+        currentTechnique = tech;
+        StartTask(task);
     }
 
     private void Update()
