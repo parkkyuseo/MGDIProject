@@ -15,32 +15,31 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
     [Header("Pinch thresholds (meters)")]
     [SerializeField] private float pinchOnMeters = 0.030f;
     [SerializeField] private float pinchOffMeters = 0.040f;
-
-    [Tooltip("If |dTI - dTM| < margin at pinch start, treat it as ambiguous and do not start.")]
     [SerializeField] private float winnerMarginMeters = 0.006f;
-
-    [Tooltip("Cooldown after a pinch completes (seconds). Prevents double toggles.")]
     [SerializeField] private float pinchCooldownSec = 0.20f;
 
     [Header("D-pad (thumb)")]
-    [SerializeField] private float dpadDeadZone = 0.25f;
+    [SerializeField] private float dpadDeadZone = 0.22f;
     [SerializeField] private float dpadFullScale = 0.85f;
     [SerializeField] private bool useFourWay = false;
     [SerializeField] private bool requireEngagedForDpad = true;
 
     [Header("D-pad calibration")]
-    [Tooltip("If true, capture the current thumb uv as center when Engage is turned ON.")]
     [SerializeField] private bool calibrateCenterOnEngage = true;
-
-    [Tooltip("Smoothing for Dpad output (higher = snappier).")]
     [SerializeField] private float dpadOutputLerp = 12f;
+
+    [Header("Axis options")]
+    [Tooltip("Flip X if the direction feels reversed.")]
+    [SerializeField] private bool invertX = false;
+
+    [Tooltip("Flip Y if the direction feels reversed.")]
+    [SerializeField] private bool invertY = false;
 
     // Outputs
     public bool IsEngaged { get; private set; } = false;
     public bool ZMode { get; private set; } = false;
     public Vector2 Dpad { get; private set; } = Vector2.zero;
 
-    // One-frame pulses (optional)
     public bool EngageToggledThisFrame { get; private set; } = false;
     public bool ZModeToggledThisFrame { get; private set; } = false;
 
@@ -57,7 +56,6 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
 
     void ResetFrameOutputs()
     {
-        Dpad = Vector2.zero;
         EngageToggledThisFrame = false;
         ZModeToggledThisFrame = false;
     }
@@ -66,17 +64,13 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
     {
         ResetFrameOutputs();
 
-        // Still allow D-pad during cooldown (if engaged), but prevent new toggles.
-        if (Time.time < _cooldownUntil)
-        {
-            HandleCenterCalibrationEdge();
-            UpdateDpad();
-            return;
-        }
+        // allow D-pad during cooldown (if engaged), but block new toggles
+        bool canToggle = Time.time >= _cooldownUntil;
 
         if (remoteHand == null || remoteHand.remoteByIndex == null || remoteHand.remoteByIndex.Length < 18)
         {
             HandleCenterCalibrationEdge();
+            Dpad = Vector2.zero;
             return;
         }
 
@@ -84,59 +78,51 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
         Transform indexTip = remoteHand.remoteByIndex[8];
         Transform middleTip = remoteHand.remoteByIndex[12];
 
-        if (thumbTip == null || indexTip == null || middleTip == null)
+        if (thumbTip != null && indexTip != null && middleTip != null && canToggle)
         {
-            HandleCenterCalibrationEdge();
-            return;
-        }
+            float dTI = Vector3.Distance(thumbTip.position, indexTip.position);
+            float dTM = Vector3.Distance(thumbTip.position, middleTip.position);
 
-        float dTI = Vector3.Distance(thumbTip.position, indexTip.position);
-        float dTM = Vector3.Distance(thumbTip.position, middleTip.position);
-
-        // --------------------------
-        // 1) Pinch toggle (winner/lockout)
-        // --------------------------
-        if (!_pinching)
-        {
-            float dMin = Mathf.Min(dTI, dTM);
-
-            if (dMin <= pinchOnMeters)
+            // 1) Pinch toggle (winner/lockout)
+            if (!_pinching)
             {
-                float diff = Mathf.Abs(dTI - dTM);
-                if (diff >= winnerMarginMeters)
+                float dMin = Mathf.Min(dTI, dTM);
+
+                if (dMin <= pinchOnMeters)
                 {
-                    _pinching = true;
-                    _winner = (dTI < dTM) ? PinchKind.ThumbIndex : PinchKind.ThumbMiddle;
+                    float diff = Mathf.Abs(dTI - dTM);
+                    if (diff >= winnerMarginMeters)
+                    {
+                        _pinching = true;
+                        _winner = (dTI < dTM) ? PinchKind.ThumbIndex : PinchKind.ThumbMiddle;
+                    }
+                }
+            }
+            else
+            {
+                float dW = (_winner == PinchKind.ThumbIndex) ? dTI : dTM;
+
+                if (dW >= pinchOffMeters)
+                {
+                    _pinching = false;
+
+                    if (_winner == PinchKind.ThumbIndex)
+                    {
+                        IsEngaged = !IsEngaged;
+                        EngageToggledThisFrame = true;
+                    }
+                    else if (_winner == PinchKind.ThumbMiddle)
+                    {
+                        ZMode = !ZMode;
+                        ZModeToggledThisFrame = true;
+                    }
+
+                    _winner = PinchKind.None;
+                    _cooldownUntil = Time.time + Mathf.Max(0f, pinchCooldownSec);
                 }
             }
         }
-        else
-        {
-            float dW = (_winner == PinchKind.ThumbIndex) ? dTI : dTM;
 
-            if (dW >= pinchOffMeters)
-            {
-                _pinching = false;
-
-                if (_winner == PinchKind.ThumbIndex)
-                {
-                    IsEngaged = !IsEngaged;
-                    EngageToggledThisFrame = true;
-                }
-                else if (_winner == PinchKind.ThumbMiddle)
-                {
-                    ZMode = !ZMode;
-                    ZModeToggledThisFrame = true;
-                }
-
-                _winner = PinchKind.None;
-                _cooldownUntil = Time.time + Mathf.Max(0f, pinchCooldownSec);
-            }
-        }
-
-        // --------------------------
-        // 2) D-pad (with engage-center calibration)
-        // --------------------------
         HandleCenterCalibrationEdge();
         UpdateDpad();
     }
@@ -151,8 +137,7 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
 
         if (IsEngaged && !_prevEngaged)
         {
-            // engage turned ON -> capture center on next UpdateDpad() call
-            _hasCenter = false;
+            _hasCenter = false; // capture center on next UpdateDpad()
         }
         else if (!IsEngaged)
         {
@@ -165,8 +150,12 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
 
     void UpdateDpad()
     {
-        if (remoteHand == null || remoteHand.remoteByIndex == null || remoteHand.remoteByIndex.Length < 18)
+        if (requireEngagedForDpad && !IsEngaged)
+        {
+            Dpad = Vector2.zero;
+            _dpadSm = Vector2.zero;
             return;
+        }
 
         Transform thumbTip = remoteHand.remoteByIndex[4];
         Transform wrist = remoteHand.remoteByIndex[0];
@@ -179,14 +168,7 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
         if (thumbTip == null || wrist == null || indexMcp == null || middleMcp == null || ringMcp == null || pinkyMcp == null)
             return;
 
-        if (requireEngagedForDpad && !IsEngaged)
-        {
-            Dpad = Vector2.zero;
-            _dpadSm = Vector2.zero;
-            return;
-        }
-
-        // Center near finger-palm junction
+        // Palm center near finger-palm junction
         Vector3 centerW = (indexMcp.position + middleMcp.position + ringMcp.position + pinkyMcp.position) * 0.25f;
 
         // u axis: across palm
@@ -194,24 +176,25 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
         if (uAxis.sqrMagnitude < 1e-8f) return;
         uAxis.Normalize();
 
-        // v axis: along palm (orthogonalized)
-        Vector3 vAxis = middleMcp.position - wrist.position;
+        // v axis: from wrist to palm center (more stable than wrist->middleMcp)
+        Vector3 vAxis = centerW - wrist.position;
         vAxis = vAxis - Vector3.Dot(vAxis, uAxis) * uAxis;
         if (vAxis.sqrMagnitude < 1e-8f) return;
         vAxis.Normalize();
 
         Vector3 rel = thumbTip.position - centerW;
 
-        // normalize each axis separately (more balanced than using width for both)
         float palmWidth = Mathf.Max(0.03f, Vector3.Distance(indexMcp.position, pinkyMcp.position));
-        float palmHeight = Mathf.Max(0.04f, Vector3.Distance(wrist.position, middleMcp.position));
+        float palmHeight = Mathf.Max(0.04f, Vector3.Distance(wrist.position, centerW));
 
         float u = Vector3.Dot(rel, uAxis) / palmWidth;
         float v = Vector3.Dot(rel, vAxis) / palmHeight;
 
+        if (invertX) u = -u;
+        if (invertY) v = -v;
+
         Vector2 uv = new Vector2(u, v);
 
-        // Capture center once per engage
         if (calibrateCenterOnEngage && !_hasCenter)
         {
             _uvCenter = uv;
@@ -220,14 +203,13 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
 
         Vector2 raw = calibrateCenterOnEngage ? (uv - _uvCenter) : uv;
 
-        // dead-zone + soft scaling
         Vector2 outVec = Vector2.zero;
         float mag = raw.magnitude;
 
         if (mag >= dpadDeadZone)
         {
             float denom = Mathf.Max(dpadDeadZone + 1e-6f, dpadFullScale);
-            float t = Mathf.Clamp01((mag - dpadDeadZone) / (denom - dpadDeadZone)); // 0..1
+            float t = Mathf.Clamp01((mag - dpadDeadZone) / (denom - dpadDeadZone));
             outVec = raw.normalized * t;
 
             if (useFourWay)
@@ -239,7 +221,6 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
             }
         }
 
-        // output smoothing (reduces jitter and "stuck" feeling)
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
         float k = 1f - Mathf.Exp(-Mathf.Max(0.01f, dpadOutputLerp) * dt);
         _dpadSm = Vector2.Lerp(_dpadSm, outVec, k);
