@@ -501,6 +501,10 @@ public class RemoteHandRuntime : MonoBehaviour
         {
             // enqueue sample (copy into ring, apply initial offset if captured)
             EnqueueSample(worldPos);
+            thumbTipFast = _workPos[4];
+            indexTipFast = _workPos[8];
+            middleTipFast = _workPos[12];
+            fastTipsReady = true;
         }
         else
         {

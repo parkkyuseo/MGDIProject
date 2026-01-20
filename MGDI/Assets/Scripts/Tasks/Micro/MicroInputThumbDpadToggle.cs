@@ -118,16 +118,18 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
         Transform indexTip = remoteHand.remoteByIndex[8];
         Transform middleTip = remoteHand.remoteByIndex[12];
 
+        float dTI; 
+        float dTM; 
         if (remoteHand.fastTipsReady)
         {
-            float dTI = Vector3.Distance(remoteHand.thumbTipFast, remoteHand.indexTipFast);
-            float dTM = Vector3.Distance(remoteHand.thumbTipFast, remoteHand.middleTipFast);
+            dTI = Vector3.Distance(remoteHand.thumbTipFast, remoteHand.indexTipFast);
+            dTM = Vector3.Distance(remoteHand.thumbTipFast, remoteHand.middleTipFast);
             // 이걸로 토글 FSM 돌리기
         }
         else
         {
-            float dTI = Vector3.Distance(thumbTip.position, indexTip.position);
-            float dTM = Vector3.Distance(thumbTip.position, middleTip.position);
+            dTI = Vector3.Distance(thumbTip.position, indexTip.position);
+            dTM = Vector3.Distance(thumbTip.position, middleTip.position);
         }
 
         if (debug)

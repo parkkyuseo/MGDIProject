@@ -999,13 +999,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 345937158}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -0.12, y: -0.17, z: 0.423}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4217352218302390349}
-  m_Father: {fileID: 770468291}
+  m_Father: {fileID: 1222552132}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &368633859
 GameObject:
@@ -1963,7 +1963,6 @@ Transform:
   - {fileID: 5334210}
   - {fileID: 81874976}
   - {fileID: 1613066971}
-  - {fileID: 345937159}
   - {fileID: 998763999}
   - {fileID: 2123584585}
   - {fileID: 37294037}
@@ -2945,6 +2944,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 672060783}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1116671429
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1116671430}
+  m_Layer: 0
+  m_Name: MacroControllerRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1116671430
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1116671429}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1551205279}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1136784223
 GameObject:
   m_ObjectHideFlags: 0
@@ -3248,6 +3278,38 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1190963278}
   m_CullTransparentMesh: 1
+--- !u!1 &1222552131
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1222552132}
+  m_Layer: 0
+  m_Name: SharedVisuals
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1222552132
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1222552131}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 345937159}
+  m_Father: {fileID: 1551205279}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1246044926
 GameObject:
   m_ObjectHideFlags: 0
@@ -4036,6 +4098,8 @@ Transform:
   - {fileID: 342750685}
   - {fileID: 1136784224}
   - {fileID: 2041029869}
+  - {fileID: 1222552132}
+  - {fileID: 1116671430}
   m_Father: {fileID: 770468291}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1551205280
@@ -4058,7 +4122,7 @@ MonoBehaviour:
   grabber: {fileID: 4217352218302390359}
   taskContextHUD: {fileID: 796200818}
   instructionHUD: {fileID: 1190963280}
-  macroControllerRoot: {fileID: 3588484702831311607}
+  macroControllerRoot: {fileID: 1116671429}
   microControllerRoot: {fileID: 2041029868}
   currentTask: 0
   currentTechnique: 0
@@ -4490,7 +4554,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1612699145}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 42}
+  m_LocalPosition: {x: 0, y: 0, z: 66}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -4498,7 +4562,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 30, y: -150}
+  m_AnchoredPosition: {x: 30, y: -188}
   m_SizeDelta: {x: 300, y: 500}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1612699147
@@ -4874,6 +4938,10 @@ MonoBehaviour:
   maxSpeedTipsMps: 0.9
   useJitterDeadZone: 1
   jitterDeadZoneMeters: 0.01
+  thumbTipFast: {x: 0, y: 0, z: 0}
+  indexTipFast: {x: 0, y: 0, z: 0}
+  middleTipFast: {x: 0, y: 0, z: 0}
+  fastTipsReady: 1
   useOneEuro: 1
   oneEuroDerivativeCutoffHz: 5
   oneEuroMinCutoffWristHz: 1.5
