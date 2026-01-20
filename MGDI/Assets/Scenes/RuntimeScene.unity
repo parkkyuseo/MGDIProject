@@ -4473,6 +4473,7 @@ GameObject:
   - component: {fileID: 1612699146}
   - component: {fileID: 1612699148}
   - component: {fileID: 1612699147}
+  - component: {fileID: 1612699149}
   m_Layer: 0
   m_Name: MicroStatusText
   m_TagString: Untagged
@@ -4541,6 +4542,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1612699145}
   m_CullTransparentMesh: 1
+--- !u!114 &1612699149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1612699145}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80d7abccc57cce14f8f4a7391f7ca2ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  input: {fileID: 2041029873}
+  statusText: {fileID: 1612699147}
+  showDpadNumbers: 1
 --- !u!1001 &1613066970
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5850,16 +5866,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   remoteHand: {fileID: 1722393066}
-  pinchOnMeters: 0.03
-  pinchOffMeters: 0.04
-  winnerMarginMeters: 0.006
-  pinchCooldownSec: 0.2
-  dpadDeadZone: 0.25
+  pinchOnMeters: 0.05
+  pinchOffMeters: 0.065
+  winnerMarginMeters: 0
+  pinchCooldownSec: 0.1
+  dpadDeadZone: 0.18
   dpadFullScale: 0.85
   useFourWay: 0
   requireEngagedForDpad: 1
   calibrateCenterOnEngage: 1
   dpadOutputLerp: 12
+  invertX: 0
+  invertY: 0
 --- !u!114 &2041029874
 MonoBehaviour:
   m_ObjectHideFlags: 0
