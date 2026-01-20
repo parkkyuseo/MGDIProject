@@ -55,6 +55,13 @@ public class RemoteHandRuntime : MonoBehaviour
 
     [Tooltip("Soft dead-zone radius (meters). Smaller deltas are attenuated smoothly.")]
     public float jitterDeadZoneMeters = 0.003f; // 3 mm
+                                               
+
+    [Header("Fast signals (raw-ish) for discrete gestures")]
+    public Vector3 thumbTipFast;
+    public Vector3 indexTipFast;
+    public Vector3 middleTipFast;
+    public bool fastTipsReady = false;
 
     // =========================================================
     // One Euro Filter (adaptive smoothing)
@@ -499,6 +506,12 @@ public class RemoteHandRuntime : MonoBehaviour
         {
             // immediate mode: copy -> apply offset -> process now
             CopyWithInitialOffset(worldPos, _workPos);
+            // after CopyWithInitialOffset(...) or when enqueueing, use offset-applied positions
+            thumbTipFast = _workPos[4];
+            indexTipFast = _workPos[8];
+            middleTipFast = _workPos[12];
+            fastTipsReady = true;
+
             ProcessFrame(_workPos);
         }
     }
