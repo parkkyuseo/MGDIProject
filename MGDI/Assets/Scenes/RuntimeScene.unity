@@ -5867,17 +5867,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   remoteHand: {fileID: 1722393066}
   pinchOnMeters: 0.05
-  pinchOffMeters: 0.065
-  winnerMarginMeters: 0
-  pinchCooldownSec: 0.1
+  pinchOffMeters: 0.07
+  debounceSeconds: 0.06
+  toggleCooldownSec: 0.2
+  enableZModeToggle: 0
+  zPinchOnMeters: 0.05
+  zPinchOffMeters: 0.07
   dpadDeadZone: 0.18
   dpadFullScale: 0.85
-  useFourWay: 0
-  requireEngagedForDpad: 1
-  calibrateCenterOnEngage: 1
   dpadOutputLerp: 12
+  calibrateCenterOnEngage: 1
+  requireEngagedForDpad: 1
   invertX: 0
   invertY: 0
+  debug: 1
+  debug_dTI: -1
+  debug_dTM: -1
+  debug_state: 
 --- !u!114 &2041029874
 MonoBehaviour:
   m_ObjectHideFlags: 0
