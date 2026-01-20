@@ -42,6 +42,30 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
     [SerializeField] private float debug_dTM = -1f;
     [SerializeField] private string debug_state = "";
 
+    // ---- Debug public getters (for HUD) ----
+    public float Debug_dTI => debug_dTI;
+    public float Debug_dTM => debug_dTM;
+    public string DebugState => debug_state;
+    public bool DebugHasMinJoints => HasMinJoints();
+    public bool DebugRemoteHandAssigned => (remoteHand != null);
+    public int DebugRemoteByIndexLen => (remoteHand != null && remoteHand.remoteByIndex != null) ? remoteHand.remoteByIndex.Length : -1;
+    public bool DebugThumbTipOk => JointOk(4);
+    public bool DebugIndexTipOk => JointOk(8);
+    public bool DebugMiddleTipOk => JointOk(12);
+    public bool DebugWristOk => JointOk(0);
+    public bool DebugIndexMcpOk => JointOk(5);
+    public bool DebugMiddleMcpOk => JointOk(9);
+    public bool DebugRingMcpOk => JointOk(13);
+    public bool DebugPinkyMcpOk => JointOk(17);
+
+    bool JointOk(int idx)
+    {
+        if (remoteHand == null) return false;
+        if (remoteHand.remoteByIndex == null) return false;
+        if (idx < 0 || idx >= remoteHand.remoteByIndex.Length) return false;
+        return remoteHand.remoteByIndex[idx] != null;
+    }
+
     // Outputs
     public bool IsEngaged { get; private set; } = false;
     public bool ZMode { get; private set; } = false;
