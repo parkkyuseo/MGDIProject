@@ -2999,16 +2999,16 @@ MonoBehaviour:
   feedbackShowSeconds: 0.5
   trialTimeoutSeconds: 12
   dwellSeconds: 0.2
-  scaleTolerance: 0.05
-  targetScaleMin: 0.7
-  targetScaleMax: 1.6
+  scaleFactorTolerance: 0.05
+  targetFactorMin: 0.7
+  targetFactorMax: 1.6
   axisFromCamera: 1
   flipSideAxisForLeftHand: 0
   moveToScaleGain: 2
   moveDeadZoneMeters: 0.002
   scaleLerp: 0.15
-  minScale: 0.5
-  maxScale: 2
+  minScaleFactor: 0.6
+  maxScaleFactor: 1.8
   scaleOnlyWhenHolding: 1
   requireHoldingThisBlock: 0
   freezeBlockPositionWhileScaling: 1
@@ -4034,6 +4034,7 @@ Transform:
   - {fileID: 584929087}
   - {fileID: 342750685}
   - {fileID: 1136784224}
+  - {fileID: 2041029869}
   m_Father: {fileID: 770468291}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1551205280
@@ -4057,7 +4058,7 @@ MonoBehaviour:
   taskContextHUD: {fileID: 796200818}
   instructionHUD: {fileID: 1190963280}
   macroControllerRoot: {fileID: 3588484702831311607}
-  microControllerRoot: {fileID: 0}
+  microControllerRoot: {fileID: 2041029868}
   currentTask: 0
   currentTechnique: 0
   currentHandLocation: 0
@@ -4077,8 +4078,8 @@ MonoBehaviour:
     offset: {x: 0, y: 0.05, z: 0.6}
     yawOffsetDeg: 0
   placement_micro_near:
-    applyPosition: 1
-    applyRotation: 1
+    applyPosition: 0
+    applyRotation: 0
     offset: {x: 0, y: 0.05, z: 0.6}
     yawOffsetDeg: 0
   placement_micro_sideLeft:
@@ -4159,6 +4160,12 @@ MonoBehaviour:
   cmdStartPlacement: start placement
   cmdStartRotation: start rotation
   cmdStartScaling: start scaling
+  cmdStartMicroPlacement: start micro placement
+  cmdStartMicroRotation: start micro rotation
+  cmdStartMicroScaling: start micro scaling
+  cmdStartMacroPlacement: start macro placement
+  cmdStartMacroRotation: start macro rotation
+  cmdStartMacroScaling: start macro scaling
   cmdRestart: restart
   cmdNext: next
   cmdMacro: macro
@@ -5661,6 +5668,134 @@ MonoBehaviour:
   m_AttemptUpdate: 1
   m_MatchFrameRate: 1
   m_TrackingMode: 2
+--- !u!1 &2041029868
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2041029869}
+  - component: {fileID: 2041029873}
+  - component: {fileID: 2041029872}
+  - component: {fileID: 2041029871}
+  - component: {fileID: 2041029870}
+  - component: {fileID: 2041029874}
+  m_Layer: 0
+  m_Name: MicroControllerRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2041029869
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1551205279}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2041029870
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d44b065effa920d44b741c1cae5f0ffc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  input: {fileID: 2041029873}
+  scalingTask: {fileID: 1136784225}
+  blockRoot: {fileID: 168584006}
+  scaleGainPerSec: 1.8
+  minFactor: 0.6
+  maxFactor: 1.8
+--- !u!114 &2041029871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd76e588d95bba347ba437733a40e04e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  input: {fileID: 2041029873}
+  rotationTask: {fileID: 584929088}
+  blockRoot: {fileID: 168584006}
+  yawSpeedDegPerSec: 120
+--- !u!114 &2041029872
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9a940ca66fc20e45a7ddabe083fde03, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  input: {fileID: 2041029873}
+  placementTask: {fileID: 1964408501}
+  blockRoot: {fileID: 168584006}
+  xySpeedMetersPerSec: 0.18
+  zSpeedMetersPerSec: 0.18
+  xyUseCameraFrame: 1
+  zUseCameraForward: 1
+--- !u!114 &2041029873
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 27dc2b6eeb785aa4684834db4b12feb3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  remoteHand: {fileID: 1722393066}
+  pinchOnMeters: 0.03
+  pinchOffMeters: 0.04
+  winnerMarginMeters: 0.006
+  pinchCooldownSec: 0.2
+  dpadDeadZone: 0.25
+  dpadFullScale: 0.85
+  useFourWay: 0
+  requireEngagedForDpad: 1
+--- !u!114 &2041029874
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c8669d52070d85419a64e80a2399979, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  input: {fileID: 2041029873}
+  proxyHandVisualRoot: {fileID: 2547293117679861373}
+  maxOffsetMeters: 0.03
+  followSpeed: 12
+  useCameraFrame: 1
+  showZModeAsDepth: 1
 --- !u!1 &2051009352
 GameObject:
   m_ObjectHideFlags: 0
