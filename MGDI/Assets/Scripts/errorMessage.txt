@@ -1,0 +1,14 @@
+eferenceException: Object reference not set to an instance of an object
+UnityEditor.Graphs.Edge.WakeUp () (at <d6448e689b3e49fa9e2f5f27e6ccfd5b>:0)
+UnityEditor.Graphs.Graph.DoWakeUpEdges (System.Collections.Generic.List`1[T]
+inEdges, System.Collections.Generic.List`1[T] ok,
+System.Collections.Generic.List`1[T] error, System.Boolean
+inEdgesUsedToBeValid) (at <d6448e689b3e49fa9e2f5f27e6ccfd5b>:0)
+UnityEditor.Graphs.Graph.WakeUpEdges (System.Boolean clearSlotEdges) (at
+<d6448e689b3e49fa9e2f5f27e6ccfd5b>:0)
+UnityEditor.Graphs.Graph.WakeUp (System.Boolean force) (at
+<d6448e689b3e49fa9e2f5f27e6ccfd5b>:0)
+UnityEditor.Graphs.Graph.WakeUp () (at <d6448e689b3e49fa9e2f5f27e6ccfd5b>:0)
+UnityEditor.Graphs.Graph.OnEnable () (at
+<d6448e689b3e49fa9e2f5f27e6ccfd5b>:0)
+
