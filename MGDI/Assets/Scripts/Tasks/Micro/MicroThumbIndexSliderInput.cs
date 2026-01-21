@@ -67,6 +67,20 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [SerializeField] private float debug_touchDist = -1f;
     [SerializeField] private string debug_state = "";
 
+
+    // ---- Debug getters for HUD ----
+    public float Debug_t => debug_t;
+    public float Debug_touchDist => debug_touchDist;
+    public string Debug_state => debug_state;
+
+    // expose internal states
+    public float Debug_tNeutral => _tNeutral;
+    public float Debug_rawAxis => _axisSm; // smoothed output (same as AxisValue)
+    public int Debug_tapCount => _tapCount;
+    public float Debug_tapWindowRemaining => Mathf.Max(0f, _tapWindowUntil - Time.time);
+    public bool Debug_touchDownLatched => (_touchFsm == TouchFSM.DownLatched);
+    public bool Debug_inTapCooldown => (Time.time < _tapCooldownUntil);
+
     // Outputs
     public AxisMode Mode { get; private set; } = AxisMode.X;
 
