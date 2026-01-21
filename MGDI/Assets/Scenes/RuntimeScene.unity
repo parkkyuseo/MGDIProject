@@ -6885,13 +6885,13 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 12
+  trialTimeoutSeconds: 30
   dwellSeconds: 0.2
   minTolMeters: 0.02
   snapOnSuccess: 1
   postSnapHoldSeconds: 0.35
   resetBlockToStartAfterTrial: 1
-  totalTrials: 3
+  totalTrials: 10
   enableVoiceStart: 0
   startKeyword: start
   restartKeyword: restart
