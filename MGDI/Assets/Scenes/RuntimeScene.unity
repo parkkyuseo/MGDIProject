@@ -7192,6 +7192,10 @@ GameObject:
   - component: {fileID: 2041029871}
   - component: {fileID: 2041029870}
   - component: {fileID: 2041029874}
+  - component: {fileID: 2041029878}
+  - component: {fileID: 2041029877}
+  - component: {fileID: 2041029876}
+  - component: {fileID: 2041029875}
   m_Layer: 0
   m_Name: MicroControllerRoot
   m_TagString: Untagged
@@ -7326,6 +7330,89 @@ MonoBehaviour:
   followSpeed: 12
   useCameraFrame: 1
   showZModeAsDepth: 1
+--- !u!114 &2041029875
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9094b7e50227a2e42a152045faeda60d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  input: {fileID: 2041029878}
+  scalingTask: {fileID: 1136784225}
+  blockRoot: {fileID: 168584006}
+  scaleGainPerSec: 1.6
+  minFactor: 0.6
+  maxFactor: 1.8
+--- !u!114 &2041029876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd1f896b37b336a44b26d1aa99dce406, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  input: {fileID: 2041029878}
+  rotationTask: {fileID: 584929088}
+  blockRoot: {fileID: 168584006}
+  yawSpeedDegPerSec: 120
+--- !u!114 &2041029877
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a3bfd089ee52c641a9e7099464f5399, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  input: {fileID: 2041029878}
+  placementTask: {fileID: 1964408501}
+  blockRoot: {fileID: 168584006}
+  speedMetersPerSec: 0.18
+  useCameraFrame: 1
+--- !u!114 &2041029878
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2041029868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb10fe8285af06e46b7709043ea76396, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  remoteHand: {fileID: 1722393066}
+  useProjection: 1
+  captureNeutralOnEnable: 1
+  recenterOnModeSwitch: 1
+  deadZoneT: 0.12
+  fullScaleT: 0.4
+  gamma: 1.6
+  outputLerp: 14
+  maxOutputRatePerSec: 6
+  touchOnMeters: 0.03
+  touchOffMeters: 0.045
+  debounceSeconds: 0.06
+  doubleTapWindowSec: 0.3
+  tapCooldownSec: 0.18
+  singleTapTogglesXY: 1
+  doubleTapTogglesZ: 1
+  debug: 0
+  debug_t: -1
+  debug_touchDist: -1
+  debug_state: 
 --- !u!1 &2051009352
 GameObject:
   m_ObjectHideFlags: 0
