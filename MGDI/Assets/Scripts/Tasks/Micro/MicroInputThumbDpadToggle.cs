@@ -13,24 +13,47 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
     [SerializeField] private float pinchOffMeters = 0.070f;
 
     [Tooltip("Minimum time the condition must hold to count as DOWN/UP (seconds).")]
-    [SerializeField] private float debounceSeconds = 0.06f; // ~4 frames at 60fps
+    [SerializeField] private float debounceSeconds = 0.06f;
 
     [Tooltip("Cooldown after a successful toggle (seconds).")]
     [SerializeField] private float toggleCooldownSec = 0.20f;
 
+    [Tooltip("To reduce accidental OFF, require a longer pinch-hold before allowing OFF toggle (seconds).")]
+    [SerializeField] private float offToggleMinHoldSec = 0.35f;
+
     [Header("Optional Z-mode toggle (Thumb-Middle pinch)")]
-    [Tooltip("If false, ZMode toggle is disabled for debugging Engage stability.")]
+    [Tooltip("If false, ZMode toggle is disabled.")]
     [SerializeField] private bool enableZModeToggle = false;
 
     [SerializeField] private float zPinchOnMeters = 0.050f;
     [SerializeField] private float zPinchOffMeters = 0.070f;
 
-    [Header("D-pad (thumb position)")]
+    [Tooltip("To reduce accidental toggles, require a longer pinch-hold before allowing ZMode toggle (seconds).")]
+    [SerializeField] private float zToggleMinHoldSec = 0.20f;
+
+    [Header("Fingerpad (thumb position)")]
     [SerializeField] private float dpadDeadZone = 0.22f;
     [SerializeField] private float dpadFullScale = 0.85f;
     [SerializeField] private float dpadOutputLerp = 12f;
+
+    [Tooltip("If true, capture center after Engage turns ON, not immediately.")]
     [SerializeField] private bool calibrateCenterOnEngage = true;
+
+    [Tooltip("Delay after Engage ON before capturing center (seconds). Gives time to move thumb to the pad middle.")]
+    [SerializeField] private float centerCaptureDelaySec = 0.20f;
+
+    [Tooltip("Only capture center when thumb is near neutral (raw magnitude <= this).")]
+    [SerializeField] private float centerCaptureMaxMag = 0.18f;
+
+    [Tooltip("If true, fingerpad output is zero until center capture is done.")]
+    [SerializeField] private bool zeroOutputUntilCenterCaptured = true;
+
+    [Tooltip("If true, output is zero when not engaged.")]
     [SerializeField] private bool requireEngagedForDpad = true;
+
+    [Header("Anti-accidental toggle while moving")]
+    [Tooltip("Block Engage/Z toggles if fingerpad output magnitude is above this.")]
+    [SerializeField] private float toggleMotionGate = 0.12f;
 
     [Header("Axis options")]
     [SerializeField] private bool invertX = false;
@@ -81,17 +104,24 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
     float _upHeldSec = 0f;
     float _cooldownUntil = 0f;
 
+    // Track how long pinch has been held since latch (for OFF hardening)
+    float _engageLatchedHoldSec = 0f;
+
     // Z toggle FSM (optional)
     PinchFSM _zFsm = PinchFSM.Idle;
     float _zDownHeldSec = 0f;
     float _zUpHeldSec = 0f;
     float _zCooldownUntil = 0f;
+    float _zLatchedHoldSec = 0f;
 
-    // D-pad center calibration + smoothing
+    // Fingerpad center calibration + smoothing
     Vector2 _uvCenter = Vector2.zero;
     bool _hasCenter = false;
     Vector2 _dpadSm = Vector2.zero;
     bool _prevEngaged = false;
+
+    // Center capture timing
+    float _centerCaptureNotBefore = 0f;
 
     void ResetFrameOutputs()
     {
@@ -113,18 +143,25 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
             return;
         }
 
-        // Read distances
+        // ----- 0) Compute fingerpad first (so toggle gating can use it) -----
+        // This also updates _dpadSm and Dpad.
+        UpdateFingerpad(dt);
+
+        bool blockToggleBecauseMoving = (_dpadSm.magnitude > Mathf.Max(0f, toggleMotionGate));
+        bool blockToggleBecauseCenterWait = (IsEngaged && calibrateCenterOnEngage && Time.time < _centerCaptureNotBefore);
+
+        // Read distances (pinch)
         Transform thumbTip = remoteHand.remoteByIndex[4];
         Transform indexTip = remoteHand.remoteByIndex[8];
         Transform middleTip = remoteHand.remoteByIndex[12];
 
-        float dTI; 
-        float dTM; 
+        float dTI;
+        float dTM;
+
         if (remoteHand.fastTipsReady)
         {
             dTI = Vector3.Distance(remoteHand.thumbTipFast, remoteHand.indexTipFast);
             dTM = Vector3.Distance(remoteHand.thumbTipFast, remoteHand.middleTipFast);
-            // 이걸로 토글 FSM 돌리기
         }
         else
         {
@@ -139,9 +176,11 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
         }
 
         // ----------------------------
-        // 1) Engage toggle: Thumb-Index only
+        // 1) Engage toggle (Thumb-Index)
+        //    - Block toggles while fingerpad is moving
+        //    - Make OFF harder with hold requirement
         // ----------------------------
-        if (Time.time >= _cooldownUntil)
+        if (Time.time >= _cooldownUntil && !blockToggleBecauseMoving && !blockToggleBecauseCenterWait)
         {
             bool downCond = dTI <= pinchOnMeters;
             bool upCond = dTI >= pinchOffMeters;
@@ -149,6 +188,7 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
             if (_engageFsm == PinchFSM.Idle)
             {
                 _upHeldSec = 0f;
+                _engageLatchedHoldSec = 0f;
 
                 if (downCond)
                 {
@@ -157,6 +197,8 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
                     {
                         _engageFsm = PinchFSM.DownLatched;
                         _downHeldSec = 0f;
+                        _engageLatchedHoldSec = 0f;
+
                         if (debug) debug_state = "Engage: DOWN latched";
                     }
                 }
@@ -168,37 +210,60 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
             else // DownLatched
             {
                 _downHeldSec = 0f;
+                _engageLatchedHoldSec += dt;
 
-                if (upCond)
+                // If currently engaged, require longer hold before allowing an OFF toggle
+                bool offIsAllowed = (!IsEngaged) || (_engageLatchedHoldSec >= Mathf.Max(0f, offToggleMinHoldSec));
+
+                if (upCond && offIsAllowed)
                 {
                     _upHeldSec += dt;
                     if (_upHeldSec >= debounceSeconds)
                     {
                         _upHeldSec = 0f;
                         _engageFsm = PinchFSM.Idle;
+                        _engageLatchedHoldSec = 0f;
 
-                        IsEngaged = !IsEngaged;
+                        bool newEngaged = !IsEngaged;
+                        IsEngaged = newEngaged;
                         EngageToggledThisFrame = true;
                         _cooldownUntil = Time.time + Mathf.Max(0f, toggleCooldownSec);
 
                         if (debug) debug_state = $"Engage: TOGGLED -> {(IsEngaged ? "ON" : "OFF")}";
+
+                        // Engage edge handling for center capture
+                        if (calibrateCenterOnEngage && IsEngaged && !_prevEngaged)
+                        {
+                            _hasCenter = false;
+                            _centerCaptureNotBefore = Time.time + Mathf.Max(0f, centerCaptureDelaySec);
+                        }
                     }
                 }
                 else
                 {
                     _upHeldSec = 0f;
+
+                    if (IsEngaged && !offIsAllowed && debug)
+                        debug_state = $"Engage: holding (OFF gated, hold={_engageLatchedHoldSec:F2}/{offToggleMinHoldSec:F2})";
                 }
             }
         }
         else
         {
-            if (debug) debug_state = "Engage: cooldown";
+            if (debug)
+            {
+                if (Time.time < _cooldownUntil) debug_state = "Engage: cooldown";
+                else if (blockToggleBecauseMoving) debug_state = "Engage: blocked (fingerpad moving)";
+                else if (blockToggleBecauseCenterWait) debug_state = "Engage: blocked (center capture delay)";
+            }
         }
 
         // ----------------------------
-        // 2) Optional ZMode toggle: Thumb-Middle only
+        // 2) Optional ZMode toggle (Thumb-Middle)
+        //    - Only allow while engaged
+        //    - Block while fingerpad moving
         // ----------------------------
-        if (enableZModeToggle && IsEngaged) // recommend only allow while engaged
+        if (enableZModeToggle && IsEngaged && !blockToggleBecauseMoving && !blockToggleBecauseCenterWait)
         {
             if (Time.time >= _zCooldownUntil)
             {
@@ -208,6 +273,7 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
                 if (_zFsm == PinchFSM.Idle)
                 {
                     _zUpHeldSec = 0f;
+                    _zLatchedHoldSec = 0f;
 
                     if (zDown)
                     {
@@ -216,6 +282,7 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
                         {
                             _zFsm = PinchFSM.DownLatched;
                             _zDownHeldSec = 0f;
+                            _zLatchedHoldSec = 0f;
                         }
                     }
                     else
@@ -226,18 +293,28 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
                 else
                 {
                     _zDownHeldSec = 0f;
+                    _zLatchedHoldSec += dt;
 
-                    if (zUp)
+                    bool zAllowed = (_zLatchedHoldSec >= Mathf.Max(0f, zToggleMinHoldSec));
+
+                    if (zUp && zAllowed)
                     {
                         _zUpHeldSec += dt;
                         if (_zUpHeldSec >= debounceSeconds)
                         {
                             _zUpHeldSec = 0f;
                             _zFsm = PinchFSM.Idle;
+                            _zLatchedHoldSec = 0f;
 
                             ZMode = !ZMode;
                             ZModeToggledThisFrame = true;
                             _zCooldownUntil = Time.time + Mathf.Max(0f, toggleCooldownSec);
+
+                            // Prevent sudden axis jump after mode switch
+                            _dpadSm = Vector2.zero;
+                            Dpad = Vector2.zero;
+
+                            if (debug) debug_state = $"ZMode: TOGGLED -> {(ZMode ? "ON" : "OFF")}";
                         }
                     }
                     else
@@ -249,26 +326,24 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
         }
 
         // ----------------------------
-        // 3) D-pad center calibration edge
+        // 3) Fingerpad center calibration edge bookkeeping
         // ----------------------------
         if (calibrateCenterOnEngage)
         {
             if (IsEngaged && !_prevEngaged)
             {
-                _hasCenter = false; // capture next time
+                // Engage ON happened (either this frame or earlier)
+                _hasCenter = false;
+                _centerCaptureNotBefore = Time.time + Mathf.Max(0f, centerCaptureDelaySec);
             }
             else if (!IsEngaged)
             {
                 _hasCenter = false;
                 _dpadSm = Vector2.zero;
             }
+
             _prevEngaged = IsEngaged;
         }
-
-        // ----------------------------
-        // 4) D-pad compute
-        // ----------------------------
-        UpdateDpad(dt);
     }
 
     bool HasMinJoints()
@@ -287,8 +362,9 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
                remoteHand.remoteByIndex[12] != null;
     }
 
-    void UpdateDpad(float dt)
+    void UpdateFingerpad(float dt)
     {
+        // If fingerpad requires engage and we're not engaged, output zero.
         if (requireEngagedForDpad && !IsEngaged)
         {
             Dpad = Vector2.zero;
@@ -307,12 +383,12 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
         Vector3 centerW = (indexMcp.position + middleMcp.position + ringMcp.position + pinkyMcp.position) * 0.25f;
 
         Vector3 uAxis = pinkyMcp.position - indexMcp.position;
-        if (uAxis.sqrMagnitude < 1e-8f) return;
+        if (uAxis.sqrMagnitude < 1e-8f) { Dpad = Vector2.zero; return; }
         uAxis.Normalize();
 
         Vector3 vAxis = centerW - wrist.position;
         vAxis = vAxis - Vector3.Dot(vAxis, uAxis) * uAxis;
-        if (vAxis.sqrMagnitude < 1e-8f) return;
+        if (vAxis.sqrMagnitude < 1e-8f) { Dpad = Vector2.zero; return; }
         vAxis.Normalize();
 
         Vector3 rel = thumbTip.position - centerW;
@@ -328,10 +404,29 @@ public class MicroInputThumbDpadToggle : MonoBehaviour
 
         Vector2 uv = new Vector2(u, v);
 
-        if (calibrateCenterOnEngage && !_hasCenter)
+        // Center capture timing: wait a bit after Engage ON, then capture when near neutral.
+        if (calibrateCenterOnEngage)
         {
-            _uvCenter = uv;
-            _hasCenter = true;
+            bool canCaptureNow = (Time.time >= _centerCaptureNotBefore);
+            if (!_hasCenter && canCaptureNow)
+            {
+                // Require the thumb to be near neutral before capturing center (optional but very helpful)
+                if (uv.magnitude <= Mathf.Max(0f, centerCaptureMaxMag))
+                {
+                    _uvCenter = uv;
+                    _hasCenter = true;
+
+                    if (debug) debug_state = "Fingerpad: center captured";
+                }
+            }
+
+            // Optional: keep output zero until center is captured
+            if (zeroOutputUntilCenterCaptured && !_hasCenter)
+            {
+                Dpad = Vector2.zero;
+                _dpadSm = Vector2.zero;
+                return;
+            }
         }
 
         Vector2 raw = calibrateCenterOnEngage ? (uv - _uvCenter) : uv;
