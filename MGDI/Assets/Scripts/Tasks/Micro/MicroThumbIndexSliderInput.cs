@@ -16,11 +16,11 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [Tooltip("If true, thumb position is projected to index MCP->TIP axis (recommended).")]
     [SerializeField] private bool useProjection = true;
 
-    [Tooltip("If true, capture neutral t at the moment the task starts (Enable).")]
-    [SerializeField] private bool captureNeutralOnEnable = true;
+    [Header("Neutral (t0) handling")]
+    [Tooltip("If true, neutral t0 is fixed at 0.5 (recommended for stability).")]
+    [SerializeField] private bool useFixedNeutralMidpoint = true;
 
-    [Tooltip("If true, capture neutral t right after a mode switch (recommended).")]
-    [SerializeField] private bool recenterOnModeSwitch = true;
+    [SerializeField] private float fixedNeutralT = 0.50f;
 
     [Header("Slider shaping")]
     [Tooltip("Dead-zone around neutral (in normalized t units).")]
@@ -38,6 +38,9 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [Tooltip("Clamp per-second change of output to reduce jumps.")]
     [SerializeField] private float maxOutputRatePerSec = 6f;
 
+    [Tooltip("Invert the axis if direction feels reversed.")]
+    [SerializeField] private bool invertAxis = false;
+
     [Header("Tap detection (Thumb-Index touch)")]
     [Tooltip("Touch is considered DOWN if distance <= this for debounceSeconds.")]
     [SerializeField] private float touchOnMeters = 0.030f;
@@ -54,6 +57,19 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [Tooltip("Cooldown after accepting a tap sequence (seconds).")]
     [SerializeField] private float tapCooldownSec = 0.18f;
 
+    [Header("Tap gating (prevents toggles while sliding)")]
+    [Tooltip("If true, taps are only recognized near the center zone and when the slider is not moving.")]
+    [SerializeField] private bool gateTapToCenterZone = true;
+
+    [Tooltip("Require |t - 0.5| <= this to accept a tap.")]
+    [SerializeField] private float tapCenterBand = 0.08f;
+
+    [Tooltip("Require |AxisValue| <= this to accept a tap (prevents taps during sliding).")]
+    [SerializeField] private float tapAxisGate = 0.10f;
+
+    [Tooltip("Extra minimum interval between accepted taps (seconds).")]
+    [SerializeField] private float tapMinIntervalSec = 0.12f;
+
     [Header("Mode switching rules")]
     [Tooltip("Single tap toggles between X and Y.")]
     [SerializeField] private bool singleTapTogglesXY = true;
@@ -61,25 +77,11 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [Tooltip("Double tap toggles Z mode (enter/exit). Exiting returns to X.")]
     [SerializeField] private bool doubleTapTogglesZ = true;
 
-    [Header("Debug")]
+    [Header("Debug (read-only)")]
     [SerializeField] private bool debug = false;
     [SerializeField] private float debug_t = -1f;
     [SerializeField] private float debug_touchDist = -1f;
     [SerializeField] private string debug_state = "";
-
-
-    // ---- Debug getters for HUD ----
-    public float Debug_t => debug_t;
-    public float Debug_touchDist => debug_touchDist;
-    public string Debug_state => debug_state;
-
-    // expose internal states
-    public float Debug_tNeutral => _tNeutral;
-    public float Debug_rawAxis => _axisSm; // smoothed output (same as AxisValue)
-    public int Debug_tapCount => _tapCount;
-    public float Debug_tapWindowRemaining => Mathf.Max(0f, _tapWindowUntil - Time.time);
-    public bool Debug_touchDownLatched => (_touchFsm == TouchFSM.DownLatched);
-    public bool Debug_inTapCooldown => (Time.time < _tapCooldownUntil);
 
     // Outputs
     public AxisMode Mode { get; private set; } = AxisMode.X;
@@ -89,6 +91,18 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
     public bool SingleTapThisFrame { get; private set; } = false;
     public bool DoubleTapThisFrame { get; private set; } = false;
+
+    // Debug getters for HUD
+    public float Debug_t => debug_t;
+    public float Debug_touchDist => debug_touchDist;
+    public string Debug_state => debug_state;
+
+    public float Debug_tNeutral => _tNeutral;
+    public int Debug_tapCount => _tapCount;
+    public float Debug_tapWindowRemaining => Mathf.Max(0f, _tapWindowUntil - Time.time);
+    public bool Debug_touchDownLatched => (_touchFsm == TouchFSM.DownLatched);
+    public bool Debug_inTapCooldown => (Time.time < _tapCooldownUntil);
+    public float Debug_lastTapAcceptedAge => Mathf.Max(0f, Time.time - _lastTapAcceptedTime);
 
     // Internal: neutral point in t
     float _tNeutral = 0.5f;
@@ -107,13 +121,7 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     float _tapWindowUntil = 0f;
     float _tapCooldownUntil = 0f;
 
-    void OnEnable()
-    {
-        if (captureNeutralOnEnable)
-        {
-            _neutralCaptured = false; // recapture on first Update
-        }
-    }
+    float _lastTapAcceptedTime = -999f;
 
     void ResetFramePulses()
     {
@@ -139,20 +147,29 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         float t = ComputeProjectedT();
         debug_t = t;
 
-        if (!_neutralCaptured)
+        // 2) Neutral handling
+        if (useFixedNeutralMidpoint)
         {
-            _tNeutral = t;
+            _tNeutral = fixedNeutralT;
             _neutralCaptured = true;
         }
+        else
+        {
+            if (!_neutralCaptured)
+            {
+                _tNeutral = t;
+                _neutralCaptured = true;
+            }
+        }
 
-        // 2) Convert t -> signed axis value in [-1..1]
+        // 3) Convert t -> signed axis value in [-1..1]
         float rawAxis = TToAxisValue(t, _tNeutral);
+        if (invertAxis) rawAxis = -rawAxis;
 
-        // 3) Smooth + rate limit
+        // 4) Smooth + rate limit
         float k = 1f - Mathf.Exp(-Mathf.Max(0.01f, outputLerp) * dt);
         float target = Mathf.Lerp(_axisSm, rawAxis, k);
 
-        // rate limit on output
         if (maxOutputRatePerSec > 0f)
         {
             float maxStep = maxOutputRatePerSec * dt;
@@ -164,21 +181,14 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         _axisSm = target;
         AxisValue = _axisSm;
 
-        // 4) Tap detection (thumb-index touch)
+        // 5) Tap detection + mode switching
         HandleTapFSM(dt);
 
-        // 5) Apply mode rules when tap sequence completes
-        if (SingleTapThisFrame)
-        {
-            if (singleTapTogglesXY)
-                ToggleXY();
-        }
+        if (SingleTapThisFrame && singleTapTogglesXY)
+            ToggleXY();
 
-        if (DoubleTapThisFrame)
-        {
-            if (doubleTapTogglesZ)
-                ToggleZ();
-        }
+        if (DoubleTapThisFrame && doubleTapTogglesZ)
+            ToggleZ();
     }
 
     bool HasRequiredJoints()
@@ -187,17 +197,13 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         if (remoteHand.remoteByIndex == null) return false;
         if (remoteHand.remoteByIndex.Length < 9) return false;
 
-        // needed: thumb tip 4, index mcp 5, index tip 8
-        if (remoteHand.remoteByIndex[4] == null) return false;
-        if (remoteHand.remoteByIndex[5] == null) return false;
-        if (remoteHand.remoteByIndex[8] == null) return false;
-
-        return true;
+        return remoteHand.remoteByIndex[4] != null && // thumb tip
+               remoteHand.remoteByIndex[5] != null && // index mcp
+               remoteHand.remoteByIndex[8] != null;   // index tip
     }
 
     float ComputeProjectedT()
     {
-        // thumb tip and index axis
         Vector3 thumb = remoteHand.remoteByIndex[4].position;
         Vector3 mcp = remoteHand.remoteByIndex[5].position;
         Vector3 tip = remoteHand.remoteByIndex[8].position;
@@ -212,8 +218,7 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
     float TToAxisValue(float t, float t0)
     {
-        // signed distance from neutral
-        float d = t - t0; // [-1..1] roughly, but depends on t0
+        float d = t - t0;
         float ad = Mathf.Abs(d);
 
         float dz = Mathf.Max(0f, deadZoneT);
@@ -221,10 +226,8 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
         if (ad < dz) return 0f;
 
-        // map [dz..fs] -> [0..1]
         float x = Mathf.Clamp01((ad - dz) / (fs - dz));
 
-        // response curve
         if (gamma > 0.01f && Mathf.Abs(gamma - 1f) > 1e-3f)
             x = Mathf.Pow(x, gamma);
 
@@ -233,6 +236,30 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
     void HandleTapFSM(float dt)
     {
+        // Gate taps so sliding does not trigger toggles
+        if (gateTapToCenterZone)
+        {
+            if (Mathf.Abs(AxisValue) > tapAxisGate)
+            {
+                if (debug) debug_state = "Tap: blocked (axis moving)";
+                return;
+            }
+
+            float center = 0.5f;
+            if (Mathf.Abs(debug_t - center) > tapCenterBand)
+            {
+                if (debug) debug_state = "Tap: blocked (not in center band)";
+                return;
+            }
+        }
+
+        // extra min interval between accepted taps
+        if (Time.time - _lastTapAcceptedTime < tapMinIntervalSec)
+        {
+            if (debug) debug_state = "Tap: blocked (min interval)";
+            return;
+        }
+
         // Use fast tip distances if available (snappier), otherwise fallback to transforms
         float dTI;
         if (remoteHand != null && remoteHand.fastTipsReady)
@@ -298,6 +325,7 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
             _tapWindowUntil = 0f;
             SingleTapThisFrame = true;
             _tapCooldownUntil = Time.time + Mathf.Max(0f, tapCooldownSec);
+            _lastTapAcceptedTime = Time.time;
 
             if (debug) debug_state = "Tap: SINGLE";
         }
@@ -305,6 +333,8 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
     void RegisterTap()
     {
+        _lastTapAcceptedTime = Time.time;
+
         if (_tapCount == 0)
         {
             _tapCount = 1;
@@ -335,37 +365,35 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     {
         if (Mode == AxisMode.Z)
         {
-            // If currently in Z, single tap does nothing (keeps rules simple)
+            // keep rules simple: single tap does not affect Z
             return;
         }
 
         Mode = (Mode == AxisMode.X) ? AxisMode.Y : AxisMode.X;
 
-        if (recenterOnModeSwitch)
-        {
-            _neutralCaptured = false; // capture neutral next frame
-            _axisSm = 0f;
-            AxisValue = 0f;
-        }
+        // recenter output (helps avoid surprise drift after switching)
+        _axisSm = 0f;
+        AxisValue = 0f;
+
+        if (!useFixedNeutralMidpoint)
+            _neutralCaptured = false;
     }
 
     void ToggleZ()
     {
         if (Mode == AxisMode.Z)
         {
-            // exiting Z returns to X
-            Mode = AxisMode.X;
+            Mode = AxisMode.X; // exiting Z returns to X
         }
         else
         {
             Mode = AxisMode.Z;
         }
 
-        if (recenterOnModeSwitch)
-        {
+        _axisSm = 0f;
+        AxisValue = 0f;
+
+        if (!useFixedNeutralMidpoint)
             _neutralCaptured = false;
-            _axisSm = 0f;
-            AxisValue = 0f;
-        }
     }
 }
