@@ -5714,7 +5714,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1612699145}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5e1b615d04ef36b43b88dda626a24bd6, type: 3}
   m_Name: 
@@ -7221,7 +7221,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2041029868}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d44b065effa920d44b741c1cae5f0ffc, type: 3}
   m_Name: 
@@ -7239,7 +7239,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2041029868}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dd76e588d95bba347ba437733a40e04e, type: 3}
   m_Name: 
@@ -7255,7 +7255,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2041029868}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e9a940ca66fc20e45a7ddabe083fde03, type: 3}
   m_Name: 
@@ -7267,6 +7267,10 @@ MonoBehaviour:
   zSpeedMetersPerSec: 0.18
   xyUseCameraFrame: 0
   zUseCameraForward: 0
+  yGain: 1.4
+  useDominantAxis: 1
+  dominantAxisRatio: 0.35
+  useAxisHysteresis: 1
 --- !u!114 &2041029873
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7274,7 +7278,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2041029868}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 27dc2b6eeb785aa4684834db4b12feb3, type: 3}
   m_Name: 
@@ -7284,14 +7288,20 @@ MonoBehaviour:
   pinchOffMeters: 0.07
   debounceSeconds: 0.06
   toggleCooldownSec: 0.2
+  offToggleMinHoldSec: 0.35
   enableZModeToggle: 1
   zPinchOnMeters: 0.05
   zPinchOffMeters: 0.07
+  zToggleMinHoldSec: 0.2
   dpadDeadZone: 0.18
   dpadFullScale: 0.85
   dpadOutputLerp: 12
   calibrateCenterOnEngage: 1
+  centerCaptureDelaySec: 0.2
+  centerCaptureMaxMag: 0.18
+  zeroOutputUntilCenterCaptured: 1
   requireEngagedForDpad: 1
+  toggleMotionGate: 0.12
   invertX: 0
   invertY: 0
   debug: 1
@@ -7305,7 +7315,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2041029868}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7c8669d52070d85419a64e80a2399979, type: 3}
   m_Name: 
