@@ -41,12 +41,21 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [Tooltip("Invert the axis if direction feels reversed.")]
     [SerializeField] private bool invertAxis = false;
 
-    [Header("Tap detection (Thumb-Index touch)")]
-    [Tooltip("Touch is considered DOWN if distance <= this for debounceSeconds.")]
-    [SerializeField] private float touchOnMeters = 0.030f;
+/*     [Header("Tap detection (Thumb-Index touch)")]
+ *     [Tooltip("Touch is considered DOWN if distance <= this for debounceSeconds.")]
+ *     [SerializeField] private float touchOnMeters = 0.030f;
+ *
+ *     [Tooltip("Touch is considered UP if distance >= this for debounceSeconds.")]
+ *     [SerializeField] private float touchOffMeters = 0.045f; */
+    [Header("Tap detection (Thumb-Index touch) - normalized")]
+    [Tooltip("Touch DOWN if (thumb-index distance / index length) <= this.")]
+    [SerializeField] private float touchOnRatio = 0.55f;
 
-    [Tooltip("Touch is considered UP if distance >= this for debounceSeconds.")]
-    [SerializeField] private float touchOffMeters = 0.045f;
+    [Tooltip("Touch UP if (thumb-index distance / index length) >= this. Must be > touchOnRatio.")]
+    [SerializeField] private float touchOffRatio = 0.85f;
+
+    [Tooltip("Minimum index length to avoid divide-by-zero (meters).")]
+    [SerializeField] private float minIndexLenMeters = 0.03f;
 
     [Tooltip("Debounce time for DOWN/UP (seconds).")]
     [SerializeField] private float debounceSeconds = 0.06f;
@@ -260,23 +269,45 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
             return;
         }
 
-        // Use fast tip distances if available (snappier), otherwise fallback to transforms
-        float dTI;
-        if (remoteHand != null && remoteHand.fastTipsReady)
-            dTI = Vector3.Distance(remoteHand.thumbTipFast, remoteHand.indexTipFast);
-        else
-            dTI = Vector3.Distance(remoteHand.remoteByIndex[4].position, remoteHand.remoteByIndex[8].position);
-
-        debug_touchDist = dTI;
-
         if (Time.time < _tapCooldownUntil)
         {
             if (debug) debug_state = "Tap: cooldown";
             return;
         }
 
-        bool downCond = dTI <= touchOnMeters;
-        bool upCond = dTI >= touchOffMeters;
+        // -----------------------------------------
+        // Normalized touch distance (depth-robust)
+        // dNorm = dist(thumbTip, indexTip) / dist(indexMCP, indexTip)
+        // -----------------------------------------
+
+        // thumb tip / index tip
+        Vector3 thumbPos, indexTipPos;
+
+        if (remoteHand != null && remoteHand.fastTipsReady)
+        {
+            thumbPos = remoteHand.thumbTipFast;
+            indexTipPos = remoteHand.indexTipFast;
+        }
+        else
+        {
+            thumbPos = remoteHand.remoteByIndex[4].position;
+            indexTipPos = remoteHand.remoteByIndex[8].position;
+        }
+
+        // index MCP is always from transforms (fast path not provided)
+        Vector3 indexMcpPos = remoteHand.remoteByIndex[5].position;
+
+        float dTI = Vector3.Distance(thumbPos, indexTipPos);
+        float indexLen = Vector3.Distance(indexMcpPos, indexTipPos);
+        indexLen = Mathf.Max(minIndexLenMeters, indexLen);
+
+        float dNorm = dTI / indexLen;
+
+        // For HUD: store normalized value (more useful than meters under depth changes)
+        debug_touchDist = dNorm;
+
+        bool downCond = dNorm <= touchOnRatio;
+        bool upCond = dNorm >= touchOffRatio;
 
         if (_touchFsm == TouchFSM.Idle)
         {
