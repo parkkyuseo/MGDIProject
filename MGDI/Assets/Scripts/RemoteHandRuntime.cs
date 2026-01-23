@@ -55,13 +55,44 @@ public class RemoteHandRuntime : MonoBehaviour
 
     [Tooltip("Soft dead-zone radius (meters). Smaller deltas are attenuated smoothly.")]
     public float jitterDeadZoneMeters = 0.003f; // 3 mm
-                                               
 
-    [Header("Fast signals (raw-ish) for discrete gestures")]
+    // =========================================================
+    // Fast signals (filtered pose) + raw samples
+    // =========================================================
+    [Header("Fast signals (filtered pose) for discrete gestures")]
+    [Tooltip("Updated from the filtered/applied pose (after SmoothAndApply). Stable but has smoothing/latency.")]
     public Vector3 thumbTipFast;
     public Vector3 indexTipFast;
     public Vector3 middleTipFast;
     public bool fastTipsReady = false;
+
+    [Header("Raw tip samples (latest received, offset-applied, before smoothing)")]
+    [Tooltip("Latest received sample (ApplyWorldPositions), with initial offset applied if enabled. Not smoothed.")]
+    public Vector3 thumbTipRaw;
+    public Vector3 indexTipRaw;
+    public Vector3 middleTipRaw;
+    public bool rawTipsReady = false;
+
+    // =========================================================
+    // Tracking IDs (for gesture gating)
+    // =========================================================
+    [Header("Tracking frame IDs (for gesture gating)")]
+    [Tooltip("Increments whenever ApplyWorldPositions(...) receives a new tracking sample.")]
+    public int SampleId => _sampleId;
+
+    [Tooltip("Time.time when the latest sample was received.")]
+    public float LastSampleTime => _lastSampleTime;
+
+    [Tooltip("Increments whenever a pose is processed and applied (ProcessFrame). Use this when using interpolation buffer.")]
+    public int RenderFrameId => _renderFrameId;
+
+    [Tooltip("Time.time when the latest pose was processed and applied.")]
+    public float LastRenderTime => _lastRenderTime;
+
+    int _sampleId = 0;
+    float _lastSampleTime = -999f;
+    int _renderFrameId = 0;
+    float _lastRenderTime = -999f;
 
     // =========================================================
     // One Euro Filter (adaptive smoothing)
@@ -282,7 +313,6 @@ public class RemoteHandRuntime : MonoBehaviour
     float _joyInZSm = 0f;
     bool _joyHasInputPrev = false;
 
-
     // =========================================================
     // Preset helper
     // =========================================================
@@ -313,7 +343,6 @@ public class RemoteHandRuntime : MonoBehaviour
 
     bool _presetAppliedOnce = false;
     bool _applyingPresetGuard = false;
-
 
     // =========================================================
     // Internal state (position smoothing)
@@ -471,6 +500,9 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         if (manualTestMode || worldPos == null || worldPos.Length < 21) return;
 
+        _sampleId++;
+        _lastSampleTime = Time.time;
+
         // store wrist before applying offset
         _lastPreOffsetWrist = worldPos[0];
 
@@ -497,25 +529,38 @@ public class RemoteHandRuntime : MonoBehaviour
             ResetSmoothingState(fullResetRemapAndGain: false);
         }
 
+        // --- Raw tips (latest received, offset-applied, BEFORE smoothing) ---
+        {
+            Vector3 t = worldPos[4];
+            Vector3 i = worldPos[8];
+            Vector3 m = worldPos[12];
+
+            if (addInitialOffset && _offsetCaptured)
+            {
+                t += _initialOffset;
+                i += _initialOffset;
+                m += _initialOffset;
+            }
+
+            thumbTipRaw = t;
+            indexTipRaw = i;
+            middleTipRaw = m;
+            rawTipsReady = true;
+        }
+
         if (useInterpolationBuffer)
         {
             // enqueue sample (copy into ring, apply initial offset if captured)
             EnqueueSample(worldPos);
-            thumbTipFast = _workPos[4];
-            indexTipFast = _workPos[8];
-            middleTipFast = _workPos[12];
-            fastTipsReady = true;
+
+            // NOTE:
+            // thumbTipFast/... are updated from the filtered/applied pose in SmoothAndApply()
+            // so we don't touch them here.
         }
         else
         {
             // immediate mode: copy -> apply offset -> process now
             CopyWithInitialOffset(worldPos, _workPos);
-            // after CopyWithInitialOffset(...) or when enqueueing, use offset-applied positions
-            thumbTipFast = _workPos[4];
-            indexTipFast = _workPos[8];
-            middleTipFast = _workPos[12];
-            fastTipsReady = true;
-
             ProcessFrame(_workPos);
         }
     }
@@ -692,6 +737,9 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         if (worldPos == null || worldPos.Length < 21) return;
 
+        _renderFrameId++;
+        _lastRenderTime = Time.time;
+
         // --- REMAP 단계 ---
         if (useJoystickRemap)
             RemapJoystickStyle(worldPos);
@@ -765,6 +813,10 @@ public class RemoteHandRuntime : MonoBehaviour
         _haveWristPrev = false;
         _aimDirSm = Vector3.zero;
 
+        // reset fast/raw readiness
+        fastTipsReady = false;
+        rawTipsReady = false;
+
         if (_oneEuro != null)
         {
             for (int i = 0; i < 21; i++)
@@ -812,6 +864,12 @@ public class RemoteHandRuntime : MonoBehaviour
                 if (remoteByIndex[i] != null)
                     remoteByIndex[i].position = v;
             }
+
+            // update filtered tips from applied pose
+            thumbTipFast = _prevPos[4];
+            indexTipFast = _prevPos[8];
+            middleTipFast = _prevPos[12];
+            fastTipsReady = true;
 
             _havePrevPos = true;
             return;
@@ -956,6 +1014,12 @@ public class RemoteHandRuntime : MonoBehaviour
 
             _prevPos[i] = filtered;
         }
+
+        // update filtered tips from applied pose (stable)
+        thumbTipFast = _prevPos[4];
+        indexTipFast = _prevPos[8];
+        middleTipFast = _prevPos[12];
+        fastTipsReady = true;
     }
 
     // =========================================================

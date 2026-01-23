@@ -4,12 +4,26 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 {
     public enum AxisMode { X = 0, Y = 1, Z = 2 }
 
+    public enum GestureUpdateSource
+    {
+        EveryUnityFrame = 0,
+        RenderFrameId = 1,  // recommended when RemoteHandRuntime uses interpolation buffer
+        SampleId = 2        // useful in immediate mode (no interpolation buffer)
+    }
+
+    public enum DistancePlane
+    {
+        None3D = 0,
+        Camera = 1,
+        Palm = 2
+    }
+
     [Header("References")]
     [SerializeField] private RemoteHandRuntime remoteHand;
 
     [Header("Index axis (projection)")]
     [Tooltip("If true, thumb position is projected to index MCP->TIP axis (recommended).")]
-    [SerializeField] private bool useProjection = true; // (현재 구현은 projection 전제로 동작)
+    [SerializeField] private bool useProjection = true;
 
     [Header("Neutral (t0) handling")]
     [Tooltip("If true, neutral t0 is fixed at 0.5 (recommended for stability).")]
@@ -24,11 +38,28 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [SerializeField] private float maxOutputRatePerSec = 6f;
     [SerializeField] private bool invertAxis = false;
 
+    [Header("Gesture update timing")]
+    [Tooltip("Which frame-id to use when updating the touch signal (dNorm). RenderFrameId is recommended with interpolation buffer.")]
+    [SerializeField] private GestureUpdateSource gestureUpdateSource = GestureUpdateSource.RenderFrameId;
+
+    [Header("Depth-robust distances")]
+    [Tooltip("Plane used for thumb-middle and thumb-on-index distance calculations.")]
+    [SerializeField] private DistancePlane distancePlane = DistancePlane.Palm;
+
+    [Tooltip("If true, compute thumb-on-index distance in the selected plane (reduces depth jitter).")]
+    [SerializeField] private bool usePlaneForThumbIndexDistance = true;
+
+    [Tooltip("If true, use point-to-segment distance (thumb -> middle finger segment) instead of tip-to-tip distance.")]
+    [SerializeField] private bool useMiddleSegmentDistance = true;
+
     [Header("Tap detection (Thumb-Middle touch) - normalized")]
-    [Tooltip("Touch DOWN if (thumb-middle distance / middle length) <= this.")]
+    [Tooltip("Touch DOWN if (distance / middle length) <= this.")]
     [SerializeField] private float touchOnRatio = 0.55f;
-    [Tooltip("Touch UP if (thumb-middle distance / middle length) >= this. Must be > touchOnRatio.")]
+
+    [Tooltip("Touch UP if (distance / middle length) >= this. Must be > touchOnRatio.")]
     [SerializeField] private float touchOffRatio = 0.85f;
+
+    [Tooltip("Minimum middle length to avoid divide-by-zero (meters).")]
     [SerializeField] private float minFingerLenMeters = 0.03f;
 
     [Tooltip("Debounce time for DOWN/UP (seconds).")]
@@ -40,12 +71,31 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [Tooltip("Cooldown after accepting a tap sequence (seconds).")]
     [SerializeField] private float tapCooldownSec = 0.18f;
 
-    [Header("Tap gating (legacy)")]
-    [Tooltip("If true, taps are only recognized near the center zone.")]
+    [Header("Touch signal stabilization")]
+    [Tooltip("Low-pass filter for dNorm (higher = snappier). 0 = no filtering.")]
+    [SerializeField] private float touchDistLerp = 25f;
+
+    [Header("Touch velocity gate (optional)")]
+    [Tooltip("If true, require the right direction of change near thresholds (reduces jitter-based toggles).")]
+    [SerializeField] private bool useTouchVelocityGate = true;
+
+    [Tooltip("Min approach speed (ratio/sec) required near threshold to accept DOWN.")]
+    [SerializeField] private float minApproachSpeedRatioPerSec = 0.25f;
+
+    [Tooltip("Min separation speed (ratio/sec) required near threshold to accept UP.")]
+    [SerializeField] private float minSeparationSpeedRatioPerSec = 0.25f;
+
+    [Tooltip("Velocity gate applies only within this band around thresholds (ratio units).")]
+    [SerializeField] private float velocityGateBand = 0.10f;
+
+    [Header("Tap gating (center zone)")]
+    [Tooltip("If true, taps are only recognized near the center zone (only applied while thumb is on index).")]
     [SerializeField] private bool gateTapToCenterZone = true;
+
+    [Tooltip("Require |t - t0| <= this to accept a tap (while thumb is on index).")]
     [SerializeField] private float tapCenterBand = 0.10f;
 
-    [Tooltip("Extra minimum interval between accepted taps (seconds). NOTE: patched to not block 2nd tap in a double-tap.")]
+    [Tooltip("Extra minimum interval between accepted taps (seconds). NOTE: does not block 2nd tap while waiting for double tap).")]
     [SerializeField] private float tapMinIntervalSec = 0.08f;
 
     [Header("Slider <-> Tap separation (recommended)")]
@@ -58,35 +108,51 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [Tooltip("Once 'on index', it stays on until distance >= this (meters). Must be > thumbOnIndexDist.")]
     [SerializeField] private float thumbOffIndexDist = 0.028f;
 
-    [Header("Tap signal stabilization")]
-    [Tooltip("Use bone-sum length (MCP->PIP->DIP->TIP) for middle length (less pose-dependent).")]
-    [SerializeField] private bool useBoneSumForMiddleLength = true;
+    [Header("Long press (recommended for webcam)")]
+    [Tooltip("If true, long press toggles Z mode (recommended).")]
+    [SerializeField] private bool longPressTogglesZ = true;
 
-    [Tooltip("Low-pass filter for dNorm (higher = snappier). 0 = no filtering.")]
-    [SerializeField] private float touchDistLerp = 25f;
+    [Tooltip("Hold time to trigger long press (seconds).")]
+    [SerializeField] private float longPressSec = 0.30f;
 
     [Header("Mode switching rules")]
+    [Tooltip("Single tap toggles between X and Y.")]
     [SerializeField] private bool singleTapTogglesXY = true;
-    [SerializeField] private bool doubleTapTogglesZ = true;
+
+    [Tooltip("Double tap toggles Z mode (enter/exit). Exiting returns to X.")]
+    [SerializeField] private bool doubleTapTogglesZ = false; // webcam에서는 보통 OFF 추천
 
     [Header("Debug (read-only)")]
     [SerializeField] private bool debug = false;
     [SerializeField] private float debug_t = -1f;
-    [SerializeField] private float debug_touchDist = -1f;
+    [SerializeField] private float debug_touchDist = -1f; // ratio
+    [SerializeField] private float debug_touchVel = 0f;   // ratio/sec
     [SerializeField] private float debug_thumbIndexDist = -1f;
     [SerializeField] private bool debug_thumbOnIndex = false;
     [SerializeField] private string debug_state = "";
 
     // Outputs
     public AxisMode Mode { get; private set; } = AxisMode.X;
+
+    // Signed output in [-1..1]. Positive means toward TIP direction, negative toward MCP direction.
     public float AxisValue { get; private set; } = 0f;
+
     public bool SingleTapThisFrame { get; private set; } = false;
     public bool DoubleTapThisFrame { get; private set; } = false;
+    public bool LongPressThisFrame { get; private set; } = false;
 
-    // Debug getters for HUD
+    // Debug getters for HUD / logs
     public float Debug_t => debug_t;
     public float Debug_touchDist => debug_touchDist;
     public string Debug_state => debug_state;
+
+    // Backward-compatible debug getters (safe even if HUD uses them)
+    public float Debug_tNeutral => _tNeutral;
+    public int Debug_tapCount => _tapCount;
+    public float Debug_tapWindowRemaining => Mathf.Max(0f, _tapWindowUntil - Time.time);
+    public bool Debug_touchDownLatched => (_touchFsm == TouchFSM.DownLatched);
+    public bool Debug_inTapCooldown => (Time.time < _tapCooldownUntil);
+    public float Debug_lastTapAcceptedAge => Mathf.Max(0f, Time.time - _lastTapAcceptedTime);
 
     // Internal: neutral point in t
     float _tNeutral = 0.5f;
@@ -106,8 +172,16 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     float _tapCooldownUntil = 0f;
     float _lastTapAcceptedTime = -999f;
 
-    // Touch distance filter
+    // Touch signal state
     float _dNormSm = -1f;
+    float _dNormPrev = -1f;
+    float _dNormVel = 0f;
+    float _lastTouchSignalTime = -999f;
+    int _lastGestureId = -1;
+
+    // Long press
+    float _pressHeld = 0f;
+    bool _longPressFired = false;
 
     // Thumb-on-index latch (hysteresis)
     bool _thumbOnIndex = false;
@@ -116,11 +190,13 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     {
         SingleTapThisFrame = false;
         DoubleTapThisFrame = false;
+        LongPressThisFrame = false;
     }
 
     void Update()
     {
         ResetFramePulses();
+
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
 
         if (!HasRequiredJoints())
@@ -128,7 +204,7 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
             AxisValue = 0f;
             _axisSm = 0f;
 
-            // IMPORTANT: still finalize pending single tap even if tracking momentarily drops
+            // still finalize pending single tap if due
             FinalizeSingleTapIfDue();
 
             if (debug) debug_state = "Missing joints";
@@ -173,11 +249,9 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         float rawAxis = TToAxisValue(t, _tNeutral);
         if (invertAxis) rawAxis = -rawAxis;
 
-        // (추천) thumb가 index에서 떨어져 탭을 하는 동안에는 슬라이더 출력이 튀지 않게 0으로 끌어주기
+        // When thumb is NOT on index (tap posture), freeze axis output to 0 to avoid surprise drift
         if (blockTapsWhileThumbOnIndex && !_thumbOnIndex)
-        {
             rawAxis = 0f;
-        }
 
         // 5) Smooth + rate limit
         float k = 1f - Mathf.Exp(-Mathf.Max(0.01f, outputLerp) * dt);
@@ -194,14 +268,21 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         _axisSm = target;
         AxisValue = _axisSm;
 
-        // 6) Tap detection + mode switching (thumb-middle)
+        // 6) Tap detection + mode switching
         HandleTapFSM(dt, t);
 
         if (SingleTapThisFrame && singleTapTogglesXY)
             ToggleXY();
 
-        if (DoubleTapThisFrame && doubleTapTogglesZ)
+        // Long press gets priority over double tap
+        if (LongPressThisFrame && longPressTogglesZ)
+        {
             ToggleZ();
+        }
+        else if (DoubleTapThisFrame && doubleTapTogglesZ)
+        {
+            ToggleZ();
+        }
     }
 
     bool HasRequiredJoints()
@@ -224,16 +305,13 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
     void ComputeProjectedTAndThumbIndexDist(out float t, out float thumbIndexDist)
     {
-        // Use the same thumb tip source as tap if fast tips are available
-        Vector3 thumb = (remoteHand != null && remoteHand.fastTipsReady)
-            ? remoteHand.thumbTipFast
-            : remoteHand.remoteByIndex[4].position;
-
+        Vector3 thumb = remoteHand.remoteByIndex[4].position;
         Vector3 mcp = remoteHand.remoteByIndex[5].position;
         Vector3 tip = remoteHand.remoteByIndex[8].position;
 
         Vector3 axis = tip - mcp;
         float denom = axis.sqrMagnitude;
+
         if (denom < 1e-8f)
         {
             t = 0.5f;
@@ -241,11 +319,37 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
             return;
         }
 
+        // slider t in 3D (more faithful)
         t = Vector3.Dot(thumb - mcp, axis) / denom;
         t = Mathf.Clamp01(t);
 
-        Vector3 closest = mcp + t * axis;
-        thumbIndexDist = Vector3.Distance(thumb, closest);
+        // thumb-on-index distance (optionally plane-projected)
+        if (usePlaneForThumbIndexDistance && distancePlane != DistancePlane.None3D && TryGetDistancePlane(out Vector3 origin, out Vector3 normal))
+        {
+            Vector3 thumbP = ProjectToPlane(thumb, origin, normal);
+            Vector3 mcpP = ProjectToPlane(mcp, origin, normal);
+            Vector3 tipP = ProjectToPlane(tip, origin, normal);
+
+            Vector3 axisP = tipP - mcpP;
+            float denomP = axisP.sqrMagnitude;
+
+            if (denomP < 1e-8f)
+            {
+                thumbIndexDist = Vector3.Distance(thumbP, mcpP);
+            }
+            else
+            {
+                float tp = Vector3.Dot(thumbP - mcpP, axisP) / denomP;
+                tp = Mathf.Clamp01(tp);
+                Vector3 closestP = mcpP + tp * axisP;
+                thumbIndexDist = Vector3.Distance(thumbP, closestP);
+            }
+        }
+        else
+        {
+            Vector3 closest = mcp + t * axis;
+            thumbIndexDist = Vector3.Distance(thumb, closest);
+        }
     }
 
     float TToAxisValue(float t, float t0)
@@ -268,42 +372,51 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
     void HandleTapFSM(float dt, float t)
     {
-        // Always finalize pending single tap even if we are currently blocking new taps
-        // (prevents "stuck waiting" when user starts sliding right after a tap)
-        // We'll call again at the end too; harmless.
+        // Always finalize pending single tap even if we block starting taps this frame
         FinalizeSingleTapIfDue();
 
-        // Cooldown blocks starting/accepting taps
         bool inCooldown = Time.time < _tapCooldownUntil;
 
-        // IMPORTANT PATCH:
-        // tapMinIntervalSec should NOT block the 2nd tap in a double-tap.
+        // tapMinIntervalSec should NOT block the 2nd tap in a double-tap window
         bool minIntervalOk = (_tapCount == 1) || (Time.time - _lastTapAcceptedTime >= tapMinIntervalSec);
 
-        // Center gate: use neutral as center (fixes inconsistency when useFixedNeutralMidpoint=false)
-        float center = _tNeutral;
-
+        // Center gate uses neutral as center (t0). Only apply while thumb is ON index.
         bool centerOk = true;
-        if (gateTapToCenterZone)
+        if (gateTapToCenterZone && _thumbOnIndex)
         {
-            // If thumb is off index (we are in tap posture), t is less meaningful -> don't block taps by center band.
-            if (_thumbOnIndex)
-                centerOk = Mathf.Abs(t - center) <= tapCenterBand;
+            centerOk = Mathf.Abs(t - _tNeutral) <= tapCenterBand;
         }
 
-        // Strong separation: while thumb is on index (sliding posture), block starting taps
+        // Strong separation: block starting taps while thumb is on index (sliding posture)
         bool contextOk = true;
         if (blockTapsWhileThumbOnIndex && _thumbOnIndex)
             contextOk = false;
 
         bool gateForStart = !inCooldown && minIntervalOk && centerOk && contextOk;
 
-        // Compute normalized touch distance (thumb-middle)
-        float dNorm = ComputeThumbMiddleNormalizedDistance(dt);
+        // Update touch signal (dNorm) with gating by frame id
+        float dNorm = UpdateTouchSignal(dt);
         debug_touchDist = dNorm;
+        debug_touchVel = _dNormVel;
 
         bool downCond = dNorm <= touchOnRatio;
         bool upCond = dNorm >= touchOffRatio;
+
+        // Optional velocity gate near thresholds (reduces jitter-triggered transitions)
+        if (useTouchVelocityGate)
+        {
+            if (downCond && (touchOnRatio - dNorm) < velocityGateBand)
+            {
+                if (_dNormVel > -Mathf.Max(0f, minApproachSpeedRatioPerSec))
+                    downCond = false;
+            }
+
+            if (upCond && (dNorm - touchOffRatio) < velocityGateBand)
+            {
+                if (_dNormVel < Mathf.Max(0f, minSeparationSpeedRatioPerSec))
+                    upCond = false;
+            }
+        }
 
         // If we are blocking taps due to context, cancel any in-progress latch to prevent "delayed tap"
         if (!contextOk && _touchFsm != TouchFSM.Idle)
@@ -316,9 +429,14 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         {
             _upHeld = 0f;
 
+            // reset long press tracking in idle
+            _pressHeld = 0f;
+            _longPressFired = false;
+
             if (!gateForStart)
             {
                 _downHeld = 0f;
+
                 if (debug)
                 {
                     if (inCooldown) debug_state = "Tap: cooldown";
@@ -336,6 +454,9 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
                     {
                         _touchFsm = TouchFSM.DownLatched;
                         _downHeld = 0f;
+                        _pressHeld = 0f;
+                        _longPressFired = false;
+
                         if (debug) debug_state = "Tap: DOWN latched";
                     }
                 }
@@ -350,6 +471,29 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         {
             _downHeld = 0f;
 
+            // long press while held (only if not already fired)
+            if (longPressTogglesZ && !_longPressFired && !inCooldown && contextOk)
+            {
+                _pressHeld += dt;
+                if (_pressHeld >= Mathf.Max(0.05f, longPressSec))
+                {
+                    _longPressFired = true;
+                    LongPressThisFrame = true;
+
+                    // cancel any pending tap sequence
+                    _tapCount = 0;
+                    _tapWindowUntil = 0f;
+
+                    // enter cooldown
+                    _tapCooldownUntil = Time.time + Mathf.Max(0f, tapCooldownSec);
+                    _lastTapAcceptedTime = Time.time;
+
+                    // prevent repeated firing while holding
+                    // keep FSM latched, but release won't register tap
+                    if (debug) debug_state = "Tap: LONG";
+                }
+            }
+
             if (upCond)
             {
                 _upHeld += dt;
@@ -358,11 +502,23 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
                     _upHeld = 0f;
                     _touchFsm = TouchFSM.Idle;
 
-                    // Accept this tap only if not in cooldown
-                    if (!inCooldown)
-                        RegisterTap();
-                    else if (debug)
-                        debug_state = "Tap: ignored (cooldown)";
+                    // If long press fired, do not register tap on release
+                    if (!_longPressFired)
+                    {
+                        if (!inCooldown)
+                            RegisterTap();
+                        else if (debug)
+                            debug_state = "Tap: ignored (cooldown)";
+                    }
+                    else
+                    {
+                        // after long press, ignore release for tap
+                        if (debug) debug_state = "Tap: release (after long)";
+                    }
+
+                    // reset long press tracking
+                    _pressHeld = 0f;
+                    _longPressFired = false;
                 }
             }
             else
@@ -371,63 +527,194 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
             }
         }
 
-        // finalize single tap if window expires
         FinalizeSingleTapIfDue();
     }
 
-    float ComputeThumbMiddleNormalizedDistance(float dt)
+    float UpdateTouchSignal(float dt)
     {
-        Vector3 thumbPos, middleTipPos;
+        // Decide whether we should recompute measurement this frame
+        int idNow = 0;
+        bool shouldUpdate = true;
 
-        if (remoteHand != null && remoteHand.fastTipsReady)
+        if (remoteHand != null)
         {
-            thumbPos = remoteHand.thumbTipFast;
-            middleTipPos = remoteHand.middleTipFast;
-        }
-        else
-        {
-            thumbPos = remoteHand.remoteByIndex[4].position;
-            middleTipPos = remoteHand.remoteByIndex[12].position;
-        }
-
-        Vector3 middleMcpPos = remoteHand.remoteByIndex[9].position;
-
-        float dTM = Vector3.Distance(thumbPos, middleTipPos);
-        float middleLen;
-
-        if (useBoneSumForMiddleLength
-            && remoteHand.remoteByIndex.Length >= 13
-            && remoteHand.remoteByIndex[10] != null
-            && remoteHand.remoteByIndex[11] != null)
-        {
-            Vector3 pip = remoteHand.remoteByIndex[10].position;
-            Vector3 dip = remoteHand.remoteByIndex[11].position;
-
-            // Bone-sum is much less sensitive to finger flex than MCP<->TIP chord
-            middleLen =
-                Vector3.Distance(middleMcpPos, pip) +
-                Vector3.Distance(pip, dip) +
-                Vector3.Distance(dip, middleTipPos);
-        }
-        else
-        {
-            middleLen = Vector3.Distance(middleMcpPos, middleTipPos);
+            if (gestureUpdateSource == GestureUpdateSource.RenderFrameId)
+            {
+                idNow = remoteHand.RenderFrameId;
+                shouldUpdate = (idNow != _lastGestureId);
+            }
+            else if (gestureUpdateSource == GestureUpdateSource.SampleId)
+            {
+                idNow = remoteHand.SampleId;
+                shouldUpdate = (idNow != _lastGestureId);
+            }
+            else
+            {
+                shouldUpdate = true;
+            }
         }
 
-        middleLen = Mathf.Max(minFingerLenMeters, middleLen);
-        float dNorm = dTM / middleLen;
-
-        // Optional low-pass on dNorm
-        if (touchDistLerp > 0.01f)
+        if (!shouldUpdate && _dNormSm >= 0f)
         {
-            float k = 1f - Mathf.Exp(-touchDistLerp * dt);
-            if (_dNormSm < 0f) _dNormSm = dNorm;
-            else _dNormSm = Mathf.Lerp(_dNormSm, dNorm, k);
+            // no new measurement => treat velocity as 0
+            _dNormVel = 0f;
             return _dNormSm;
         }
 
-        _dNormSm = dNorm;
-        return dNorm;
+        _lastGestureId = idNow;
+
+        // --- Fetch joints (filtered pose) ---
+        Vector3 thumb = remoteHand.remoteByIndex[4].position;
+        Vector3 midTip = remoteHand.remoteByIndex[12].position;
+        Vector3 midMcp = remoteHand.remoteByIndex[9].position;
+
+        Vector3 midPip = (remoteHand.remoteByIndex.Length > 10 && remoteHand.remoteByIndex[10] != null)
+            ? remoteHand.remoteByIndex[10].position
+            : midMcp;
+
+        Vector3 midDip = (remoteHand.remoteByIndex.Length > 11 && remoteHand.remoteByIndex[11] != null)
+            ? remoteHand.remoteByIndex[11].position
+            : midTip;
+
+        // --- Middle length (bone-sum in 3D; less pose-dependent than MCP<->TIP chord) ---
+        float middleLen =
+            Vector3.Distance(midMcp, midPip) +
+            Vector3.Distance(midPip, midDip) +
+            Vector3.Distance(midDip, midTip);
+
+        middleLen = Mathf.Max(minFingerLenMeters, middleLen);
+
+        // --- Distance plane projection (optional) for NUMERATOR only ---
+        Vector3 thumbD = thumb;
+        Vector3 midTipD = midTip;
+        Vector3 midPipD = midPip;
+        Vector3 midDipD = midDip;
+
+        if (distancePlane != DistancePlane.None3D && TryGetDistancePlane(out Vector3 origin, out Vector3 normal))
+        {
+            thumbD = ProjectToPlane(thumbD, origin, normal);
+            midTipD = ProjectToPlane(midTipD, origin, normal);
+            midPipD = ProjectToPlane(midPipD, origin, normal);
+            midDipD = ProjectToPlane(midDipD, origin, normal);
+        }
+
+        float dTM;
+
+        if (useMiddleSegmentDistance)
+        {
+            // Use min distance to segments (DIP->TIP and PIP->TIP) to be more stable than tip-to-tip
+            float d1 = DistancePointToSegment(thumbD, midDipD, midTipD);
+            float d2 = DistancePointToSegment(thumbD, midPipD, midTipD);
+            dTM = Mathf.Min(d1, d2);
+        }
+        else
+        {
+            dTM = Vector3.Distance(thumbD, midTipD);
+        }
+
+        float dNormRaw = dTM / middleLen;
+
+        // Low-pass filter for dNorm
+        float dNormOut = dNormRaw;
+        if (touchDistLerp > 0.01f)
+        {
+            float k = 1f - Mathf.Exp(-touchDistLerp * dt);
+            if (_dNormSm < 0f) _dNormSm = dNormRaw;
+            else _dNormSm = Mathf.Lerp(_dNormSm, dNormRaw, k);
+
+            dNormOut = _dNormSm;
+        }
+        else
+        {
+            _dNormSm = dNormRaw;
+        }
+
+        // Velocity (ratio/sec) computed from filtered signal
+        float now = Time.time;
+        float dts = ( _lastTouchSignalTime < 0f ) ? dt : Mathf.Max(1e-4f, now - _lastTouchSignalTime);
+
+        if (_dNormPrev < 0f)
+        {
+            _dNormVel = 0f;
+        }
+        else
+        {
+            _dNormVel = (dNormOut - _dNormPrev) / dts;
+        }
+
+        _dNormPrev = dNormOut;
+        _lastTouchSignalTime = now;
+
+        return dNormOut;
+    }
+
+    static float DistancePointToSegment(Vector3 p, Vector3 a, Vector3 b)
+    {
+        Vector3 ab = b - a;
+        float denom = ab.sqrMagnitude;
+        if (denom < 1e-10f) return Vector3.Distance(p, a);
+
+        float t = Vector3.Dot(p - a, ab) / denom;
+        t = Mathf.Clamp01(t);
+        Vector3 c = a + t * ab;
+        return Vector3.Distance(p, c);
+    }
+
+    bool TryGetDistancePlane(out Vector3 origin, out Vector3 normal)
+    {
+        origin = Vector3.zero;
+        normal = Vector3.forward;
+
+        if (remoteHand == null || remoteHand.remoteByIndex == null || remoteHand.remoteByIndex.Length < 1)
+            return false;
+
+        // origin: wrist is a good stable anchor
+        Transform wrist = remoteHand.remoteByIndex[0];
+        if (wrist != null) origin = wrist.position;
+
+        if (distancePlane == DistancePlane.Palm)
+        {
+            // Use palm plane: cross( (indexMCP-wrist), (pinkyMCP-wrist) )
+            Transform idx = (remoteHand.remoteByIndex.Length > 5) ? remoteHand.remoteByIndex[5] : null;
+            Transform pinky = (remoteHand.remoteByIndex.Length > 17) ? remoteHand.remoteByIndex[17] : null;
+
+            if (wrist != null && idx != null && pinky != null)
+            {
+                Vector3 a = idx.position - wrist.position;
+                Vector3 b = pinky.position - wrist.position;
+                Vector3 n = Vector3.Cross(a, b);
+                if (n.sqrMagnitude > 1e-8f)
+                {
+                    normal = n.normalized;
+                    origin = wrist.position;
+                    return true;
+                }
+            }
+
+            // fallback to camera plane if palm plane cannot be built
+        }
+
+        // Camera plane fallback / explicit camera plane
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            Vector3 f = cam.transform.forward;
+            if (f.sqrMagnitude < 1e-8f) f = Vector3.forward;
+            normal = f.normalized;
+            // origin can still be wrist (projection difference cancels for distances)
+            return true;
+        }
+
+        return false;
+    }
+
+    static Vector3 ProjectToPlane(Vector3 p, Vector3 planeOrigin, Vector3 planeNormal)
+    {
+        Vector3 n = planeNormal;
+        if (n.sqrMagnitude < 1e-8f) return p;
+        n.Normalize();
+        float d = Vector3.Dot(p - planeOrigin, n);
+        return p - d * n;
     }
 
     void ResetTouchFSM()
@@ -435,6 +722,9 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         _touchFsm = TouchFSM.Idle;
         _downHeld = 0f;
         _upHeld = 0f;
+
+        _pressHeld = 0f;
+        _longPressFired = false;
     }
 
     void FinalizeSingleTapIfDue()
