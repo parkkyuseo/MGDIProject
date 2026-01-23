@@ -76,17 +76,9 @@ public class RemoteHandRuntime : MonoBehaviour
     // =========================================================
     // Tracking IDs (for gesture gating)
     // =========================================================
-    [Header("Tracking frame IDs (for gesture gating)")]
-    [Tooltip("Increments whenever ApplyWorldPositions(...) receives a new tracking sample.")]
     public int SampleId => _sampleId;
-
-    [Tooltip("Time.time when the latest sample was received.")]
     public float LastSampleTime => _lastSampleTime;
-
-    [Tooltip("Increments whenever a pose is processed and applied (ProcessFrame). Use this when using interpolation buffer.")]
     public int RenderFrameId => _renderFrameId;
-
-    [Tooltip("Time.time when the latest pose was processed and applied.")]
     public float LastRenderTime => _lastRenderTime;
 
     int _sampleId = 0;
