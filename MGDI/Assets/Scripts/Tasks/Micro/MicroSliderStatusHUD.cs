@@ -7,10 +7,6 @@ public class MicroSliderStatusHUD : MonoBehaviour
     [SerializeField] private MicroThumbIndexSliderInput input;
     [SerializeField] private Text statusText;
 
-    [Header("Options")]
-    [SerializeField] private bool showAxisValue = true;
-    [SerializeField] private bool showRawT = true;
-
     void Update()
     {
         if (statusText == null) return;
@@ -21,32 +17,16 @@ public class MicroSliderStatusHUD : MonoBehaviour
             return;
         }
 
-        string mode = input.Mode.ToString(); // X / Y / Z
-        string axis = showAxisValue ? $"Axis: {input.AxisValue:F2}\n" : "";
+        string s = "";
+        s += $"Mode: {input.Mode}\n";
+        s += $"Axis: {input.AxisValue:F2}\n";
+        s += $"t: {input.Debug_t:F3}\n";
 
-        // Raw t is only available if you enable debug in the input script.
-        // If debug is off, this line will just show 0.00 (or last value).
-        string tLine = "";
-        if (showRawT)
-        {
-            // This relies on the debug field existing in MicroThumbIndexSliderInput.
-            // If you removed debug fields, set showRawT=false.
-            var f = typeof(MicroThumbIndexSliderInput).GetField("debug_t", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (f != null)
-            {
-                float t = (float)f.GetValue(input);
-                tLine = $"t: {t:F2}\n";
-            }
-        }
+        // New thumb-based interaction is driven by thumb-on-index state.
+        // If the property doesn't exist in this build, just omit it.
+        // (Debug_thumbOnIndex exists in the new script you pasted.)
+        s += $"ThumbOnIndex: {(input.Debug_thumbOnIndex ? "YES" : "NO")}\n";
 
-        string taps = "";
-        if (input.SingleTapThisFrame) taps += "Tap: SINGLE\n";
-        if (input.DoubleTapThisFrame) taps += "Tap: DOUBLE\n";
-
-        statusText.text =
-            $"Micro Mode: {mode}\n" +
-            axis +
-            tLine +
-            taps;
+        statusText.text = s;
     }
 }
