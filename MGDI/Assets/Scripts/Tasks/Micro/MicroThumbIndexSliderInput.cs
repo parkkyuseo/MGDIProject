@@ -82,6 +82,9 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [Tooltip("Default calibration window length (sec).")]
     [SerializeField] private float defaultCalibWindowSec = 0.20f;
 
+    [Tooltip("If true, BeginCalibration(defaultCalibWindowSec) is called once on Start().")]
+    [SerializeField] private bool autoCalibrateOnStart = true;
+
     [Tooltip("Minimum number of accepted samples required to apply calibration.")]
     [SerializeField] private int calibMinSamples = 6;
 
@@ -179,6 +182,12 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     private float _pinchDistBase = -1f;
     private float _twistNeutralDeg = 0f;
 
+    void Start()
+    {
+        if (autoCalibrateOnStart)
+            BeginCalibration(defaultCalibWindowSec);
+    }
+    
     void Update()
     {
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
