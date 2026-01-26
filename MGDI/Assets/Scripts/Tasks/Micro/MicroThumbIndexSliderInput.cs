@@ -115,6 +115,9 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
     int _lastRenderFrameId = -1;
 
+    // Reusable buffer for index polyline points: MCP -> (PIP) -> (DIP) -> TIP
+    readonly Vector3[] _indexPolylinePts = new Vector3[4];
+
     void Update()
     {
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
@@ -127,7 +130,7 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
             return;
         }
 
-        // Gate by RenderFrameId to avoid reprocessing same pose multiple Unity frames
+        // Gate by RenderFrameId to avoid treating repeated Unity frames as new hand poses
         if (remoteHand != null)
         {
             int rid = remoteHand.RenderFrameId;
@@ -144,17 +147,28 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
     void UpdateOutputs(float dt, bool poseIsFresh)
     {
+        if (debug) debug_state = "";
+
         // Joints
         Vector3 thumb = remoteHand.remoteByIndex[4].position;
+
+        // Index joints (5,6,7,8 in MediaPipe-style; 6/7 may be null depending on your runtime)
         Vector3 idxMcp = remoteHand.remoteByIndex[5].position;
         Vector3 idxTip = remoteHand.remoteByIndex[8].position;
 
-        // t (projection)
-        float tRaw = ComputeProjectedT(thumb, idxMcp, idxTip);
-        debug_tRaw = tRaw;
+        bool hasPip = (remoteHand.remoteByIndex.Length > 6 && remoteHand.remoteByIndex[6] != null);
+        bool hasDip = (remoteHand.remoteByIndex.Length > 7 && remoteHand.remoteByIndex[7] != null);
 
-        // thumb-index distance (perpendicular distance to axis)
-        float distRaw = DistancePointToSegment(thumb, idxMcp, idxTip);
+        int nPts = 0;
+        _indexPolylinePts[nPts++] = idxMcp;
+        if (hasPip) _indexPolylinePts[nPts++] = remoteHand.remoteByIndex[6].position;
+        if (hasDip) _indexPolylinePts[nPts++] = remoteHand.remoteByIndex[7].position;
+        _indexPolylinePts[nPts++] = idxTip;
+
+        // t + thumb-index distance (polyline-based; falls back to MCP->TIP if PIP/DIP unavailable)
+        float distRaw;
+        float tRaw = ProjectToPolylineT(thumb, _indexPolylinePts, nPts, out distRaw);
+        debug_tRaw = tRaw;
         debug_thumbIndexDistRaw = distRaw;
 
         // smooth distance
@@ -172,15 +186,27 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         }
         debug_thumbIndexDistSm = distSm;
 
-        // twist + velocity
+        // twist + velocity (poseIsFresh-aware to avoid velocity spikes when pose is unchanged)
         float twistDeg = (remoteHand != null) ? remoteHand.TwistDegrees : 0f;
         debug_twistDeg = twistDeg;
 
         float now = Time.time;
-        float dtTw = (_twistPrevTime < 0f) ? dt : Mathf.Max(1e-4f, now - _twistPrevTime);
-        float twistVel = (twistDeg - _twistPrevDeg) / dtTw;
-        _twistPrevDeg = twistDeg;
-        _twistPrevTime = now;
+        float twistVel = 0f;
+
+        if (poseIsFresh)
+        {
+            float dtTw = (_twistPrevTime < 0f) ? dt : Mathf.Max(1e-4f, now - _twistPrevTime);
+            twistVel = (twistDeg - _twistPrevDeg) / dtTw;
+
+            _twistPrevDeg = twistDeg;
+            _twistPrevTime = now;
+        }
+        else
+        {
+            // Do not update prev time/deg here; let dtTw accumulate until next fresh pose arrives.
+            twistVel = 0f;
+        }
+
         debug_twistVelDegPerSec = twistVel;
 
         bool twistActive = Mathf.Abs(twistVel) >= Mathf.Max(0f, twistActiveVelDegPerSec);
@@ -403,14 +429,57 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         }
     }
 
-    static float ComputeProjectedT(Vector3 thumb, Vector3 mcp, Vector3 tip)
+    // Polyline-based projection:
+    // Returns t in [0,1] along the polyline length, and minDist as the closest distance to any segment.
+    // This makes both t and distance more stable when the index finger is bent.
+    static float ProjectToPolylineT(Vector3 p, Vector3[] pts, int count, out float minDist)
     {
-        Vector3 axis = tip - mcp;
-        float denom = axis.sqrMagnitude;
-        if (denom < 1e-8f) return 0.5f;
+        minDist = float.PositiveInfinity;
 
-        float t = Vector3.Dot(thumb - mcp, axis) / denom;
-        return Mathf.Clamp01(t);
+        if (pts == null || count < 2)
+        {
+            minDist = 0f;
+            return 0.5f;
+        }
+
+        float totalLen = 0f;
+        for (int i = 0; i < count - 1; i++)
+            totalLen += Vector3.Distance(pts[i], pts[i + 1]);
+
+        if (totalLen < 1e-6f)
+        {
+            minDist = Vector3.Distance(p, pts[0]);
+            return 0.5f;
+        }
+
+        float bestS = 0f;
+        float sAccum = 0f;
+
+        for (int i = 0; i < count - 1; i++)
+        {
+            Vector3 a = pts[i];
+            Vector3 b = pts[i + 1];
+            Vector3 ab = b - a;
+
+            float denom = ab.sqrMagnitude;
+            float u = (denom < 1e-10f) ? 0f : Vector3.Dot(p - a, ab) / denom;
+            u = Mathf.Clamp01(u);
+
+            Vector3 c = a + u * ab;
+            float d = Vector3.Distance(p, c);
+
+            float segLen = (denom < 1e-10f) ? 0f : Mathf.Sqrt(denom);
+
+            if (d < minDist)
+            {
+                minDist = d;
+                bestS = sAccum + u * segLen;
+            }
+
+            sAccum += segLen;
+        }
+
+        return Mathf.Clamp01(bestS / totalLen);
     }
 
     float TToAxisValue(float t, float t0)
@@ -430,18 +499,6 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         return Mathf.Sign(d) * x;
     }
 
-    static float DistancePointToSegment(Vector3 p, Vector3 a, Vector3 b)
-    {
-        Vector3 ab = b - a;
-        float denom = ab.sqrMagnitude;
-        if (denom < 1e-10f) return Vector3.Distance(p, a);
-
-        float t = Vector3.Dot(p - a, ab) / denom;
-        t = Mathf.Clamp01(t);
-        Vector3 c = a + t * ab;
-        return Vector3.Distance(p, c);
-    }
-
     bool HasRequiredJoints()
     {
         if (remoteHand == null) return false;
@@ -452,6 +509,7 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         if (remoteHand.remoteByIndex[5] == null) return false; // index mcp
         if (remoteHand.remoteByIndex[8] == null) return false; // index tip
 
+        // index PIP (6) / DIP (7) are optional; script will fall back to MCP->TIP segment if missing
         return true;
     }
 }
