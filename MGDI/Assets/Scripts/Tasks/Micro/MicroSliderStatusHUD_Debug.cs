@@ -9,7 +9,7 @@ public class MicroSliderStatusHUD_Debug : MonoBehaviour
 
     [Header("Options")]
     [SerializeField] private bool showContext = true;
-    [SerializeField] private bool showPulse = true;
+    [SerializeField] private bool showToggle = true;
     [SerializeField] private bool showState = true;
 
     void Update()
@@ -24,12 +24,11 @@ public class MicroSliderStatusHUD_Debug : MonoBehaviour
 
         string s = "";
 
-        // Always: core outputs
+        // Core outputs
         s += $"Mode: {input.Mode}\n";
-        s += $"Axis: {input.AxisValue:F2}\n";
+        s += $"X: {input.AxisX:F2}  Y: {input.AxisY:F2}  Z: {input.AxisZ:F2}\n";
         s += $"t: {input.Debug_t:F3}\n";
 
-        // Context: thumb/index contact state drives everything now
         if (showContext)
         {
             s += "\n[Context]\n";
@@ -37,18 +36,14 @@ public class MicroSliderStatusHUD_Debug : MonoBehaviour
             s += $"ThumbIndexDist: {input.Debug_thumbIndexDist:F3} m\n";
         }
 
-        // Pulse / hold state (these are your new “discrete gesture” signals)
-        if (showPulse)
+        // Mode toggle (single toggle) diagnostics
+        if (showToggle)
         {
-            s += "\n[Pulse/Hold]\n";
-            s += $"PulseCount: {input.Debug_pulseCount}\n";
-
-            // Only meaningful while OFF, but harmless to display always
+            s += "\n[Mode Toggle]\n";
             s += $"OffHeld: {input.Debug_offHeldSec:F2} s\n";
-            s += $"DoubleWinRem: {input.Debug_doubleWindowRemaining:F2} s\n";
+            s += $"Armed: {(input.Debug_zArmed ? "YES" : "NO")}\n";
         }
 
-        // One-line decision/diagnostic
         if (showState)
         {
             string st = input.Debug_state;
