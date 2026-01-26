@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class MicroThumbIndexSliderInput : MonoBehaviour
@@ -11,6 +12,10 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [Header("References")]
     [SerializeField] private RemoteHandRuntime remoteHand;
 
+    [Header("Index rail (default excludes MCP)")]
+    [Tooltip("If true, t/dist are computed on PIP->(DIP)->TIP; fallback DIP->TIP; last resort MCP->TIP.")]
+    [SerializeField] private bool usePipDipTipRail = true;
+
     [Header("Slider (thumb slide) shaping")]
     [SerializeField] private float deadZoneT = 0.12f;
     [SerializeField] private float fullScaleT = 0.40f;
@@ -19,7 +24,9 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [SerializeField] private float maxOutputRatePerSec = 6f;
 
     [Header("Neutral (t0) handling")]
+    [Tooltip("If true, fixedNeutralT is used unless overridden by calibration.")]
     [SerializeField] private bool useFixedNeutralMidpoint = true;
+
     [SerializeField] private float fixedNeutralT = 0.50f;
     [SerializeField] private bool invertSlide = false;
 
@@ -29,9 +36,22 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [SerializeField] private float twistOutputLerp = 16f;
     [SerializeField] private bool invertTwist = false;
 
-    [Header("ThumbOnIndex detection (robust)")]
-    [SerializeField] private float thumbOnIndexDist = 0.018f;
-    [SerializeField] private float thumbOffIndexDist = 0.028f;
+    [Header("ThumbOnIndex detection (adaptive via calibration)")]
+    [Tooltip("Fallback ON distance (meters) used before calibration.")]
+    [SerializeField] private float thumbOnIndexDist = 0.024f;
+
+    [Tooltip("Fallback OFF distance (meters) used before calibration.")]
+    [SerializeField] private float thumbOffIndexDist = 0.036f;
+
+    [Tooltip("Additional margin added to calibrated distBase for ON threshold (meters).")]
+    [SerializeField] private float pinchOnMargin = 0.005f;
+
+    [Tooltip("Additional margin added to calibrated distBase for OFF threshold (meters). Must be > pinchOnMargin.")]
+    [SerializeField] private float pinchOffMargin = 0.015f;
+
+    [Tooltip("Clamp range for distBase captured by calibration (meters).")]
+    [SerializeField] private Vector2 pinchBaseClampMeters = new Vector2(0.010f, 0.050f);
+
     [SerializeField] private float offConfirmSec = 0.10f;
     [SerializeField] private float onConfirmSec = 0.06f;
     [SerializeField] private float thumbIndexDistLerp = 18f;
@@ -58,6 +78,19 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
 
     [SerializeField] private float zToggleNeutralGate = 0.20f;
 
+    [Header("Calibration (external trigger)")]
+    [Tooltip("Default calibration window length (sec).")]
+    [SerializeField] private float defaultCalibWindowSec = 0.20f;
+
+    [Tooltip("Minimum number of accepted samples required to apply calibration.")]
+    [SerializeField] private int calibMinSamples = 6;
+
+    [Tooltip("Accept samples only when distRaw is <= this value (meters). Prevents capturing open-hand baseline.")]
+    [SerializeField] private float calibMaxAcceptDistMeters = 0.050f;
+
+    [Tooltip("If true, calibration accepts samples only when distRaw suggests contact.")]
+    [SerializeField] private bool calibRequireContactCandidate = true;
+
     [Header("Debug (read-only)")]
     [SerializeField] private bool debug = false;
     [SerializeField] private float debug_tRaw = -1f;
@@ -66,10 +99,18 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     [SerializeField] private float debug_thumbIndexDistSm = -1f;
     [SerializeField] private bool debug_thumbOnIndex = false;
     [SerializeField] private float debug_twistDeg = 0f;
+    [SerializeField] private float debug_twistRelDeg = 0f;
     [SerializeField] private float debug_twistVelDegPerSec = 0f;
     [SerializeField] private float debug_offHeldSec = 0f;
     [SerializeField] private bool debug_zArmed = false;
     [SerializeField] private string debug_state = "";
+    [SerializeField] private bool debug_isCalibrating = false;
+    [SerializeField] private bool debug_isCalibrated = false;
+    [SerializeField] private float debug_calibElapsed = 0f;
+    [SerializeField] private int debug_calibSamples = 0;
+    [SerializeField] private float debug_distBase = -1f;
+    [SerializeField] private float debug_onThresh = -1f;
+    [SerializeField] private float debug_offThresh = -1f;
 
     // Outputs
     public AxisMode Mode { get; private set; } = AxisMode.XY;
@@ -91,32 +132,52 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
     public bool Debug_zArmed => debug_zArmed;
     public string Debug_state => debug_state;
 
-    // Internal
-    float _tNeutral = 0.5f;
-    bool _neutralCaptured = false;
+    public bool IsCalibrating => _calibActive;
+    public bool IsCalibrated => _calibApplied;
 
-    float _slideSm = 0f;
-    float _twistSm = 0f;
+    // Internal: neutral / smoothing
+    private float _tNeutral = 0.5f;
+    private bool _neutralCaptured = false;
 
-    bool _thumbOnIndexStable = true;
-    float _offHeld = 0f;
-    float _onHeld = 0f;
+    private float _slideSm = 0f;
+    private float _twistSm = 0f;
 
-    float _thumbIndexDistSm = -1f;
-    float _tPrevUsed = 0.5f;
+    // ThumbOnIndex stable state
+    private bool _thumbOnIndexStable = true;
+    private float _offHeld = 0f;
+    private float _onHeld = 0f;
 
-    float _twistPrevDeg = 0f;
-    float _twistPrevTime = -999f;
+    private float _thumbIndexDistSm = -1f;
+    private float _tPrevUsed = 0.5f;
 
-    bool _inOffSegment = false;
-    float _offStartTime = -1f;
-    bool _modeToggleArmed = false;
-    float _modeToggleCooldownUntil = -999f;
+    // Twist velocity tracking
+    private float _twistPrevDeg = 0f;
+    private float _twistPrevTime = -999f;
 
-    int _lastRenderFrameId = -1;
+    // Mode toggle state
+    private bool _inOffSegment = false;
+    private float _offStartTime = -1f;
+    private bool _modeToggleArmed = false;
+    private float _modeToggleCooldownUntil = -999f;
 
-    // Reusable buffer for index polyline points: MCP -> (PIP) -> (DIP) -> TIP
-    readonly Vector3[] _indexPolylinePts = new Vector3[4];
+    // Render frame gating
+    private int _lastRenderFrameId = -1;
+
+    // Index rail polyline buffer
+    private readonly Vector3[] _indexPolylinePts = new Vector3[4];
+
+    // Calibration state
+    private bool _calibActive = false;
+    private float _calibWindowSec = 0.2f;
+    private float _calibElapsed = 0f;
+
+    private readonly List<float> _calibT = new List<float>(64);
+    private readonly List<float> _calibDist = new List<float>(64);
+    private readonly List<float> _calibTwistDeg = new List<float>(64);
+
+    private bool _calibApplied = false;
+    private float _pinchDistBase = -1f;
+    private float _twistNeutralDeg = 0f;
 
     void Update()
     {
@@ -145,6 +206,36 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         UpdateOutputs(dt, poseIsFresh: true);
     }
 
+    /// <summary>
+    /// Starts calibration over a time window. Captures:
+    /// - tNeutral (median of tUsed samples)
+    /// - pinch distance baseline distBase (median of distSm samples)
+    /// - twist neutral (median of twistDeg samples)
+    /// </summary>
+    public void BeginCalibration(float windowSec = -1f)
+    {
+        _calibActive = true;
+        _calibElapsed = 0f;
+        _calibWindowSec = (windowSec > 0f) ? windowSec : Mathf.Max(0.05f, defaultCalibWindowSec);
+
+        _calibT.Clear();
+        _calibDist.Clear();
+        _calibTwistDeg.Clear();
+
+        if (debug) debug_state = "Calibration started";
+    }
+
+    public void CancelCalibration()
+    {
+        _calibActive = false;
+        _calibElapsed = 0f;
+        _calibT.Clear();
+        _calibDist.Clear();
+        _calibTwistDeg.Clear();
+
+        if (debug) debug_state = "Calibration canceled";
+    }
+
     void UpdateOutputs(float dt, bool poseIsFresh)
     {
         if (debug) debug_state = "";
@@ -152,26 +243,22 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         // Joints
         Vector3 thumb = remoteHand.remoteByIndex[4].position;
 
-        // Index joints (5,6,7,8 in MediaPipe-style; 6/7 may be null depending on your runtime)
         Vector3 idxMcp = remoteHand.remoteByIndex[5].position;
         Vector3 idxTip = remoteHand.remoteByIndex[8].position;
 
         bool hasPip = (remoteHand.remoteByIndex.Length > 6 && remoteHand.remoteByIndex[6] != null);
         bool hasDip = (remoteHand.remoteByIndex.Length > 7 && remoteHand.remoteByIndex[7] != null);
 
-        int nPts = 0;
-        _indexPolylinePts[nPts++] = idxMcp;
-        if (hasPip) _indexPolylinePts[nPts++] = remoteHand.remoteByIndex[6].position;
-        if (hasDip) _indexPolylinePts[nPts++] = remoteHand.remoteByIndex[7].position;
-        _indexPolylinePts[nPts++] = idxTip;
+        // Build rail polyline points
+        int nPts = BuildIndexRailPolyline(idxMcp, idxTip, hasPip, hasDip);
 
-        // t + thumb-index distance (polyline-based; falls back to MCP->TIP if PIP/DIP unavailable)
+        // t + thumb-index distance (polyline-based)
         float distRaw;
         float tRaw = ProjectToPolylineT(thumb, _indexPolylinePts, nPts, out distRaw);
         debug_tRaw = tRaw;
         debug_thumbIndexDistRaw = distRaw;
 
-        // smooth distance
+        // Smooth distance
         float distSm = distRaw;
         if (thumbIndexDistLerp > 0.01f)
         {
@@ -186,7 +273,7 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         }
         debug_thumbIndexDistSm = distSm;
 
-        // twist + velocity (poseIsFresh-aware to avoid velocity spikes when pose is unchanged)
+        // Twist + velocity (poseIsFresh-aware)
         float twistDeg = (remoteHand != null) ? remoteHand.TwistDegrees : 0f;
         debug_twistDeg = twistDeg;
 
@@ -196,25 +283,65 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         if (poseIsFresh)
         {
             float dtTw = (_twistPrevTime < 0f) ? dt : Mathf.Max(1e-4f, now - _twistPrevTime);
-            twistVel = (twistDeg - _twistPrevDeg) / dtTw;
+            float dDeg = Mathf.DeltaAngle(_twistPrevDeg, twistDeg);
+            twistVel = dDeg / dtTw;
 
             _twistPrevDeg = twistDeg;
             _twistPrevTime = now;
         }
         else
         {
-            // Do not update prev time/deg here; let dtTw accumulate until next fresh pose arrives.
             twistVel = 0f;
         }
 
         debug_twistVelDegPerSec = twistVel;
-
         bool twistActive = Mathf.Abs(twistVel) >= Mathf.Max(0f, twistActiveVelDegPerSec);
 
-        // update thumb-on-index stable (suppresses false OFF during twist)
+        // Stabilize t against twist cross-talk
+        float tUsed = tRaw;
+        if (twistActive)
+        {
+            if (Mathf.Abs(tRaw - _tPrevUsed) <= Mathf.Max(0f, tJitterHoldDelta))
+                tUsed = _tPrevUsed;
+        }
+        _tPrevUsed = tUsed;
+        debug_tUsed = tUsed;
+
+        // Calibration sampling (fresh poses only)
+        if (_calibActive && poseIsFresh)
+        {
+            bool accept = true;
+            if (calibRequireContactCandidate)
+                accept = distRaw <= Mathf.Max(0f, calibMaxAcceptDistMeters);
+
+            if (accept)
+            {
+                _calibT.Add(tUsed);
+                _calibDist.Add(distSm);
+                _calibTwistDeg.Add(twistDeg);
+            }
+
+            _calibElapsed += dt;
+
+            if (_calibElapsed >= _calibWindowSec)
+                FinalizeCalibration();
+        }
+
+        // Twist relative to calibrated neutral
+        float twistRelDeg = (_calibApplied)
+            ? Mathf.DeltaAngle(_twistNeutralDeg, twistDeg)
+            : twistDeg;
+
+        debug_twistRelDeg = twistRelDeg;
+
+        // Update thumb-on-index stable (adaptive thresholds if calibrated)
         bool prevThumbOn = _thumbOnIndexStable;
-        UpdateThumbOnIndexStable(dt, distSm, twistActive);
+        UpdateThumbOnIndexStable(dt, distRaw, distSm, twistActive, out float onThresh, out float offThresh);
+
         debug_thumbOnIndex = _thumbOnIndexStable;
+        debug_distBase = _pinchDistBase;
+        debug_onThresh = onThresh;
+        debug_offThresh = offThresh;
 
         // OFF segment edges for mode toggle
         if (prevThumbOn && !_thumbOnIndexStable)
@@ -269,22 +396,20 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
             }
         }
 
-        // Stabilize t against twist cross-talk
-        float tUsed = tRaw;
-        if (twistActive)
-        {
-            if (Mathf.Abs(tRaw - _tPrevUsed) <= Mathf.Max(0f, tJitterHoldDelta))
-                tUsed = _tPrevUsed;
-        }
-        _tPrevUsed = tUsed;
-        debug_tUsed = tUsed;
-
         // Slide target from tUsed (only when thumb ON index; otherwise hold)
         float slideTarget = _slideSm;
 
         if (_thumbOnIndexStable)
         {
-            if (useFixedNeutralMidpoint)
+            // Neutral definition:
+            // - If calibration applied: use captured neutral
+            // - Else if fixed midpoint enabled: fixedNeutralT
+            // - Else capture once at first stable ON
+            if (_calibApplied)
+            {
+                _neutralCaptured = true;
+            }
+            else if (useFixedNeutralMidpoint)
             {
                 _tNeutral = fixedNeutralT;
                 _neutralCaptured = true;
@@ -326,7 +451,7 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         float twistTarget = 0f;
         {
             float denom = Mathf.Max(1e-3f, Mathf.Abs(twistMaxAbsDegForNormalize));
-            float v = Mathf.Clamp(twistDeg / denom, -1f, 1f);
+            float v = Mathf.Clamp(twistRelDeg / denom, -1f, 1f);
 
             float dz = Mathf.Max(0f, twistDeadZoneNorm);
             if (Mathf.Abs(v) < dz) v = 0f;
@@ -366,30 +491,101 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
             AxisZ = _slideSm;  // slide -> Z
         }
 
+        // Debug flags
+        debug_isCalibrating = _calibActive;
+        debug_isCalibrated = _calibApplied;
+        debug_calibElapsed = _calibElapsed;
+        debug_calibSamples = _calibDist.Count;
+
         if (debug && string.IsNullOrEmpty(debug_state))
-            debug_state = (Mode == AxisMode.XY) ? "Mode=XY (Slide->X, Twist->Y)" : "Mode=Z (Slide->Z, Twist->Y)";
+        {
+            if (_calibActive) debug_state = "Calibrating...";
+            else debug_state = (Mode == AxisMode.XY) ? "Mode=XY (Slide->X, Twist->Y)" : "Mode=Z (Slide->Z, Twist->Y)";
+        }
+    }
+
+    private void FinalizeCalibration()
+    {
+        _calibActive = false;
+
+        if (_calibDist.Count < Mathf.Max(1, calibMinSamples))
+        {
+            if (debug) debug_state = "Calibration failed (insufficient samples)";
+            return;
+        }
+
+        float tMed = Median(_calibT);
+        float distMed = Median(_calibDist);
+        float twistMed = Median(_calibTwistDeg);
+
+        // Apply clamp to dist baseline
+        float dMin = Mathf.Min(pinchBaseClampMeters.x, pinchBaseClampMeters.y);
+        float dMax = Mathf.Max(pinchBaseClampMeters.x, pinchBaseClampMeters.y);
+        distMed = Mathf.Clamp(distMed, dMin, dMax);
+
+        _tNeutral = Mathf.Clamp01(tMed);
+        _pinchDistBase = distMed;
+        _twistNeutralDeg = twistMed;
+
+        _calibApplied = true;
+        _neutralCaptured = true;
+
+        // Reset outputs to avoid sudden jumps after calibration
+        _slideSm = 0f;
+        _twistSm = 0f;
+        AxisValue = AxisX = AxisY = AxisZ = 0f;
+
+        // Reset thumb stable timers
+        _offHeld = 0f;
+        _onHeld = 0f;
+
+        // Reset twist velocity tracking to avoid spikes
+        _twistPrevDeg = twistMed;
+        _twistPrevTime = Time.time;
+
+        if (debug) debug_state = "Calibration applied (tNeutral/distBase/twistNeutral)";
     }
 
     void ToggleModeXY_Z()
     {
         Mode = (Mode == AxisMode.XY) ? AxisMode.Z : AxisMode.XY;
 
-        // Optional: clear slide to avoid surprise if used by different axis after toggle
+        // Clear slide to avoid axis surprise after toggle
         _slideSm = 0f;
         AxisX = 0f;
         AxisZ = 0f;
         AxisValue = 0f;
     }
 
-    void UpdateThumbOnIndexStable(float dt, float distSm, bool twistActive)
+    void UpdateThumbOnIndexStable(float dt, float distRaw, float distSm, bool twistActive, out float onThresh, out float offThresh)
     {
-        bool onCandidate = distSm <= Mathf.Max(0f, thumbOnIndexDist);
+        // Threshold source:
+        // - If calibrated: distBase + margins
+        // - Else: fallback absolute thresholds
+        float onT, offT;
 
-        float offThresh = Mathf.Max(thumbOffIndexDist, thumbOnIndexDist + 0.001f);
+        if (_calibApplied && _pinchDistBase > 0f)
+        {
+            onT = _pinchDistBase + Mathf.Max(0f, pinchOnMargin);
+            offT = _pinchDistBase + Mathf.Max(Mathf.Max(0f, pinchOffMargin), Mathf.Max(0f, pinchOnMargin) + 0.001f);
+        }
+        else
+        {
+            onT = Mathf.Max(0f, thumbOnIndexDist);
+            offT = Mathf.Max(thumbOffIndexDist, onT + 0.001f);
+        }
+
         if (twistActive)
-            offThresh += Mathf.Max(0f, offExtraMarginWhileTwisting);
+            offT += Mathf.Max(0f, offExtraMarginWhileTwisting);
 
-        bool offCandidate = distSm >= offThresh;
+        onThresh = onT;
+        offThresh = offT;
+
+        // Candidate rules:
+        // - ON: use distRaw for fast latch
+        // - OFF: use distSm for stable unlatch
+        bool onCandidate = distRaw <= onT;
+        bool offCandidate = distSm >= offT;
 
         if (_thumbOnIndexStable)
         {
@@ -429,9 +625,45 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         }
     }
 
+    // Builds the index rail polyline points.
+    // Default (usePipDipTipRail=true): PIP->(DIP)->TIP; fallback DIP->TIP; last resort MCP->TIP.
+    int BuildIndexRailPolyline(Vector3 idxMcp, Vector3 idxTip, bool hasPip, bool hasDip)
+    {
+        int nPts = 0;
+
+        if (usePipDipTipRail)
+        {
+            if (hasPip)
+            {
+                _indexPolylinePts[nPts++] = remoteHand.remoteByIndex[6].position; // PIP
+                if (hasDip) _indexPolylinePts[nPts++] = remoteHand.remoteByIndex[7].position; // DIP
+                _indexPolylinePts[nPts++] = idxTip; // TIP
+                return nPts;
+            }
+
+            if (hasDip)
+            {
+                _indexPolylinePts[nPts++] = remoteHand.remoteByIndex[7].position; // DIP
+                _indexPolylinePts[nPts++] = idxTip; // TIP
+                return nPts;
+            }
+
+            // Last resort when PIP/DIP are unavailable
+            _indexPolylinePts[nPts++] = idxMcp; // MCP
+            _indexPolylinePts[nPts++] = idxTip; // TIP
+            return nPts;
+        }
+
+        // Legacy rail: MCP -> (PIP) -> (DIP) -> TIP
+        _indexPolylinePts[nPts++] = idxMcp;
+        if (hasPip) _indexPolylinePts[nPts++] = remoteHand.remoteByIndex[6].position;
+        if (hasDip) _indexPolylinePts[nPts++] = remoteHand.remoteByIndex[7].position;
+        _indexPolylinePts[nPts++] = idxTip;
+        return nPts;
+    }
+
     // Polyline-based projection:
     // Returns t in [0,1] along the polyline length, and minDist as the closest distance to any segment.
-    // This makes both t and distance more stable when the index finger is bent.
     static float ProjectToPolylineT(Vector3 p, Vector3[] pts, int count, out float minDist)
     {
         minDist = float.PositiveInfinity;
@@ -499,6 +731,16 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         return Mathf.Sign(d) * x;
     }
 
+    static float Median(List<float> xs)
+    {
+        if (xs == null || xs.Count == 0) return 0f;
+        xs.Sort();
+        int n = xs.Count;
+        int mid = n / 2;
+        if ((n & 1) == 1) return xs[mid];
+        return 0.5f * (xs[mid - 1] + xs[mid]);
+    }
+
     bool HasRequiredJoints()
     {
         if (remoteHand == null) return false;
@@ -506,10 +748,10 @@ public class MicroThumbIndexSliderInput : MonoBehaviour
         if (remoteHand.remoteByIndex.Length < 9) return false;
 
         if (remoteHand.remoteByIndex[4] == null) return false; // thumb tip
-        if (remoteHand.remoteByIndex[5] == null) return false; // index mcp
+        if (remoteHand.remoteByIndex[5] == null) return false; // index mcp (used as last resort fallback)
         if (remoteHand.remoteByIndex[8] == null) return false; // index tip
 
-        // index PIP (6) / DIP (7) are optional; script will fall back to MCP->TIP segment if missing
+        // index PIP (6) / DIP (7) are optional
         return true;
     }
 }
