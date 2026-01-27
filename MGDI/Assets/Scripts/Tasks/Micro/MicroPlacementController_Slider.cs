@@ -16,7 +16,12 @@ public class MicroPlacementController_Slider : MonoBehaviour
 
     [Header("Mapping")]
     [SerializeField] private ControlledAxis controlledAxis = ControlledAxis.X;
-    [SerializeField] private float speedMetersPerSec = 0.18f;
+
+    [Tooltip("Base speed for slide (X/Z) in meters/sec.")]
+    [SerializeField] private float slideSpeedMetersPerSec = 0.10f;
+
+    [Tooltip("Base speed for twist->Y in meters/sec.")]
+    [SerializeField] private float ySpeedMetersPerSec = 0.06f;
 
     [Tooltip("If true, axes are camera-relative. If false, world axes.")]
     [SerializeField] private bool useCameraFrame = true;
@@ -36,6 +41,21 @@ public class MicroPlacementController_Slider : MonoBehaviour
     [Tooltip("If true, slide direction follows input.Mode (XY->X, Z->Z) when controlling slide.")]
     [SerializeField] private bool followInputModeForSlide = true;
 
+    [Header("Patch 2: Precision curve (gamma)")]
+    [Tooltip("Gamma for slide precision. >1 compresses small inputs for finer control.")]
+    [SerializeField] private float slidePrecisionGamma = 2.0f;
+
+    [Tooltip("Gamma for Y precision. >1 compresses small inputs for finer control.")]
+    [SerializeField] private float yPrecisionGamma = 2.6f;
+
+    [Header("Patch 3: Two-stage speed (auto precision)")]
+    [Tooltip("If |v| is below this, apply precisionSpeedScale for finer motion.")]
+    [SerializeField] private float precisionBandAbs = 0.40f;
+
+    [Tooltip("Speed multiplier when in the precision band.")]
+    [Range(0.05f, 1f)]
+    [SerializeField] private float precisionSpeedScale = 0.35f;
+
     bool _yMode = false;
     float _enterHeld = 0f;
     float _exitHeld = 0f;
@@ -47,8 +67,8 @@ public class MicroPlacementController_Slider : MonoBehaviour
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
 
-        float slide = input.AxisValue;
-        float twist = input.AxisY;
+        float slide = input.AxisValue; // [-1..1]
+        float twist = input.AxisY;     // [-1..1]
 
         if (autoSwitchToYByTwist)
         {
@@ -59,22 +79,33 @@ public class MicroPlacementController_Slider : MonoBehaviour
             _yMode = (controlledAxis == ControlledAxis.Y);
         }
 
-        float v;
+        float vRaw;
+        float vShaped;
+        float speed;
         Vector3 axis;
 
         if (_yMode)
         {
-            v = twist;
+            vRaw = twist;
+            vShaped = ApplyPrecisionCurve(vRaw, yPrecisionGamma);
+            speed = ySpeedMetersPerSec;
             axis = GetAxisY();
         }
         else
         {
-            v = slide;
+            vRaw = slide;
+            vShaped = ApplyPrecisionCurve(vRaw, slidePrecisionGamma);
+            speed = slideSpeedMetersPerSec;
             axis = GetSlideAxis();
         }
 
-        if (Mathf.Abs(v) < 1e-5f) return;
-        blockRoot.position += axis * (v * speedMetersPerSec * dt);
+        // Patch 3: auto precision speed scaling near center
+        if (Mathf.Abs(vShaped) <= Mathf.Max(0f, precisionBandAbs))
+            speed *= Mathf.Clamp(precisionSpeedScale, 0.05f, 1f);
+
+        if (Mathf.Abs(vShaped) < 1e-5f) return;
+
+        blockRoot.position += axis * (vShaped * speed * dt);
     }
 
     void UpdateYMode(float dt, float twist)
@@ -117,6 +148,17 @@ public class MicroPlacementController_Slider : MonoBehaviour
         }
     }
 
+    static float ApplyPrecisionCurve(float v, float gamma)
+    {
+        float a = Mathf.Abs(v);
+        float g = Mathf.Max(1e-3f, gamma);
+
+        if (Mathf.Abs(g - 1f) > 1e-3f)
+            a = Mathf.Pow(a, g);
+
+        return Mathf.Sign(v) * a;
+    }
+
     Vector3 GetAxisY()
     {
         if (useCameraFrame && Camera.main != null) return Camera.main.transform.up;
@@ -125,7 +167,7 @@ public class MicroPlacementController_Slider : MonoBehaviour
 
     Vector3 GetSlideAxis()
     {
-        bool useZ = false;
+        bool useZ;
 
         if (followInputModeForSlide)
             useZ = (input.Mode == MicroThumbIndexSliderInput.AxisMode.Z);
