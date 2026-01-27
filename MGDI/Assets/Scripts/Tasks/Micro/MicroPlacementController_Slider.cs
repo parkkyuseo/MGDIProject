@@ -4,9 +4,9 @@ public class MicroPlacementController_Slider : MonoBehaviour
 {
     public enum ControlledAxis
     {
-        X = 0, // slide (uses AxisValue); direction can follow input.Mode
-        Y = 1, // twist (AxisY)
-        Z = 2  // slide (uses AxisValue); direction can follow input.Mode
+        X = 0,
+        Y = 1,
+        Z = 2
     }
 
     [Header("References")]
@@ -21,8 +21,24 @@ public class MicroPlacementController_Slider : MonoBehaviour
     [Tooltip("If true, axes are camera-relative. If false, world axes.")]
     [SerializeField] private bool useCameraFrame = true;
 
-    [Tooltip("If true and ControlledAxis is X or Z, slide direction follows input.Mode (XY->X, Z->Z).")]
+    [Header("Auto switch: Slide (X/Z) <-> Twist (Y)")]
+    [SerializeField] private bool autoSwitchToYByTwist = true;
+
+    [Tooltip("Enter Y-control when |AxisY| >= this.")]
+    [SerializeField] private float yEnterAbs = 0.30f;
+
+    [Tooltip("Exit Y-control when |AxisY| <= this.")]
+    [SerializeField] private float yExitAbs = 0.20f;
+
+    [Tooltip("Time (sec) that the condition must hold before switching.")]
+    [SerializeField] private float switchConfirmSec = 0.06f;
+
+    [Tooltip("If true, slide direction follows input.Mode (XY->X, Z->Z) when controlling slide.")]
     [SerializeField] private bool followInputModeForSlide = true;
+
+    bool _yMode = false;
+    float _enterHeld = 0f;
+    float _exitHeld = 0f;
 
     void Update()
     {
@@ -31,54 +47,97 @@ public class MicroPlacementController_Slider : MonoBehaviour
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
 
-        // Driving value
-        float v;
-        if (controlledAxis == ControlledAxis.Y)
+        float slide = input.AxisValue;
+        float twist = input.AxisY;
+
+        if (autoSwitchToYByTwist)
         {
-            v = input.AxisY;          // twist
+            UpdateYMode(dt, twist);
         }
         else
         {
-            v = input.AxisValue;      // slide (always available regardless of Mode)
+            _yMode = (controlledAxis == ControlledAxis.Y);
+        }
+
+        float v;
+        Vector3 axis;
+
+        if (_yMode)
+        {
+            v = twist;
+            axis = GetAxisY();
+        }
+        else
+        {
+            v = slide;
+            axis = GetSlideAxis();
         }
 
         if (Mathf.Abs(v) < 1e-5f) return;
-
-        // Direction axis
-        Vector3 axis = GetAxisDirection();
-
         blockRoot.position += axis * (v * speedMetersPerSec * dt);
     }
 
-    private Vector3 GetAxisDirection()
+    void UpdateYMode(float dt, float twist)
     {
-        bool isSlide = controlledAxis != ControlledAxis.Y;
+        float a = Mathf.Abs(twist);
 
-        if (useCameraFrame && Camera.main != null)
+        if (!_yMode)
         {
-            Transform cam = Camera.main.transform;
-
-            if (isSlide)
+            if (a >= Mathf.Max(0f, yEnterAbs))
             {
-                if (followInputModeForSlide)
-                    return (input.Mode == MicroThumbIndexSliderInput.AxisMode.XY) ? cam.right : cam.forward;
-
-                return (controlledAxis == ControlledAxis.X) ? cam.right : cam.forward;
+                _enterHeld += dt;
+                _exitHeld = 0f;
+                if (_enterHeld >= Mathf.Max(0.01f, switchConfirmSec))
+                {
+                    _yMode = true;
+                    _enterHeld = 0f;
+                }
             }
-
-            return cam.up;
+            else
+            {
+                _enterHeld = 0f;
+            }
         }
         else
         {
-            if (isSlide)
+            if (a <= Mathf.Max(0f, yExitAbs))
             {
-                if (followInputModeForSlide)
-                    return (input.Mode == MicroThumbIndexSliderInput.AxisMode.XY) ? Vector3.right : Vector3.forward;
-
-                return (controlledAxis == ControlledAxis.X) ? Vector3.right : Vector3.forward;
+                _exitHeld += dt;
+                _enterHeld = 0f;
+                if (_exitHeld >= Mathf.Max(0.01f, switchConfirmSec))
+                {
+                    _yMode = false;
+                    _exitHeld = 0f;
+                }
             }
-
-            return Vector3.up;
+            else
+            {
+                _exitHeld = 0f;
+            }
         }
+    }
+
+    Vector3 GetAxisY()
+    {
+        if (useCameraFrame && Camera.main != null) return Camera.main.transform.up;
+        return Vector3.up;
+    }
+
+    Vector3 GetSlideAxis()
+    {
+        bool useZ = false;
+
+        if (followInputModeForSlide)
+            useZ = (input.Mode == MicroThumbIndexSliderInput.AxisMode.Z);
+        else
+            useZ = (controlledAxis == ControlledAxis.Z);
+
+        if (useCameraFrame && Camera.main != null)
+        {
+            var cam = Camera.main.transform;
+            return useZ ? cam.forward : cam.right;
+        }
+
+        return useZ ? Vector3.forward : Vector3.right;
     }
 }
