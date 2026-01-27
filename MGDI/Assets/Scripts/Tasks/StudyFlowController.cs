@@ -69,6 +69,9 @@ public class StudyFlowController : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool showHUDInEditor = true;
 
+    [SerializeField] private MicroThumbIndexSliderInput microSliderInput;
+    [SerializeField] private float microCalibWindowSec = 0.20f;
+
     // Existing task commands
     public string cmdStartPlacement = "start placement";
     public string cmdStartRotation = "start rotation";
@@ -121,9 +124,24 @@ public class StudyFlowController : MonoBehaviour
             { cmdStartScaling.ToLower(),   () => StartTask(TaskType.Scaling) },
 
             // NEW: one-shot micro starts
-            { cmdStartMicroPlacement.ToLower(), () => StartTechniqueAndTask(Technique.Micro, TaskType.Placement) },
-            { cmdStartMicroRotation.ToLower(),  () => StartTechniqueAndTask(Technique.Micro, TaskType.Rotation) },
-            { cmdStartMicroScaling.ToLower(),   () => StartTechniqueAndTask(Technique.Micro, TaskType.Scaling) },
+            { cmdStartMicroPlacement.ToLower(), () =>
+              {
+                  microSliderInput?.BeginCalibration(microCalibWindowSec);
+                  StartTechniqueAndTask(Technique.Micro, TaskType.Placement);
+              }
+            },
+            { cmdStartMicroRotation.ToLower(), () =>
+              {
+                  microSliderInput?.BeginCalibration(microCalibWindowSec);
+                  StartTechniqueAndTask(Technique.Micro, TaskType.Rotation);
+              }
+            },
+            { cmdStartMicroScaling.ToLower(), () =>
+              {
+                  microSliderInput?.BeginCalibration(microCalibWindowSec);
+                  StartTechniqueAndTask(Technique.Micro, TaskType.Scaling);
+              }
+            },
 
             // Optional: one-shot macro starts
             { cmdStartMacroPlacement.ToLower(), () => StartTechniqueAndTask(Technique.Macro, TaskType.Placement) },
@@ -134,7 +152,7 @@ public class StudyFlowController : MonoBehaviour
             { cmdNext.ToLower(),    NextConditionAndRestart },
 
             { cmdMacro.ToLower(), () => SetTechnique(Technique.Macro, restart:true) },
-            { cmdMicro.ToLower(), () => SetTechnique(Technique.Micro, restart:true) },
+            { cmdMicro.ToLower(), () => { microSliderInput?.BeginCalibration(microCalibWindowSec); SetTechnique(Technique.Micro, restart:true); } },
 
             { cmdNear.ToLower(),      () => SetHandLocation(WorkspaceAnchorController.HandLocation.NearHead, restart:false) },
             { cmdSideLeft.ToLower(),  () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyLeft, restart:false) },
