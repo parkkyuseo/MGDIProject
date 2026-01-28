@@ -41,14 +41,14 @@ public class MicroPlacementController_Slider : MonoBehaviour
     [Tooltip("If true, slide direction follows input.Mode (XY->X, Z->Z) when controlling slide.")]
     [SerializeField] private bool followInputModeForSlide = true;
 
-    [Header("Patch 2: Precision curve (gamma)")]
+    [Header("Precision curve (gamma)")]
     [Tooltip("Gamma for slide precision. >1 compresses small inputs for finer control.")]
     [SerializeField] private float slidePrecisionGamma = 2.0f;
 
     [Tooltip("Gamma for Y precision. >1 compresses small inputs for finer control.")]
     [SerializeField] private float yPrecisionGamma = 2.6f;
 
-    [Header("Patch 3: Two-stage speed (auto precision)")]
+    [Header("Two-stage speed (auto precision)")]
     [Tooltip("If |v| is below this, apply precisionSpeedScale for finer motion.")]
     [SerializeField] private float precisionBandAbs = 0.40f;
 
@@ -56,9 +56,30 @@ public class MicroPlacementController_Slider : MonoBehaviour
     [Range(0.05f, 1f)]
     [SerializeField] private float precisionSpeedScale = 0.35f;
 
-    bool _yMode = false;
-    float _enterHeld = 0f;
-    float _exitHeld = 0f;
+    [Header("Gate: stop motion when ThumbOnIndex is OFF")]
+    [SerializeField] private bool stopMotionWhenThumbOff = true;
+
+    [Tooltip("If true, clears internal Y-mode latch and timers while ThumbOnIndex is OFF.")]
+    [SerializeField] private bool resetYModeWhenThumbOff = true;
+
+    [Header("Reattach smoothing (OFF -> ON)")]
+    [Tooltip("Ignore movement for this duration after ThumbOnIndex becomes ON (sec).")]
+    [SerializeField] private float reattachSuppressSec = 0.08f;
+
+    [Tooltip("After suppressing, ramp movement strength from 0->1 over this duration (sec).")]
+    [SerializeField] private float reattachRampSec = 0.12f;
+
+    [Tooltip("If true, uses a smooth ramp after suppress window.")]
+    [SerializeField] private bool useReattachRamp = true;
+
+    // Internal state
+    private bool _yMode = false;
+    private float _enterHeld = 0f;
+    private float _exitHeld = 0f;
+
+    private bool _prevThumbOn = true;
+    private float _suppressUntil = -999f;
+    private float _rampStartTime = -999f;
 
     void Update()
     {
@@ -66,6 +87,35 @@ public class MicroPlacementController_Slider : MonoBehaviour
         if (!placementTask.IsTrialRunning) return;
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+
+        // Gate by ThumbOnIndex stable state
+        bool thumbOn = input.Debug_thumbOnIndex;
+
+        if (stopMotionWhenThumbOff)
+        {
+            if (!thumbOn)
+            {
+                if (resetYModeWhenThumbOff)
+                    ResetYModeState();
+
+                _prevThumbOn = false;
+                return;
+            }
+
+            // OFF -> ON edge: suppress then ramp
+            if (!_prevThumbOn && thumbOn)
+            {
+                ResetYModeState();
+                _suppressUntil = Time.time + Mathf.Max(0f, reattachSuppressSec);
+                _rampStartTime = _suppressUntil;
+            }
+        }
+
+        _prevThumbOn = thumbOn;
+
+        // Suppress movement immediately after reattach
+        if (stopMotionWhenThumbOff && Time.time < _suppressUntil)
+            return;
 
         float slide = input.AxisValue; // [-1..1]
         float twist = input.AxisY;     // [-1..1]
@@ -99,16 +149,35 @@ public class MicroPlacementController_Slider : MonoBehaviour
             axis = GetSlideAxis();
         }
 
-        // Patch 3: auto precision speed scaling near center
+        // Two-stage speed: precision band
         if (Mathf.Abs(vShaped) <= Mathf.Max(0f, precisionBandAbs))
             speed *= Mathf.Clamp(precisionSpeedScale, 0.05f, 1f);
+
+        // Reattach ramp (after suppress window)
+        float reattachFactor = 1f;
+        if (stopMotionWhenThumbOff && useReattachRamp && reattachRampSec > 1e-4f)
+        {
+            float t = (Time.time - _rampStartTime) / reattachRampSec;
+            t = Mathf.Clamp01(t);
+            // SmoothStep(0->1): starts gentle, ends gentle
+            reattachFactor = t * t * (3f - 2f * t);
+        }
+
+        vShaped *= reattachFactor;
 
         if (Mathf.Abs(vShaped) < 1e-5f) return;
 
         blockRoot.position += axis * (vShaped * speed * dt);
     }
 
-    void UpdateYMode(float dt, float twist)
+    private void ResetYModeState()
+    {
+        _yMode = false;
+        _enterHeld = 0f;
+        _exitHeld = 0f;
+    }
+
+    private void UpdateYMode(float dt, float twist)
     {
         float a = Mathf.Abs(twist);
 
@@ -148,7 +217,7 @@ public class MicroPlacementController_Slider : MonoBehaviour
         }
     }
 
-    static float ApplyPrecisionCurve(float v, float gamma)
+    private static float ApplyPrecisionCurve(float v, float gamma)
     {
         float a = Mathf.Abs(v);
         float g = Mathf.Max(1e-3f, gamma);
@@ -159,13 +228,13 @@ public class MicroPlacementController_Slider : MonoBehaviour
         return Mathf.Sign(v) * a;
     }
 
-    Vector3 GetAxisY()
+    private Vector3 GetAxisY()
     {
         if (useCameraFrame && Camera.main != null) return Camera.main.transform.up;
         return Vector3.up;
     }
 
-    Vector3 GetSlideAxis()
+    private Vector3 GetSlideAxis()
     {
         bool useZ;
 
