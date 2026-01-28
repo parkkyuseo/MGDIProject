@@ -13,7 +13,7 @@ python demo_min3d_dyn.py `
   --hz 60 `
   --gesture `
   --gesture-every 1 `
-  --vis-scale 0.5 `
+  --vis-scale 0.7 `
   --z-log-interval 1.0 `
   --mp-det-conf 0.30 `
   --mp-track-conf 0.50 `

@@ -1907,7 +1907,7 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 12
+  trialTimeoutSeconds: 180
   dwellSeconds: 0.2
   yawToleranceDeg: 10
   twistToYawGain: 1.5
@@ -3685,7 +3685,7 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 12
+  trialTimeoutSeconds: 180
   dwellSeconds: 0.2
   scaleFactorTolerance: 0.05
   targetFactorMin: 0.7
@@ -5244,6 +5244,8 @@ MonoBehaviour:
   scalingGrabberMode: 1
   enableVoice: 1
   showHUDInEditor: 1
+  microSliderInput: {fileID: 2041029878}
+  microCalibWindowSec: 0.2
   cmdStartPlacement: start placement
   cmdStartRotation: start rotation
   cmdStartScaling: start scaling
@@ -5738,8 +5740,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   input: {fileID: 2041029878}
   statusText: {fileID: 1612699147}
-  showAxisValue: 1
-  showRawT: 1
 --- !u!114 &1612699152
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5754,6 +5754,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   input: {fileID: 2041029878}
   statusText: {fileID: 1612699147}
+  showOutputs: 1
+  showPinchAndCalibration: 1
+  showTwist: 1
+  showToggle: 1
+  showState: 1
 --- !u!1001 &1613066970
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6208,6 +6213,10 @@ MonoBehaviour:
   indexTipFast: {x: 0, y: 0, z: 0}
   middleTipFast: {x: 0, y: 0, z: 0}
   fastTipsReady: 0
+  thumbTipRaw: {x: 0, y: 0, z: 0}
+  indexTipRaw: {x: 0, y: 0, z: 0}
+  middleTipRaw: {x: 0, y: 0, z: 0}
+  rawTipsReady: 0
   useOneEuro: 1
   oneEuroDerivativeCutoffHz: 5
   oneEuroMinCutoffWristHz: 1.5
@@ -6917,13 +6926,13 @@ MonoBehaviour:
   starUI: {fileID: 1610688646}
   xUI: {fileID: 991644837}
   feedbackShowSeconds: 0.5
-  trialTimeoutSeconds: 30
+  trialTimeoutSeconds: 180
   dwellSeconds: 0.2
   minTolMeters: 0.02
   snapOnSuccess: 1
   postSnapHoldSeconds: 0.35
   resetBlockToStartAfterTrial: 1
-  totalTrials: 3
+  totalTrials: 5
   enableVoiceStart: 0
   startKeyword: start
   restartKeyword: restart
@@ -7378,6 +7387,14 @@ MonoBehaviour:
   scalingTask: {fileID: 1136784225}
   blockRoot: {fileID: 168584006}
   scaleGainPerSec: 1.6
+  invertScale: 0
+  scalePrecisionGamma: 1.7
+  precisionBandAbs: 0.4
+  precisionSpeedScale: 0.35
+  stopScalingWhenThumbOff: 1
+  reattachSuppressSec: 0.05
+  reattachRampSec: 0.1
+  useReattachRamp: 1
   minFactor: 0.6
   maxFactor: 1.8
 --- !u!114 &2041029876
@@ -7396,6 +7413,14 @@ MonoBehaviour:
   rotationTask: {fileID: 584929088}
   blockRoot: {fileID: 168584006}
   yawSpeedDegPerSec: 120
+  invertYaw: 0
+  yawPrecisionGamma: 1.7
+  precisionBandAbs: 0.4
+  precisionSpeedScale: 0.35
+  stopRotationWhenThumbOff: 1
+  reattachSuppressSec: 0.05
+  reattachRampSec: 0.1
+  useReattachRamp: 1
 --- !u!114 &2041029877
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7411,8 +7436,24 @@ MonoBehaviour:
   input: {fileID: 2041029878}
   placementTask: {fileID: 1964408501}
   blockRoot: {fileID: 168584006}
-  speedMetersPerSec: 0.18
+  controlledAxis: 0
+  slideSpeedMetersPerSec: 0.1
+  ySpeedMetersPerSec: 0.06
   useCameraFrame: 1
+  autoSwitchToYByTwist: 1
+  yEnterAbs: 0.3
+  yExitAbs: 0.2
+  switchConfirmSec: 0.03
+  followInputModeForSlide: 1
+  slidePrecisionGamma: 1.7
+  yPrecisionGamma: 2.6
+  precisionBandAbs: 0.4
+  precisionSpeedScale: 0.35
+  stopMotionWhenThumbOff: 1
+  resetYModeWhenThumbOff: 1
+  reattachSuppressSec: 0.05
+  reattachRampSec: 0.1
+  useReattachRamp: 1
 --- !u!114 &2041029878
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7426,37 +7467,58 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   remoteHand: {fileID: 1722393066}
-  useProjection: 1
-  useFixedNeutralMidpoint: 1
-  fixedNeutralT: 0.5
+  usePipDipTipRail: 1
   deadZoneT: 0.12
-  fullScaleT: 0.4
+  fullScaleT: 0.35
   gamma: 1.6
   outputLerp: 14
   maxOutputRatePerSec: 6
-  invertAxis: 0
-  touchOnRatio: 0.55
-  touchOffRatio: 0.88
-  minFingerLenMeters: 0.03
-  debounceSeconds: 0.04
-  doubleTapWindowSec: 0.35
-  tapCooldownSec: 0.12
-  gateTapToCenterZone: 1
-  tapCenterBand: 0.18
-  tapMinIntervalSec: 0
-  blockTapsWhileThumbOnIndex: 1
-  thumbOnIndexDist: 0.018
-  thumbOffIndexDist: 0.028
-  useBoneSumForMiddleLength: 1
-  touchDistLerp: 25
-  singleTapTogglesXY: 1
-  doubleTapTogglesZ: 1
+  useFixedNeutralMidpoint: 1
+  fixedNeutralT: 0.6
+  invertSlide: 1
+  twistMaxAbsDegForNormalize: 45
+  twistDeadZoneNorm: 0.06
+  twistOutputLerp: 16
+  invertTwist: 0
+  thumbOnIndexDist: 0.04
+  thumbOffIndexDist: 0.05
+  pinchOnMargin: 0.005
+  pinchOffMargin: 0.025
+  pinchBaseClampMeters: {x: 0.01, y: 0.05}
+  offConfirmSec: 0.07
+  onConfirmSec: 0.03
+  thumbIndexDistLerp: 24
+  twistActiveVelDegPerSec: 120
+  tJitterHoldDelta: 0.01
+  offExtraMarginWhileTwisting: 0.01
+  zToggleHoldSec: 0.4
+  zToggleCooldownSec: 0.3
+  requireNeutralForZToggle: 1
+  zToggleNeutralGate: 0.3
+  defaultCalibWindowSec: 0.2
+  autoCalibrateOnStart: 0
+  calibMinSamples: 6
+  calibMaxAcceptDistMeters: 0.05
+  calibRequireContactCandidate: 1
   debug: 0
-  debug_t: -1
-  debug_touchDist: -1
-  debug_thumbIndexDist: -1
+  debug_tRaw: -1
+  debug_tUsed: -1
+  debug_thumbIndexDistRaw: -1
+  debug_thumbIndexDistSm: -1
   debug_thumbOnIndex: 0
+  debug_twistDeg: 0
+  debug_twistRelDeg: 0
+  debug_twistVelDegPerSec: 0
+  debug_offHeldSec: 0
+  debug_zArmed: 0
   debug_state: 
+  debug_isCalibrating: 0
+  debug_isCalibrated: 0
+  debug_calibElapsed: 0
+  debug_calibSamples: 0
+  debug_distBase: -1
+  debug_onThresh: -1
+  debug_offThresh: -1
 --- !u!1 &2051009352
 GameObject:
   m_ObjectHideFlags: 0
