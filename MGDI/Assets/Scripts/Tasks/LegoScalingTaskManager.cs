@@ -117,6 +117,9 @@ public class LegoScalingTaskManager : MonoBehaviour
     public int TotalTrials => totalTrials;
     public int CurrentTrialIndex1Based => trialIndex + 1;
 
+    private bool _externalDriving = false;
+    public void SetExternalDriving(bool driving) => _externalDriving = driving;
+
     public void StartBlock()
     {
         StopAllCoroutines();
@@ -178,7 +181,7 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         bool drive = ShouldDriveScalingThisFrame();
         bool ready = HasWrist();
-        bool effectiveDriving = drive && ready;
+        bool effectiveDriving = (drive && ready) || _externalDriving;
 
         if (logDriveState && effectiveDriving != _prevEffectiveDriving)
             Debug.Log($"[ScaleTM] effectiveDriving={effectiveDriving} drive={drive} ready={ready} requireHoldingThisBlock={requireHoldingThisBlock}");

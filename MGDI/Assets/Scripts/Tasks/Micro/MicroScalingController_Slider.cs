@@ -57,6 +57,7 @@ public class MicroScalingController_Slider : MonoBehaviour
 
         if (!scalingTask.IsTrialRunning)
         {
+            scalingTask.SetExternalDriving(false);
             _baselineCaptured = false;
             _prevThumbOn = true;
             return;
@@ -83,6 +84,7 @@ public class MicroScalingController_Slider : MonoBehaviour
         {
             if (!thumbOn)
             {
+                scalingTask.SetExternalDriving(false);
                 _prevThumbOn = false;
                 return;
             }
@@ -99,7 +101,10 @@ public class MicroScalingController_Slider : MonoBehaviour
 
         // Suppress scaling immediately after reattach
         if (stopScalingWhenThumbOff && Time.time < _suppressUntil)
+        {
+            scalingTask.SetExternalDriving(false);
             return;
+        }
 
         // Slide drives scaling
         float vRaw = input.AxisValue; // [-1..1]
@@ -123,9 +128,13 @@ public class MicroScalingController_Slider : MonoBehaviour
         }
 
         v *= reattachFactor;
+        if (Mathf.Abs(v) < 1e-5f)
+        {
+            scalingTask.SetExternalDriving(false);
+            return;
+        }
 
-        if (Mathf.Abs(v) < 1e-5f) return;
-
+        scalingTask.SetExternalDriving(true);
         _factor *= Mathf.Exp(gain * v * dt);
         _factor = Mathf.Clamp(_factor, minFactor, maxFactor);
 

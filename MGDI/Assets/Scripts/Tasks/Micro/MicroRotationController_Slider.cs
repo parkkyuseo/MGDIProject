@@ -47,7 +47,11 @@ public class MicroRotationController_Slider : MonoBehaviour
     void Update()
     {
         if (input == null || rotationTask == null || blockRoot == null) return;
-        if (!rotationTask.IsTrialRunning) return;
+        if (!rotationTask.IsTrialRunning)
+        {
+            rotationTask.SetExternalDriving(false);
+            return;
+        }
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
 
@@ -58,6 +62,7 @@ public class MicroRotationController_Slider : MonoBehaviour
         {
             if (!thumbOn)
             {
+                rotationTask.SetExternalDriving(false);
                 _prevThumbOn = false;
                 return;
             }
@@ -72,7 +77,10 @@ public class MicroRotationController_Slider : MonoBehaviour
         _prevThumbOn = thumbOn;
 
         if (stopRotationWhenThumbOff && Time.time < _suppressUntil)
+        {
+            rotationTask.SetExternalDriving(false);
             return;
+        }
 
         // Slide drives yaw
         float vRaw = input.AxisValue; // [-1..1]
@@ -97,8 +105,13 @@ public class MicroRotationController_Slider : MonoBehaviour
 
         v *= reattachFactor;
 
-        if (Mathf.Abs(v) < 1e-5f) return;
+        if (Mathf.Abs(v) < 1e-5f)
+        {
+            rotationTask.SetExternalDriving(false);
+            return;
+        }
 
+        rotationTask.SetExternalDriving(true);
         float dyaw = v * speed * dt;
 
         // Safer than eulerAngles accumulation for wrap cases

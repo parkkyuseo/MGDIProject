@@ -110,6 +110,9 @@ public class LegoRotationTaskManager : MonoBehaviour
     private Rigidbody _blockBody;
     private Vector3 _trialStartBlockPosWorld;
 
+    private bool _externalDriving = false;
+    public void SetExternalDriving(bool driving) => _externalDriving = driving;
+
     // gating: drive only when holding + TwistReady
     private bool _prevEffectiveDriving = false;
 
@@ -172,7 +175,7 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         bool drive = ShouldDriveRotationThisFrame();
         bool twistReady = (remoteHand != null && remoteHand.TwistReady);
-        bool effectiveDriving = drive && twistReady;
+        bool effectiveDriving = (drive && twistReady) || _externalDriving;
 
         if (effectiveDriving)
         {
