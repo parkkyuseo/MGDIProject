@@ -175,29 +175,40 @@ public class LegoRotationTaskManager : MonoBehaviour
 
         bool drive = ShouldDriveRotationThisFrame();
         bool twistReady = (remoteHand != null && remoteHand.TwistReady);
-        bool effectiveDriving = (drive && twistReady) || _externalDriving;
 
-        if (effectiveDriving)
+        // Macro drives rotation only when holding (if enabled) AND twist is ready.
+        bool macroDriving = drive && twistReady;
+
+        // Micro can request dwell accumulation without letting this manager overwrite rotation.
+        bool allowDwell = macroDriving || _externalDriving;
+
+        // Only drive rotation from twist when macroDriving.
+        if (macroDriving)
         {
-            // When driving becomes active again, rebaseline to avoid jumps.
+            // When macro driving becomes active again, rebaseline to avoid jumps.
             if (!_prevEffectiveDriving)
                 RebaselineTwistBaselineToCurrentYaw();
 
             UpdateYawFromTwist();
         }
-        else
-        {
-            dwellTimer = 0f;
-        }
 
-        _prevEffectiveDriving = effectiveDriving;
+        // Track previous macro driving state (not allowDwell)
+        _prevEffectiveDriving = macroDriving;
 
+        // Success check: dwell accumulates only when allowed (macroDriving or micro external driving).
         float yawErr = ComputeYawErrorDeg();
         if (yawErr <= yawToleranceDeg)
         {
-            dwellTimer += Time.deltaTime;
-            if (dwellTimer >= dwellSeconds)
-                StartCoroutine(EndTrialRoutine(success: true, timedOut: false));
+            if (allowDwell)
+            {
+                dwellTimer += Time.deltaTime;
+                if (dwellTimer >= dwellSeconds)
+                    StartCoroutine(EndTrialRoutine(success: true, timedOut: false));
+            }
+            else
+            {
+                dwellTimer = 0f;
+            }
         }
         else
         {

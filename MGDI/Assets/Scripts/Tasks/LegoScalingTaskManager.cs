@@ -181,12 +181,18 @@ public class LegoScalingTaskManager : MonoBehaviour
 
         bool drive = ShouldDriveScalingThisFrame();
         bool ready = HasWrist();
-        bool effectiveDriving = (drive && ready) || _externalDriving;
 
-        if (logDriveState && effectiveDriving != _prevEffectiveDriving)
-            Debug.Log($"[ScaleTM] effectiveDriving={effectiveDriving} drive={drive} ready={ready} requireHoldingThisBlock={requireHoldingThisBlock}");
+        // Macro drives scaling only when gating is satisfied and wrist is ready.
+        bool macroDriving = drive && ready;
 
-        if (effectiveDriving)
+        // Micro can request dwell accumulation without letting this manager overwrite scaling.
+        bool allowDwell = macroDriving || _externalDriving;
+
+        if (logDriveState && macroDriving != _prevEffectiveDriving)
+            Debug.Log($"[ScaleTM] macroDriving={macroDriving} drive={drive} ready={ready} requireHoldingThisBlock={requireHoldingThisBlock} externalDriving={_externalDriving}");
+
+        // Only drive scaling from wrist motion when macroDriving.
+        if (macroDriving)
         {
             if (!_prevEffectiveDriving)
             {
@@ -201,19 +207,29 @@ public class LegoScalingTaskManager : MonoBehaviour
         }
         else
         {
-            dwellTimer = 0f;
+            // When not macroDriving, this manager does not modify scale.
+            // State resets that are required only for macro wrist driving can be cleared here.
             _poseLocked = false;
             _skipScaleThisFrame = false;
         }
 
-        _prevEffectiveDriving = effectiveDriving;
+        // Track previous macro driving state (not allowDwell)
+        _prevEffectiveDriving = macroDriving;
 
+        // Success check: dwell accumulates only when allowed (macroDriving or micro external driving).
         float err = Mathf.Abs(CurrentFactor() - _targetFactor);
         if (err <= scaleFactorTolerance)
         {
-            dwellTimer += Time.deltaTime;
-            if (dwellTimer >= dwellSeconds)
-                StartCoroutine(EndTrialRoutine(success: true, timedOut: false));
+            if (allowDwell)
+            {
+                dwellTimer += Time.deltaTime;
+                if (dwellTimer >= dwellSeconds)
+                    StartCoroutine(EndTrialRoutine(success: true, timedOut: false));
+            }
+            else
+            {
+                dwellTimer = 0f;
+            }
         }
         else
         {
