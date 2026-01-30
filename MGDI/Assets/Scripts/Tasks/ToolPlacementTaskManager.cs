@@ -1,0 +1,564 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using UnityEngine;
+using UnityEngine.Windows.Speech;
+
+public class ToolPlacementTaskManager : MonoBehaviour
+{
+    // Fired when the block finishes (all trials complete).
+    public event Action OnBlockFinished;
+    public event Action<int, int> OnTrialChanged;               // (current1Based, total)
+    public event Action<int, int> OnProgressChanged;            // (placedCount, totalCount)
+
+    [Header("Roots (auto-discovered via ToolId)")]
+    [Tooltip("Root that contains the movable tool instances (Tools_Dynamic).")]
+    [SerializeField] private Transform toolsDynamicRoot;
+
+    [Tooltip("Root that contains the fixed target ghosts (Slots_Targets).")]
+    [SerializeField] private Transform slotsTargetsRoot;
+
+    [Header("Grab behavior per task")]
+    [Tooltip("ProxyHandGrabber instance (preferred). Used for rotation lock and requireNotHolding.")]
+    [SerializeField] private ProxyHandGrabber grabber;
+
+    [Tooltip("If true, lock rotation during placement trials (translation-only).")]
+    [SerializeField] private bool lockRotationDuringPlacement = true;
+
+    [Tooltip("Rotation mode to use during placement trials when lockRotationDuringPlacement is true.")]
+    [SerializeField] private ProxyHandGrabber.HeldRotationMode placementGrabberMode = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
+
+    [Tooltip("If true, restore rotation mode after each trial.")]
+    [SerializeField] private bool restoreRotationModeAfterTrial = true;
+
+    [Tooltip("Rotation mode to restore after placement trial ends.")]
+    [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeAfterTrial = ProxyHandGrabber.HeldRotationMode.FollowAnchor;
+
+    [Header("Success metric")]
+    [Tooltip("If true, success uses Renderer.bounds.center distance (robust to pivot offsets). Recommended.")]
+    [SerializeField] private bool useBoundsCenterForSuccess = true;
+
+    [Tooltip("Per-tool tolerance = max(0.05 * startDistance, minTolMeters).")]
+    [SerializeField] private float minTolMeters = 0.01f;
+
+    [Tooltip("If true, only evaluate success when not holding anything.")]
+    [SerializeField] private bool requireNotHolding = true;
+
+    [Header("Trial Timing")]
+    [SerializeField] private float trialTimeoutSeconds = 35f;
+    [SerializeField] private float dwellSeconds = 0.20f;
+
+    [Header("Snap / Reset (snap kept but default off)")]
+    [SerializeField] private bool snapOnSuccess = false;
+    [SerializeField] private float postSnapHoldSeconds = 0.35f;
+    [SerializeField] private bool resetToolsToStartAfterTrial = true;
+
+    [Header("Feedback (Audio / UI)")]
+    [SerializeField] private AudioSource audioSource;
+    [SerializeField] private AudioClip snapClip;
+    [SerializeField] private GameObject starUI;
+    [SerializeField] private GameObject xUI;
+    [SerializeField] private float feedbackShowSeconds = 0.50f;
+
+    [Header("Progress UI (optional)")]
+    [Tooltip("Optional UnityEngine.UI.Text or TMP wrapper you already use elsewhere. If null, only Debug.Log/DebugHUD is used.")]
+    [SerializeField] private UnityEngine.UI.Text progressText;
+
+    [Tooltip("If true, show per-tool distances in progressText (debug-ish).")]
+    [SerializeField] private bool showPerToolLines = true;
+
+    [Header("Trial Count")]
+    [SerializeField] private int totalTrials = 10;
+
+    [Header("Voice Start (HoloLens)")]
+    [SerializeField] private bool enableVoiceStart = true;
+    [SerializeField] private string startKeyword = "start";
+    [SerializeField] private string restartKeyword = "restart";
+    [SerializeField] private bool autoStartInEditor = false;
+
+    [Header("Debug")]
+    [SerializeField] private bool logDebug = true;
+
+    // ---------------- Runtime ----------------
+    private int trialIndex = 0;
+    private float trialTimer = 0f;
+    private float dwellTimer = 0f;
+
+    private bool trialRunning = false;
+    private bool inTransition = false;
+
+    // Voice
+    private KeywordRecognizer keywordRecognizer;
+    private Dictionary<string, Action> keywordActions;
+
+    // Tools/Targets registry
+    [Serializable]
+    private class Item
+    {
+        public string id;
+        public Transform tool;
+        public Transform target;
+
+        public Renderer toolR;
+        public Renderer targetR;
+
+        public Transform startParent;
+        public Vector3 startPos;
+        public Quaternion startRot;
+
+        public float tolerance;   // per tool (computed at trial start)
+        public bool placed;        // current frame pass/fail
+        public float lastErr;      // last computed error meters
+    }
+
+    private readonly List<Item> items = new List<Item>();
+    private readonly StringBuilder sb = new StringBuilder(512);
+
+    public bool IsTrialRunning => trialRunning && !inTransition;
+    public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - trialTimer);
+    public int TotalTrials => totalTrials;
+    public int CurrentTrialIndex1Based => trialIndex + 1;
+    public int ToolCount => items.Count;
+
+    // ---------------- Public ----------------
+    public void StartBlock()
+    {
+        StopAllCoroutines();
+        inTransition = false;
+        trialRunning = false;
+        trialIndex = 0;
+
+        HideFeedbackUI();
+
+        // rebuild once at block start (tools/targets are fixed in scene)
+        RebuildItemsFromScene();
+
+        BeginNextTrial();
+    }
+
+    // ---------------- Unity ----------------
+    void Start()
+    {
+        if (enableVoiceStart)
+            SetupVoiceCommands();
+
+        HideFeedbackUI();
+
+        if (autoStartInEditor && Application.isEditor)
+            StartBlock();
+    }
+
+    void Update()
+    {
+        if (!trialRunning || inTransition) return;
+
+        trialTimer += Time.deltaTime;
+
+        if (trialTimer >= trialTimeoutSeconds)
+        {
+            StartCoroutine(EndTrialRoutine(false, true));
+            return;
+        }
+
+        // Optional: only evaluate success when the hand is not holding any tool.
+        if (requireNotHolding && grabber != null && grabber.IsHolding)
+        {
+            dwellTimer = 0f;
+            UpdateProgressUI();
+            return;
+        }
+
+        int placedCount = 0;
+        for (int i = 0; i < items.Count; i++)
+        {
+            float err = ComputeErrorMeters(items[i]);
+            items[i].lastErr = err;
+            bool pass = (err <= items[i].tolerance);
+            items[i].placed = pass;
+            if (pass) placedCount++;
+        }
+
+        OnProgressChanged?.Invoke(placedCount, items.Count);
+        UpdateProgressUI();
+
+        if (items.Count > 0 && placedCount == items.Count)
+        {
+            dwellTimer += Time.deltaTime;
+            if (dwellTimer >= dwellSeconds)
+                StartCoroutine(EndTrialRoutine(true, false));
+        }
+        else
+        {
+            dwellTimer = 0f;
+        }
+    }
+
+    // ---------------- Trial Flow ----------------
+    private void BeginNextTrial()
+    {
+        if (toolsDynamicRoot == null || slotsTargetsRoot == null)
+        {
+            Debug.LogError("[ToolPlacementTaskManager] Missing roots (toolsDynamicRoot / slotsTargetsRoot).");
+            FinishBlock();
+            return;
+        }
+
+        if (totalTrials > 0 && trialIndex >= totalTrials)
+        {
+            if (logDebug) Debug.Log("[ToolPlacementTaskManager] Block finished.");
+            FinishBlock();
+            return;
+        }
+
+        // Ensure items exist
+        if (items.Count == 0)
+        {
+            RebuildItemsFromScene();
+            if (items.Count == 0)
+            {
+                Debug.LogError("[ToolPlacementTaskManager] No matched tool/target pairs found. Add ToolId to tools and ghosts.");
+                FinishBlock();
+                return;
+            }
+        }
+
+        // Translation-only: lock rotation during placement trials
+        if (lockRotationDuringPlacement)
+            SetGrabberRotationMode(placementGrabberMode);
+
+        // Reset tools to their captured start poses
+        if (resetToolsToStartAfterTrial)
+            ResetAllToolsToStartPose();
+
+        // Refresh cached renderers each trial (safe)
+        for (int i = 0; i < items.Count; i++)
+        {
+            items[i].toolR = items[i].tool != null ? items[i].tool.GetComponentInChildren<Renderer>(true) : null;
+            items[i].targetR = items[i].target != null ? items[i].target.GetComponentInChildren<Renderer>(true) : null;
+            items[i].placed = false;
+            items[i].lastErr = float.MaxValue;
+        }
+
+        // Compute per-tool tolerances from current start distances
+        for (int i = 0; i < items.Count; i++)
+        {
+            float d0 = ComputeErrorMeters(items[i]);
+            items[i].tolerance = Mathf.Max(0.05f * d0, minTolMeters);
+        }
+
+        trialTimer = 0f;
+        dwellTimer = 0f;
+        trialRunning = true;
+        inTransition = false;
+
+        OnTrialChanged?.Invoke(trialIndex + 1, totalTrials);
+        OnProgressChanged?.Invoke(0, items.Count);
+        UpdateProgressUI();
+
+        if (logDebug)
+        {
+            Debug.Log($"[ToolPlacementTM] Trial {trialIndex + 1}/{totalTrials} tools={items.Count} timeout={trialTimeoutSeconds:F0}s dwell={dwellSeconds:F2}s");
+        }
+    }
+
+    private IEnumerator EndTrialRoutine(bool success, bool timedOut)
+    {
+        if (inTransition) yield break;
+        inTransition = true;
+        trialRunning = false;
+
+        HideFeedbackUI();
+
+        if (success)
+        {
+            ForceReleaseIfPossible();
+
+            if (snapOnSuccess)
+                SnapAllToolsToTargets();
+
+            PlaySnapSound();
+            ShowStar();
+
+            yield return new WaitForSeconds(Mathf.Max(feedbackShowSeconds, postSnapHoldSeconds));
+        }
+        else
+        {
+            ShowX();
+            yield return new WaitForSeconds(feedbackShowSeconds);
+        }
+
+        HideFeedbackUI();
+
+        // Restore rotation policy after the trial
+        if (restoreRotationModeAfterTrial)
+            SetGrabberRotationMode(restoreGrabberModeAfterTrial);
+
+        if (resetToolsToStartAfterTrial)
+        {
+            ForceReleaseIfPossible();
+            ResetAllToolsToStartPose();
+        }
+
+        trialIndex++;
+        BeginNextTrial();
+    }
+
+    // ---------------- Registry / Reset ----------------
+    private void RebuildItemsFromScene()
+    {
+        items.Clear();
+
+        if (toolsDynamicRoot == null || slotsTargetsRoot == null) return;
+
+        // tools: id -> ToolId transform
+        var toolIds = toolsDynamicRoot.GetComponentsInChildren<ToolId>(true);
+        var toolMap = new Dictionary<string, Transform>();
+        for (int i = 0; i < toolIds.Length; i++)
+        {
+            if (toolIds[i] == null || string.IsNullOrEmpty(toolIds[i].id)) continue;
+            toolMap[toolIds[i].id] = toolIds[i].transform;
+        }
+
+        // targets: id -> ToolId transform (ghost)
+        var targetIds = slotsTargetsRoot.GetComponentsInChildren<ToolId>(true);
+        var targetMap = new Dictionary<string, Transform>();
+        for (int i = 0; i < targetIds.Length; i++)
+        {
+            if (targetIds[i] == null || string.IsNullOrEmpty(targetIds[i].id)) continue;
+            targetMap[targetIds[i].id] = targetIds[i].transform;
+        }
+
+        // Intersection only
+        foreach (var kv in toolMap)
+        {
+            if (!targetMap.TryGetValue(kv.Key, out var tgt)) continue;
+            var toolTf = kv.Value;
+
+            var it = new Item
+            {
+                id = kv.Key,
+                tool = toolTf,
+                target = tgt,
+                toolR = toolTf != null ? toolTf.GetComponentInChildren<Renderer>(true) : null,
+                targetR = tgt != null ? tgt.GetComponentInChildren<Renderer>(true) : null,
+                startParent = toolTf != null ? toolTf.parent : null,
+                startPos = toolTf != null ? toolTf.position : Vector3.zero,
+                startRot = toolTf != null ? toolTf.rotation : Quaternion.identity,
+                tolerance = minTolMeters,
+                placed = false,
+                lastErr = float.MaxValue
+            };
+
+            items.Add(it);
+        }
+
+        // Stable ordering for UI (by id)
+        items.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
+
+        if (logDebug)
+            Debug.Log($"[ToolPlacementTM] Registry rebuilt: tools={toolMap.Count}, targets={targetMap.Count}, matched={items.Count}");
+    }
+
+    private void ResetAllToolsToStartPose()
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            var it = items[i];
+            if (it.tool == null) continue;
+
+            // Ensure correct parent (grabber parents to grabAnchor while holding)
+            if (it.startParent != null)
+                it.tool.SetParent(it.startParent, true);
+
+            it.tool.SetPositionAndRotation(it.startPos, it.startRot);
+        }
+    }
+
+    // ---------------- Metric helpers ----------------
+    private float ComputeErrorMeters(Item it)
+    {
+        if (it == null || it.tool == null || it.target == null)
+            return float.MaxValue;
+
+        if (!useBoundsCenterForSuccess)
+        {
+            return Vector3.Distance(it.tool.position, it.target.position);
+        }
+
+        if (it.toolR == null) it.toolR = it.tool.GetComponentInChildren<Renderer>(true);
+        if (it.targetR == null) it.targetR = it.target.GetComponentInChildren<Renderer>(true);
+
+        if (it.toolR == null || it.targetR == null)
+            return Vector3.Distance(it.tool.position, it.target.position);
+
+        return Vector3.Distance(it.toolR.bounds.center, it.targetR.bounds.center);
+    }
+
+    // ---------------- Optional snap (kept) ----------------
+    private void SnapAllToolsToTargets()
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            SnapToolToTarget(items[i]);
+        }
+    }
+
+    private void SnapToolToTarget(Item it)
+    {
+        if (it == null || it.tool == null || it.target == null) return;
+
+        if (!useBoundsCenterForSuccess)
+        {
+            it.tool.position = it.target.position;
+            return;
+        }
+
+        if (it.toolR == null) it.toolR = it.tool.GetComponentInChildren<Renderer>(true);
+        if (it.targetR == null) it.targetR = it.target.GetComponentInChildren<Renderer>(true);
+
+        if (it.toolR == null || it.targetR == null)
+        {
+            it.tool.position = it.target.position;
+            return;
+        }
+
+        Vector3 toolCenter = it.toolR.bounds.center;
+        Vector3 targetCenter = it.targetR.bounds.center;
+        Vector3 delta = targetCenter - toolCenter;
+
+        it.tool.position += delta;
+    }
+
+    // ---------------- Feedback UI ----------------
+    private void UpdateProgressUI()
+    {
+        int placed = 0;
+        for (int i = 0; i < items.Count; i++)
+            if (items[i].placed) placed++;
+
+        if (progressText == null)
+        {
+            // Still allow DebugHUD if available
+            try
+            {
+                sb.Length = 0;
+                sb.Append($"[Progress] {placed}/{items.Count}");
+                DebugHUD.Log(sb.ToString());
+            }
+            catch { }
+            return;
+        }
+
+        sb.Length = 0;
+        sb.AppendLine($"Placement: {placed}/{items.Count}");
+        sb.AppendLine($"Trial: {trialIndex + 1}/{totalTrials}");
+        sb.AppendLine($"Time: {TrialTimeRemainingSec:F1}s");
+
+        if (requireNotHolding && grabber != null && grabber.IsHolding)
+            sb.AppendLine("Holding: YES (eval paused)");
+        else
+            sb.AppendLine($"Holding: {(grabber != null && grabber.IsHolding ? "YES" : "NO")}");
+
+        if (showPerToolLines)
+        {
+            sb.AppendLine();
+            for (int i = 0; i < items.Count; i++)
+            {
+                var it = items[i];
+                string mark = it.placed ? "✓" : "·";
+                sb.AppendLine($"{mark} {it.id}: err={it.lastErr:F3}m tol={it.tolerance:F3}m");
+            }
+        }
+
+        progressText.text = sb.ToString();
+    }
+
+    private void PlaySnapSound()
+    {
+        if (audioSource != null && snapClip != null)
+            audioSource.PlayOneShot(snapClip);
+    }
+
+    private void ShowStar()
+    {
+        if (starUI != null) starUI.SetActive(true);
+        if (xUI != null) xUI.SetActive(false);
+    }
+
+    private void ShowX()
+    {
+        if (xUI != null) xUI.SetActive(true);
+        if (starUI != null) starUI.SetActive(false);
+    }
+
+    private void HideFeedbackUI()
+    {
+        if (starUI != null) starUI.SetActive(false);
+        if (xUI != null) xUI.SetActive(false);
+    }
+
+    // ---------------- Grabber hooks ----------------
+    private void ForceReleaseIfPossible()
+    {
+        if (grabber != null)
+        {
+            grabber.ForceRelease();
+        }
+    }
+
+    private void SetGrabberRotationMode(ProxyHandGrabber.HeldRotationMode mode)
+    {
+        if (grabber != null)
+        {
+            grabber.SetHeldRotationMode(mode);
+        }
+    }
+
+    // ---------------- Voice ----------------
+    private void SetupVoiceCommands()
+    {
+        if (keywordRecognizer != null) return;
+
+        keywordActions = new Dictionary<string, Action>
+        {
+            { startKeyword.ToLower(), StartBlock },
+            { restartKeyword.ToLower(), StartBlock }
+        };
+
+        keywordRecognizer = new KeywordRecognizer(keywordActions.Keys.ToArray());
+        keywordRecognizer.OnPhraseRecognized += args =>
+        {
+            if (keywordActions.TryGetValue(args.text.ToLower(), out var action))
+                action.Invoke();
+        };
+        keywordRecognizer.Start();
+
+        if (logDebug)
+            Debug.Log($"[ToolPlacementTM] Voice enabled: '{startKeyword}', '{restartKeyword}'");
+    }
+
+    private void FinishBlock()
+    {
+        trialRunning = false;
+        inTransition = false;
+        HideFeedbackUI();
+
+        try { OnBlockFinished?.Invoke(); } catch { }
+    }
+
+    private void OnDisable()
+    {
+        // Prevent mode leaking into other tasks if this manager is disabled mid-run
+        if (restoreRotationModeAfterTrial)
+            SetGrabberRotationMode(restoreGrabberModeAfterTrial);
+
+        if (keywordRecognizer != null)
+        {
+            keywordRecognizer.Stop();
+            keywordRecognizer.Dispose();
+            keywordRecognizer = null;
+        }
+    }
+}
