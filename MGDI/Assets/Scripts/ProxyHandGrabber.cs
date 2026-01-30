@@ -51,6 +51,9 @@ public class ProxyHandGrabber : MonoBehaviour
     [Header("Debug")]
     public bool logDebug = true;
 
+    public event Action<Rigidbody> OnGrabbed;
+    public event Action<Rigidbody> OnReleased;
+
     public bool IsHolding => _heldBody != null;
     public Rigidbody HeldBody => _heldBody;
 
@@ -340,11 +343,14 @@ public class ProxyHandGrabber : MonoBehaviour
         }
 
         if (logDebug) Debug.Log("[Grabber] Grabbed " + body.name);
+        OnGrabbed?.Invoke(_heldBody);
     }
 
     private void TryRelease()
     {
         if (_heldBody == null) return;
+
+        var releasedBody = _heldBody;
 
         if (logDebug) Debug.Log("[Grabber] Released " + _heldBody.name);
 
@@ -368,6 +374,8 @@ public class ProxyHandGrabber : MonoBehaviour
 
         _heldFollowInit = false;
         _lastReleaseTime = Time.unscaledTime;
+
+        OnReleased?.Invoke(releasedBody);
     }
 
     // Allows TaskManager or other controllers to force a release at any time.
