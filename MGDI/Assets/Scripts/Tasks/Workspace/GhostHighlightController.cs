@@ -65,10 +65,20 @@ public class GhostHighlightController : MonoBehaviour
     {
         if (heldBody == null) return;
 
-        // heldBody는 grabAnchor의 자식으로 붙으니까, 루트에서 ToolId를 찾기
+        // 1) 자식에서 찾기
         var tid = heldBody.GetComponentInChildren<ToolId>(true);
-        if (tid == null || string.IsNullOrEmpty(tid.id)) return;
 
+        // 2) 안 나오면 부모에서 찾기 (이게 핵심)
+        if (tid == null)
+            tid = heldBody.GetComponentInParent<ToolId>();
+
+        if (tid == null || string.IsNullOrEmpty(tid.id))
+        {
+            Debug.Log("[GhostHL] ToolId not found on held body: " + heldBody.name);
+            return;
+        }
+
+        Debug.Log("[GhostHL] grabbed id=" + tid.id);
         HighlightOnly(tid.id);
     }
 
