@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using UnityEngine;
 using Random = UnityEngine.Random;
@@ -9,29 +8,19 @@ using UnityEngine.Windows.Speech;
 
 public class ToolRotationTaskManager : MonoBehaviour
 {
-    // Fired when the rotation block finishes (all trials complete).
     public event Action OnBlockFinished;
     public event Action<int, int> OnTrialChanged; // (current1Based, total)
 
     [Header("Roots (auto-discovered via ToolId)")]
-    [Tooltip("Root that contains the movable tool instances (Tools_Dynamic).")]
     [SerializeField] private Transform toolsDynamicRoot;
-
-    [Tooltip("Root that contains the fixed target ghosts (Slots_Targets).")]
     [SerializeField] private Transform slotsTargetsRoot;
 
     [Header("Grab + Twist")]
-    [Tooltip("ProxyHandGrabber for gating (holding) and for rotation-mode policy.")]
     [SerializeField] private ProxyHandGrabber grabber;
-
-    [Tooltip("RemoteHandRuntime that provides TwistDegrees / TwistReady.")]
     [SerializeField] private RemoteHandRuntime remoteHand;
 
     [Header("Grabber rotation policy")]
-    [Tooltip("Rotation task: task manager controls yaw; grabber must not override rotation.")]
     [SerializeField] private ProxyHandGrabber.HeldRotationMode rotationTrialGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
-
-    [Tooltip("Rotation mode to restore when this manager is disabled.")]
     [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeOnDisable = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
     [Header("Feedback (Audio / UI)")]
@@ -43,7 +32,6 @@ public class ToolRotationTaskManager : MonoBehaviour
 
     [Header("Progress UI (optional)")]
     [SerializeField] private UnityEngine.UI.Text progressText;
-    [SerializeField] private bool showPerToolLine = false;
 
     [Header("Trial Timing")]
     [SerializeField] private float trialTimeoutSeconds = 12f;
@@ -52,18 +40,23 @@ public class ToolRotationTaskManager : MonoBehaviour
     [Header("Yaw Success Threshold")]
     [SerializeField] private float yawToleranceDeg = 10f;
 
-    [Header("Twist → Yaw mapping")]
+    [Header("Twist → Yaw mapping (MACRO)")]
     [SerializeField] private float twistToYawGain = 1.5f;
     [SerializeField] private bool invertTwistToYaw = false;
     [SerializeField] private float yawMaxDegPerSec = 240f;
     [Range(0f, 1f)]
     [SerializeField] private float yawLerp = 0.15f;
 
-    [Header("Rotation gating")]
+    [Header("Rotation gating (MACRO)")]
     [SerializeField] private bool rotateOnlyWhenHolding = true;
-
-    [Tooltip("If true, drive rotation only when the grabber is holding THIS tool rigidbody.")]
     [SerializeField] private bool requireHoldingThisTool = true;
+
+    [Header("Rotation gating (MICRO)")]
+    [Tooltip("If true, micro rotation is allowed without holding (non-grasp micro).")]
+    [SerializeField] private bool microAllowWithoutHolding = true;
+
+    [Tooltip("If true, success dwell accumulates only when input is not actively driving (recommended).")]
+    [SerializeField] private bool requireNotDrivingForEvaluation = true;
 
     [Header("Target yaw sampling")]
     [SerializeField] private float yawMinDeg = 30f;
@@ -75,7 +68,6 @@ public class ToolRotationTaskManager : MonoBehaviour
     [SerializeField] private bool snapYawOnSuccess = true;
 
     [Header("Reset")]
-    [Tooltip("If true, force release and reset active tool to its start pose after each trial.")]
     [SerializeField] private bool resetToolToStartAfterTrial = true;
 
     [Header("Trial Count")]
@@ -90,7 +82,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
 
-    // Micro can request dwell accumulation without letting this manager overwrite rotation.
+    // Micro controller sets this true while it is actively rotating (v != 0).
     private bool _externalDriving = false;
     public void SetExternalDriving(bool driving) => _externalDriving = driving;
 
@@ -101,7 +93,7 @@ public class ToolRotationTaskManager : MonoBehaviour
         public string id;
         public Transform tool;
         public Rigidbody toolBody;
-        public Transform target;       // target ghost root (we yaw-rotate this transform)
+        public Transform target;
         public Transform startParent;
         public Vector3 startPos;
         public Quaternion startRot;
@@ -116,17 +108,14 @@ public class ToolRotationTaskManager : MonoBehaviour
     private bool _trialRunning = false;
     private bool _inTransition = false;
 
-    // Active trial item
     private Item _active;
     private float _startYawDeg;
     private float _twistBaselineDeg;
     private float _yawCmdDeg;
     private bool _yawCmdInit = false;
 
-    // gating: drive only when holding + TwistReady
-    private bool _prevEffectiveDriving = false;
+    private bool _prevMacroDriving = false;
 
-    // Voice
     private KeywordRecognizer _keywordRecognizer;
     private Dictionary<string, Action> _keywordActions;
 
@@ -137,6 +126,24 @@ public class ToolRotationTaskManager : MonoBehaviour
     public int TotalTrials => totalTrials;
     public int CurrentTrialIndex1Based => _trialIndex + 1;
 
+    // ✅ Expose active tool for micro controller
+    public Transform ActiveToolTransform => _active != null ? _active.tool : null;
+    public string ActiveToolId => _active != null ? _active.id : null;
+
+    /// <summary>
+    /// Micro drive permission. In non-grasp micro, this can be true even when not holding.
+    /// </summary>
+    public bool CanMicroDriveNow()
+    {
+        if (!IsTrialRunning) return false;
+        if (_active == null || _active.tool == null) return false;
+
+        if (microAllowWithoutHolding) return true;
+
+        // If microAllowWithoutHolding is false, fall back to holding gating.
+        return ShouldDriveRotationThisFrame();
+    }
+
     // ---------------- Public ----------------
     public void StartBlock()
     {
@@ -145,7 +152,8 @@ public class ToolRotationTaskManager : MonoBehaviour
         _trialRunning = false;
         _trialIndex = 0;
 
-        _prevEffectiveDriving = false;
+        _prevMacroDriving = false;
+        _externalDriving = false;
 
         HideFeedbackUI();
 
@@ -177,35 +185,41 @@ public class ToolRotationTaskManager : MonoBehaviour
             return;
         }
 
+        // ---------------- MACRO rotation (twist) ----------------
         bool drive = ShouldDriveRotationThisFrame();
         bool twistReady = (remoteHand != null && remoteHand.TwistReady);
 
-        // Macro drives rotation only when holding (if enabled) AND twist is ready.
-        bool macroDriving = drive && twistReady;
+        // Macro should not overwrite when micro is actively driving.
+        bool macroDriving = drive && twistReady && !_externalDriving;
 
-        // Micro can request dwell accumulation without letting this manager overwrite rotation.
-        bool allowDwell = macroDriving || _externalDriving;
-
-        // Only drive rotation from twist when macroDriving.
         if (macroDriving)
         {
-            // When macro driving becomes active again, rebaseline to avoid jumps.
-            if (!_prevEffectiveDriving)
+            if (!_prevMacroDriving)
                 RebaselineTwistBaselineToCurrentYaw();
 
             UpdateYawFromTwist();
         }
 
-        _prevEffectiveDriving = macroDriving;
+        _prevMacroDriving = macroDriving;
+
+        // ---------------- Evaluation gating ("release / stop input to evaluate") ----------------
+        bool evalAllowed = true;
+
+        if (requireNotDrivingForEvaluation)
+        {
+            // When macro is driving or micro is actively driving, do not accumulate dwell.
+            if (macroDriving || _externalDriving)
+                evalAllowed = false;
+        }
 
         float yawErr = ComputeYawErrorDeg();
 
         if (progressText != null)
-            UpdateProgressText(yawErr, macroDriving, allowDwell);
+            UpdateProgressText(yawErr, macroDriving, evalAllowed);
 
         if (yawErr <= yawToleranceDeg)
         {
-            if (allowDwell)
+            if (evalAllowed)
             {
                 _dwellTimer += Time.deltaTime;
                 if (_dwellTimer >= dwellSeconds)
@@ -264,12 +278,15 @@ public class ToolRotationTaskManager : MonoBehaviour
         // Active tool = round-robin through matched ids
         _active = _items[_trialIndex % _items.Count];
 
-        // Ensure rigidbody cached
         EnsureActiveBody();
 
-        // Reset active tool pose to start pose at trial start (helps control)
+        // Reset active tool to its start pose at trial start (controlled start)
         ForceReleaseIfPossible();
         ResetActiveToolToStartPose();
+
+        // Reset driving flags
+        _externalDriving = false;
+        _prevMacroDriving = false;
 
         // Record start yaw and baseline twist (valid only when TwistReady)
         _startYawDeg = _active.tool.eulerAngles.y;
@@ -277,17 +294,13 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         _yawCmdDeg = _startYawDeg;
         _yawCmdInit = true;
-        _prevEffectiveDriving = false;
 
-        // Sample target yaw offset and apply to active target (yaw-only)
+        // Sample target yaw offset and apply to target ghost (yaw-only)
         float offset = Random.Range(yawMinDeg, yawMaxDeg);
         if (randomizeYawSign && Random.value < 0.5f) offset = -offset;
 
         float targetYaw = _startYawDeg + offset;
-
-        // Apply yaw-only rotation to target transform (keep target position)
-        Quaternion targetRot = Quaternion.Euler(0f, targetYaw, 0f);
-        _active.target.rotation = targetRot;
+        _active.target.rotation = Quaternion.Euler(0f, targetYaw, 0f);
 
         _trialTimer = 0f;
         _dwellTimer = 0f;
@@ -297,12 +310,11 @@ public class ToolRotationTaskManager : MonoBehaviour
         OnTrialChanged?.Invoke(_trialIndex + 1, totalTrials);
 
         if (progressText != null)
-            UpdateProgressText(yawErrDeg: ComputeYawErrorDeg(), macroDriving: false, allowDwell: false);
+            UpdateProgressText(ComputeYawErrorDeg(), macroDriving: false, evalAllowed: true);
 
         if (logDebug)
         {
-            Debug.Log($"[ToolRotationTM] Trial {_trialIndex + 1}/{totalTrials} " +
-                      $"tool={_active.id} targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg");
+            Debug.Log($"[ToolRotationTM] Trial {_trialIndex + 1}/{totalTrials} tool={_active.id} targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg");
         }
     }
 
@@ -345,10 +357,8 @@ public class ToolRotationTaskManager : MonoBehaviour
     private void RebuildItemsFromScene()
     {
         _items.Clear();
-
         if (toolsDynamicRoot == null || slotsTargetsRoot == null) return;
 
-        // tools: id -> ToolId transform
         var toolIds = toolsDynamicRoot.GetComponentsInChildren<ToolId>(true);
         var toolMap = new Dictionary<string, Transform>();
         for (int i = 0; i < toolIds.Length; i++)
@@ -357,7 +367,6 @@ public class ToolRotationTaskManager : MonoBehaviour
             toolMap[toolIds[i].id] = toolIds[i].transform;
         }
 
-        // targets: id -> ToolId transform
         var targetIds = slotsTargetsRoot.GetComponentsInChildren<ToolId>(true);
         var targetMap = new Dictionary<string, Transform>();
         for (int i = 0; i < targetIds.Length; i++)
@@ -386,11 +395,10 @@ public class ToolRotationTaskManager : MonoBehaviour
             _items.Add(it);
         }
 
-        // Stable ordering
         _items.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
 
         if (logDebug)
-            Debug.Log($"[ToolRotationTM] Registry rebuilt: tools={toolMap.Count}, targets={targetMap.Count}, matched={_items.Count}");
+            Debug.Log($"[ToolRotationTM] Registry rebuilt: matched={_items.Count}");
     }
 
     private void EnsureActiveBody()
@@ -398,7 +406,6 @@ public class ToolRotationTaskManager : MonoBehaviour
         if (_active == null || _active.tool == null) return;
         if (_active.toolBody != null) return;
 
-        // Prefer RB on the ToolId transform, otherwise find in children
         var rb = _active.tool.GetComponent<Rigidbody>();
         if (rb == null) rb = _active.tool.GetComponentInChildren<Rigidbody>(true);
         _active.toolBody = rb;
@@ -414,7 +421,7 @@ public class ToolRotationTaskManager : MonoBehaviour
         _active.tool.SetPositionAndRotation(_active.startPos, _active.startRot);
     }
 
-    // ---------------- Drive / Gating ----------------
+    // ---------------- Drive / Gating (MACRO) ----------------
     private bool ShouldDriveRotationThisFrame()
     {
         if (!rotateOnlyWhenHolding) return true;
@@ -431,6 +438,7 @@ public class ToolRotationTaskManager : MonoBehaviour
         return grabber.HeldBody == _active.toolBody;
     }
 
+    // ---------------- Twist->Yaw (MACRO) ----------------
     private void RebaselineTwistBaselineToCurrentYaw()
     {
         if (remoteHand == null || _active == null || _active.tool == null) return;
@@ -441,8 +449,7 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         float sign = invertTwistToYaw ? -1f : 1f;
         float denom = twistToYawGain * sign;
-        if (Mathf.Abs(denom) < 1e-5f)
-            denom = (denom >= 0f ? 1e-5f : -1e-5f);
+        if (Mathf.Abs(denom) < 1e-5f) denom = (denom >= 0f ? 1e-5f : -1e-5f);
 
         float yawDelta = Mathf.DeltaAngle(_startYawDeg, toolYawNow);
         _twistBaselineDeg = twistNow - (yawDelta / denom);
@@ -479,49 +486,44 @@ public class ToolRotationTaskManager : MonoBehaviour
         float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(yawLerp), dt * 60f);
         _yawCmdDeg = Mathf.LerpAngle(_yawCmdDeg, yawNext, k);
 
-        // Apply yaw-only in world space
         _active.tool.rotation = Quaternion.Euler(0f, _yawCmdDeg, 0f);
     }
 
     private float ComputeYawErrorDeg()
     {
         if (_active == null || _active.tool == null || _active.target == null) return float.MaxValue;
-
         float toolYaw = _active.tool.eulerAngles.y;
         float targetYaw = _active.target.eulerAngles.y;
-
         return Mathf.Abs(Mathf.DeltaAngle(toolYaw, targetYaw));
     }
 
     private void SnapYawToTarget()
     {
         if (_active == null || _active.tool == null || _active.target == null) return;
-
         float targetYaw = _active.target.eulerAngles.y;
         _active.tool.rotation = Quaternion.Euler(0f, targetYaw, 0f);
-
         _yawCmdDeg = targetYaw;
         _yawCmdInit = true;
     }
 
     // ---------------- UI ----------------
-    private void UpdateProgressText(float yawErrDeg, bool macroDriving, bool allowDwell)
+    private void UpdateProgressText(float yawErrDeg, bool macroDriving, bool evalAllowed)
     {
         if (progressText == null) return;
 
         _sb.Length = 0;
-
         string toolName = (_active != null) ? _active.id : "N/A";
+
         _sb.AppendLine($"Rotation: {toolName}");
         _sb.AppendLine($"Trial: {_trialIndex + 1}/{totalTrials}");
         _sb.AppendLine($"Time: {TrialTimeRemainingSec:F1}s");
         _sb.AppendLine($"YawErr: {yawErrDeg:F1}°  (tol {yawToleranceDeg:F1}°)");
 
         bool holding = (grabber != null && grabber.IsHolding);
-        _sb.AppendLine($"Holding: {(holding ? "YES" : "NO")}  Drive: {(macroDriving ? "ON" : "OFF")}  TwistReady: {(remoteHand != null && remoteHand.TwistReady ? "YES" : "NO")}");
+        bool twistReady = (remoteHand != null && remoteHand.TwistReady);
 
-        if (showPerToolLine && _items.Count > 0)
-            _sb.AppendLine($"Pool: {_items.Count} tools");
+        _sb.AppendLine($"Holding: {(holding ? "YES" : "NO")}  TwistReady: {(twistReady ? "YES" : "NO")}");
+        _sb.AppendLine($"MacroDrive: {(macroDriving ? "ON" : "OFF")}  MicroDrive: {(_externalDriving ? "ON" : "OFF")}  EvalAllowed: {(evalAllowed ? "YES" : "NO")}");
 
         progressText.text = _sb.ToString();
     }
@@ -577,9 +579,6 @@ public class ToolRotationTaskManager : MonoBehaviour
                 action.Invoke();
         };
         _keywordRecognizer.Start();
-
-        if (logDebug)
-            Debug.Log($"[ToolRotationTM] Voice enabled: '{startKeyword}', '{restartKeyword}'");
     }
 
     private void FinishBlock()
@@ -587,7 +586,6 @@ public class ToolRotationTaskManager : MonoBehaviour
         _trialRunning = false;
         _inTransition = false;
         HideFeedbackUI();
-
         try { OnBlockFinished?.Invoke(); } catch { }
     }
 

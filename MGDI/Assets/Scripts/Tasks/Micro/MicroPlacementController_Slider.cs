@@ -11,8 +11,8 @@ public class MicroPlacementController_Slider : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private MicroThumbIndexSliderInput input;
-    [SerializeField] private LegoPlacementTaskManager placementTask;
-    [SerializeField] private Transform blockRoot;
+    [SerializeField] private ToolPlacementTaskManager placementTask;  // <-- 변경
+    [SerializeField] private ProxyHandGrabber grabber;                // <-- 추가
 
     [Header("Mapping")]
     [SerializeField] private ControlledAxis controlledAxis = ControlledAxis.X;
@@ -25,6 +25,10 @@ public class MicroPlacementController_Slider : MonoBehaviour
 
     [Tooltip("If true, axes are camera-relative. If false, world axes.")]
     [SerializeField] private bool useCameraFrame = true;
+
+    [Header("Drive gating")]
+    [Tooltip("If true, moves only while a tool is being held.")]
+    [SerializeField] private bool requireHoldingToMove = true;
 
     [Header("Auto switch: Slide (X/Z) <-> Twist (Y)")]
     [SerializeField] private bool autoSwitchToYByTwist = true;
@@ -83,8 +87,14 @@ public class MicroPlacementController_Slider : MonoBehaviour
 
     void Update()
     {
-        if (input == null || placementTask == null || blockRoot == null) return;
+        if (input == null || placementTask == null || grabber == null) return;
         if (!placementTask.IsTrialRunning) return;
+
+        if (requireHoldingToMove && (!grabber.IsHolding || grabber.HeldBody == null))
+            return;
+
+        Transform t = (grabber.HeldBody != null) ? grabber.HeldBody.transform : null;
+        if (t == null) return;
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
 
@@ -120,18 +130,10 @@ public class MicroPlacementController_Slider : MonoBehaviour
         float slide = input.AxisValue; // [-1..1]
         float twist = input.AxisY;     // [-1..1]
 
-        if (autoSwitchToYByTwist)
-        {
-            UpdateYMode(dt, twist);
-        }
-        else
-        {
-            _yMode = (controlledAxis == ControlledAxis.Y);
-        }
+        if (autoSwitchToYByTwist) UpdateYMode(dt, twist);
+        else _yMode = (controlledAxis == ControlledAxis.Y);
 
-        float vRaw;
-        float vShaped;
-        float speed;
+        float vRaw, vShaped, speed;
         Vector3 axis;
 
         if (_yMode)
@@ -153,21 +155,20 @@ public class MicroPlacementController_Slider : MonoBehaviour
         if (Mathf.Abs(vShaped) <= Mathf.Max(0f, precisionBandAbs))
             speed *= Mathf.Clamp(precisionSpeedScale, 0.05f, 1f);
 
-        // Reattach ramp (after suppress window)
+        // Reattach ramp
         float reattachFactor = 1f;
         if (stopMotionWhenThumbOff && useReattachRamp && reattachRampSec > 1e-4f)
         {
-            float t = (Time.time - _rampStartTime) / reattachRampSec;
-            t = Mathf.Clamp01(t);
-            // SmoothStep(0->1): starts gentle, ends gentle
-            reattachFactor = t * t * (3f - 2f * t);
+            float tt = (Time.time - _rampStartTime) / reattachRampSec;
+            tt = Mathf.Clamp01(tt);
+            reattachFactor = tt * tt * (3f - 2f * tt);
         }
 
         vShaped *= reattachFactor;
 
         if (Mathf.Abs(vShaped) < 1e-5f) return;
 
-        blockRoot.position += axis * (vShaped * speed * dt);
+        t.position += axis * (vShaped * speed * dt);
     }
 
     private void ResetYModeState()
@@ -193,10 +194,7 @@ public class MicroPlacementController_Slider : MonoBehaviour
                     _enterHeld = 0f;
                 }
             }
-            else
-            {
-                _enterHeld = 0f;
-            }
+            else _enterHeld = 0f;
         }
         else
         {
@@ -210,10 +208,7 @@ public class MicroPlacementController_Slider : MonoBehaviour
                     _exitHeld = 0f;
                 }
             }
-            else
-            {
-                _exitHeld = 0f;
-            }
+            else _exitHeld = 0f;
         }
     }
 
@@ -221,10 +216,7 @@ public class MicroPlacementController_Slider : MonoBehaviour
     {
         float a = Mathf.Abs(v);
         float g = Mathf.Max(1e-3f, gamma);
-
-        if (Mathf.Abs(g - 1f) > 1e-3f)
-            a = Mathf.Pow(a, g);
-
+        if (Mathf.Abs(g - 1f) > 1e-3f) a = Mathf.Pow(a, g);
         return Mathf.Sign(v) * a;
     }
 
@@ -236,12 +228,9 @@ public class MicroPlacementController_Slider : MonoBehaviour
 
     private Vector3 GetSlideAxis()
     {
-        bool useZ;
-
-        if (followInputModeForSlide)
-            useZ = (input.Mode == MicroThumbIndexSliderInput.AxisMode.Z);
-        else
-            useZ = (controlledAxis == ControlledAxis.Z);
+        bool useZ = followInputModeForSlide
+            ? (input.Mode == MicroThumbIndexSliderInput.AxisMode.Z)
+            : (controlledAxis == ControlledAxis.Z);
 
         if (useCameraFrame && Camera.main != null)
         {

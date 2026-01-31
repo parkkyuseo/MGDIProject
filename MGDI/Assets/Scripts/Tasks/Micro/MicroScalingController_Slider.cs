@@ -4,8 +4,7 @@ public class MicroScalingController_Slider : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private MicroThumbIndexSliderInput input;
-    [SerializeField] private LegoScalingTaskManager scalingTask;
-    [SerializeField] private Transform blockRoot;
+    [SerializeField] private ToolScalingTaskManager_OverlayCore scalingTask;
 
     [Header("Mapping")]
     [Tooltip("Exponential scale rate. Higher = faster scaling.")]
@@ -39,11 +38,10 @@ public class MicroScalingController_Slider : MonoBehaviour
     [Tooltip("If true, uses a smooth ramp after suppress window.")]
     [SerializeField] private bool useReattachRamp = true;
 
-    [Header("Clamp")]
+    [Header("Clamp (factor)")]
     [SerializeField] private float minFactor = 0.60f;
     [SerializeField] private float maxFactor = 1.80f;
 
-    private Vector3 _baseWorldScale = Vector3.one;
     private float _factor = 1f;
     private bool _baselineCaptured = false;
 
@@ -53,7 +51,7 @@ public class MicroScalingController_Slider : MonoBehaviour
 
     void Update()
     {
-        if (input == null || scalingTask == null || blockRoot == null) return;
+        if (input == null || scalingTask == null) return;
 
         if (!scalingTask.IsTrialRunning)
         {
@@ -63,16 +61,25 @@ public class MicroScalingController_Slider : MonoBehaviour
             return;
         }
 
-        // Capture baseline when entering Scaling task
+        // Task-level gating (holding / active tool match, etc.)
+        if (!scalingTask.CanDriveNow())
+        {
+            scalingTask.SetExternalDriving(false);
+            _baselineCaptured = false;
+            return;
+        }
+
+        // Capture baseline when entering scaling trial
         if (!_baselineCaptured)
         {
-            _baseWorldScale = blockRoot.lossyScale;
             _factor = 1f;
             _baselineCaptured = true;
 
             _prevThumbOn = input.Debug_thumbOnIndex;
             _suppressUntil = -999f;
             _rampStartTime = -999f;
+
+            scalingTask.ApplyScaleFactor(_factor);
         }
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
@@ -135,10 +142,12 @@ public class MicroScalingController_Slider : MonoBehaviour
         }
 
         scalingTask.SetExternalDriving(true);
+
+        // Exponential integration in factor space
         _factor *= Mathf.Exp(gain * v * dt);
         _factor = Mathf.Clamp(_factor, minFactor, maxFactor);
 
-        SetWorldScale(blockRoot, _baseWorldScale * _factor);
+        scalingTask.ApplyScaleFactor(_factor);
     }
 
     static float ApplyPrecisionCurve(float v, float gamma)
@@ -150,24 +159,5 @@ public class MicroScalingController_Slider : MonoBehaviour
             a = Mathf.Pow(a, g);
 
         return Mathf.Sign(v) * a;
-    }
-
-    static void SetWorldScale(Transform t, Vector3 desiredWorldScale)
-    {
-        if (t == null) return;
-
-        Vector3 parentLossy = Vector3.one;
-        if (t.parent != null)
-            parentLossy = t.parent.lossyScale;
-
-        float px = Mathf.Abs(parentLossy.x) < 1e-6f ? 1e-6f : parentLossy.x;
-        float py = Mathf.Abs(parentLossy.y) < 1e-6f ? 1e-6f : parentLossy.y;
-        float pz = Mathf.Abs(parentLossy.z) < 1e-6f ? 1e-6f : parentLossy.z;
-
-        t.localScale = new Vector3(
-            desiredWorldScale.x / px,
-            desiredWorldScale.y / py,
-            desiredWorldScale.z / pz
-        );
     }
 }

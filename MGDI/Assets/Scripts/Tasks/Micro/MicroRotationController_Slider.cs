@@ -4,8 +4,7 @@ public class MicroRotationController_Slider : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private MicroThumbIndexSliderInput input;
-    [SerializeField] private LegoRotationTaskManager rotationTask;
-    [SerializeField] private Transform blockRoot;
+    [SerializeField] private ToolRotationTaskManager rotationTask;
 
     [Header("Mapping")]
     [Tooltip("Base yaw speed in deg/sec.")]
@@ -46,8 +45,23 @@ public class MicroRotationController_Slider : MonoBehaviour
 
     void Update()
     {
-        if (input == null || rotationTask == null || blockRoot == null) return;
+        if (input == null || rotationTask == null) return;
+
         if (!rotationTask.IsTrialRunning)
+        {
+            rotationTask.SetExternalDriving(false);
+            return;
+        }
+
+        // Non-grasp micro: allow rotation without holding (manager decides)
+        if (!rotationTask.CanMicroDriveNow())
+        {
+            rotationTask.SetExternalDriving(false);
+            return;
+        }
+
+        Transform tool = rotationTask.ActiveToolTransform;
+        if (tool == null)
         {
             rotationTask.SetExternalDriving(false);
             return;
@@ -55,7 +69,7 @@ public class MicroRotationController_Slider : MonoBehaviour
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
 
-        // Gate by ThumbOnIndex stable state
+        // ThumbOnIndex gating
         bool thumbOn = input.Debug_thumbOnIndex;
 
         if (stopRotationWhenThumbOff)
@@ -90,7 +104,6 @@ public class MicroRotationController_Slider : MonoBehaviour
 
         float speed = yawSpeedDegPerSec;
 
-        // Two-stage speed scaling near center
         if (Mathf.Abs(v) <= Mathf.Max(0f, precisionBandAbs))
             speed *= Mathf.Clamp(precisionSpeedScale, 0.05f, 1f);
 
@@ -107,25 +120,22 @@ public class MicroRotationController_Slider : MonoBehaviour
 
         if (Mathf.Abs(v) < 1e-5f)
         {
+            // Important: stop driving so evaluation can occur (not-driving evaluation)
             rotationTask.SetExternalDriving(false);
             return;
         }
 
         rotationTask.SetExternalDriving(true);
-        float dyaw = v * speed * dt;
 
-        // Safer than eulerAngles accumulation for wrap cases
-        blockRoot.rotation = Quaternion.AngleAxis(dyaw, Vector3.up) * blockRoot.rotation;
+        float dyaw = v * speed * dt;
+        tool.rotation = Quaternion.AngleAxis(dyaw, Vector3.up) * tool.rotation;
     }
 
     static float ApplyPrecisionCurve(float v, float gamma)
     {
         float a = Mathf.Abs(v);
         float g = Mathf.Max(1e-3f, gamma);
-
-        if (Mathf.Abs(g - 1f) > 1e-3f)
-            a = Mathf.Pow(a, g);
-
+        if (Mathf.Abs(g - 1f) > 1e-3f) a = Mathf.Pow(a, g);
         return Mathf.Sign(v) * a;
     }
 }
