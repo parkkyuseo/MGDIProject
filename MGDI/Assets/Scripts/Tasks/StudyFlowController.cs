@@ -25,6 +25,9 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
     public ProxyHandGrabber grabber;
 
+    [Tooltip("RemoteHandRuntime that provides side->front remap toggle.")]
+    [SerializeField] private RemoteHandRuntime remoteHand;
+
     [Header("HUD (Task Context)")]
     public TaskContextHUD taskContextHUD;
 
@@ -76,19 +79,60 @@ public class StudyFlowController : MonoBehaviour
     [SerializeField] private MicroThumbIndexSliderInput microSliderInput;
     [SerializeField] private float microCalibWindowSec = 0.20f;
 
-    // Commands
+    // Basic task commands (start with current technique/location)
     public string cmdStartPlacement = "start placement";
-    public string cmdStartRotation = "start rotation";
-    public string cmdStartScaling = "start scaling";
+    public string cmdStartRotation  = "start rotation";
+    public string cmdStartScaling   = "start scaling";
 
+    // One-shot micro starts (tech + task)
     public string cmdStartMicroPlacement = "start micro placement";
-    public string cmdStartMicroRotation = "start micro rotation";
-    public string cmdStartMicroScaling = "start micro scaling";
+    public string cmdStartMicroRotation  = "start micro rotation";
+    public string cmdStartMicroScaling   = "start micro scaling";
 
+    // One-shot macro starts (tech + task)
     public string cmdStartMacroPlacement = "start macro placement";
-    public string cmdStartMacroRotation = "start macro rotation";
-    public string cmdStartMacroScaling = "start macro scaling";
+    public string cmdStartMacroRotation  = "start macro rotation";
+    public string cmdStartMacroScaling   = "start macro scaling";
 
+    // NEW: one-shot location + task (keeps current technique)
+    public string cmdStartPlacementNear      = "start placement near";
+    public string cmdStartPlacementSideLeft  = "start placement side left";
+    public string cmdStartPlacementSideRight = "start placement side right";
+
+    public string cmdStartRotationNear      = "start rotation near";
+    public string cmdStartRotationSideLeft  = "start rotation side left";
+    public string cmdStartRotationSideRight = "start rotation side right";
+
+    public string cmdStartScalingNear      = "start scaling near";
+    public string cmdStartScalingSideLeft  = "start scaling side left";
+    public string cmdStartScalingSideRight = "start scaling side right";
+
+    // (Optional) one-shot technique + location + task (most explicit; avoids ambiguity)
+    public string cmdStartMicroPlacementNear      = "start micro placement near";
+    public string cmdStartMicroPlacementSideLeft  = "start micro placement side left";
+    public string cmdStartMicroPlacementSideRight = "start micro placement side right";
+
+    public string cmdStartMicroRotationNear      = "start micro rotation near";
+    public string cmdStartMicroRotationSideLeft  = "start micro rotation side left";
+    public string cmdStartMicroRotationSideRight = "start micro rotation side right";
+
+    public string cmdStartMicroScalingNear      = "start micro scaling near";
+    public string cmdStartMicroScalingSideLeft  = "start micro scaling side left";
+    public string cmdStartMicroScalingSideRight = "start micro scaling side right";
+
+    public string cmdStartMacroPlacementNear      = "start macro placement near";
+    public string cmdStartMacroPlacementSideLeft  = "start macro placement side left";
+    public string cmdStartMacroPlacementSideRight = "start macro placement side right";
+
+    public string cmdStartMacroRotationNear      = "start macro rotation near";
+    public string cmdStartMacroRotationSideLeft  = "start macro rotation side left";
+    public string cmdStartMacroRotationSideRight = "start macro rotation side right";
+
+    public string cmdStartMacroScalingNear      = "start macro scaling near";
+    public string cmdStartMacroScalingSideLeft  = "start macro scaling side left";
+    public string cmdStartMacroScalingSideRight = "start macro scaling side right";
+
+    // General
     public string cmdRestart = "restart";
     public string cmdNext = "next";
 
@@ -116,43 +160,73 @@ public class StudyFlowController : MonoBehaviour
         if (instructionHUD != null)
             instructionHUD.HideImmediate();
 
+        // Make remap consistent at boot
+        ApplySideToFrontRemap(currentHandLocation);
+
         if (!enableVoice) return;
 
         actions = new Dictionary<string, Action>
         {
+            // Basic: start with current technique/location
             { cmdStartPlacement.ToLower(), () => StartTask(TaskType.Placement) },
             { cmdStartRotation.ToLower(),  () => StartTask(TaskType.Rotation) },
             { cmdStartScaling.ToLower(),   () => StartTask(TaskType.Scaling) },
 
-            { cmdStartMicroPlacement.ToLower(), () =>
-              {
-                  microSliderInput?.BeginCalibration(microCalibWindowSec);
-                  StartTechniqueAndTask(Technique.Micro, TaskType.Placement);
-              }
-            },
-            { cmdStartMicroRotation.ToLower(), () =>
-              {
-                  microSliderInput?.BeginCalibration(microCalibWindowSec);
-                  StartTechniqueAndTask(Technique.Micro, TaskType.Rotation);
-              }
-            },
-            { cmdStartMicroScaling.ToLower(), () =>
-              {
-                  microSliderInput?.BeginCalibration(microCalibWindowSec);
-                  StartTechniqueAndTask(Technique.Micro, TaskType.Scaling);
-              }
-            },
+            // Tech + task one-shots (use current location)
+            { cmdStartMicroPlacement.ToLower(), () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Placement); } },
+            { cmdStartMicroRotation.ToLower(),  () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Rotation); } },
+            { cmdStartMicroScaling.ToLower(),   () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Scaling); } },
 
             { cmdStartMacroPlacement.ToLower(), () => StartTechniqueAndTask(Technique.Macro, TaskType.Placement) },
             { cmdStartMacroRotation.ToLower(),  () => StartTechniqueAndTask(Technique.Macro, TaskType.Rotation) },
             { cmdStartMacroScaling.ToLower(),   () => StartTechniqueAndTask(Technique.Macro, TaskType.Scaling) },
 
+            // Location + task one-shots (keep current technique)
+            { cmdStartPlacementNear.ToLower(),      () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Placement) },
+            { cmdStartPlacementSideLeft.ToLower(),  () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Placement) },
+            { cmdStartPlacementSideRight.ToLower(), () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Placement) },
+
+            { cmdStartRotationNear.ToLower(),      () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Rotation) },
+            { cmdStartRotationSideLeft.ToLower(),  () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Rotation) },
+            { cmdStartRotationSideRight.ToLower(), () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Rotation) },
+
+            { cmdStartScalingNear.ToLower(),      () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Scaling) },
+            { cmdStartScalingSideLeft.ToLower(),  () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Scaling) },
+            { cmdStartScalingSideRight.ToLower(), () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Scaling) },
+
+            // Tech + location + task one-shots (most explicit; recommended for experiments)
+            { cmdStartMicroPlacementNear.ToLower(),      () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Placement); } },
+            { cmdStartMicroPlacementSideLeft.ToLower(),  () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Placement); } },
+            { cmdStartMicroPlacementSideRight.ToLower(), () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Placement); } },
+
+            { cmdStartMicroRotationNear.ToLower(),      () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Rotation); } },
+            { cmdStartMicroRotationSideLeft.ToLower(),  () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Rotation); } },
+            { cmdStartMicroRotationSideRight.ToLower(), () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Rotation); } },
+
+            { cmdStartMicroScalingNear.ToLower(),      () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Scaling); } },
+            { cmdStartMicroScalingSideLeft.ToLower(),  () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Scaling); } },
+            { cmdStartMicroScalingSideRight.ToLower(), () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Scaling); } },
+
+            { cmdStartMacroPlacementNear.ToLower(),      () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Placement) },
+            { cmdStartMacroPlacementSideLeft.ToLower(),  () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Placement) },
+            { cmdStartMacroPlacementSideRight.ToLower(), () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Placement) },
+
+            { cmdStartMacroRotationNear.ToLower(),      () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Rotation) },
+            { cmdStartMacroRotationSideLeft.ToLower(),  () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Rotation) },
+            { cmdStartMacroRotationSideRight.ToLower(), () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Rotation) },
+
+            { cmdStartMacroScalingNear.ToLower(),      () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Scaling) },
+            { cmdStartMacroScalingSideLeft.ToLower(),  () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Scaling) },
+            { cmdStartMacroScalingSideRight.ToLower(), () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Scaling) },
+
+            // Utility
             { cmdRestart.ToLower(), RestartCurrent },
             { cmdNext.ToLower(),    NextConditionAndRestart },
 
             { cmdMacro.ToLower(), () => SetTechnique(Technique.Macro, restart:true) },
-            { cmdMicro.ToLower(), () => { microSliderInput?.BeginCalibration(microCalibWindowSec); SetTechnique(Technique.Micro, restart:true); } },
+            { cmdMicro.ToLower(), () => { BeginMicroCalibration(); SetTechnique(Technique.Micro, restart:true); } },
 
+            // Location-only toggles (do not start task)
             { cmdNear.ToLower(),      () => SetHandLocation(WorkspaceAnchorController.HandLocation.NearHead, restart:false) },
             { cmdSideLeft.ToLower(),  () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyLeft, restart:false) },
             { cmdSideRight.ToLower(), () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyRight, restart:false) },
@@ -167,9 +241,22 @@ public class StudyFlowController : MonoBehaviour
         recognizer.Start();
     }
 
+    private void BeginMicroCalibration()
+    {
+        microSliderInput?.BeginCalibration(microCalibWindowSec);
+    }
+
     private void StartTechniqueAndTask(Technique tech, TaskType task)
     {
         currentTechnique = tech;
+        StartTask(task);
+    }
+
+    private void StartLocationAndTask(Technique tech, WorkspaceAnchorController.HandLocation loc, TaskType task)
+    {
+        currentTechnique = tech;
+        currentHandLocation = loc;
+        ApplySideToFrontRemap(currentHandLocation);
         StartTask(task);
     }
 
@@ -240,7 +327,8 @@ public class StudyFlowController : MonoBehaviour
         ForceReleaseIfPossible();
 
         ApplyTechnique();
-        ApplyWorkspaceProfile();
+        ApplyWorkspaceProfile(); // will place workspace per task/tech/location
+        ApplySideToFrontRemap(currentHandLocation); // keep hand input consistent with location
         ApplyGrabberModeForCurrentTask();
 
         HookTaskFinishedEvents(currentTask);
@@ -301,6 +389,7 @@ public class StudyFlowController : MonoBehaviour
             currentTechnique = (currentTechnique == Technique.Macro) ? Technique.Micro : Technique.Macro;
         }
 
+        ApplySideToFrontRemap(currentHandLocation);
         RestartCurrent();
     }
 
@@ -317,6 +406,8 @@ public class StudyFlowController : MonoBehaviour
     public void SetHandLocation(WorkspaceAnchorController.HandLocation loc, bool restart)
     {
         currentHandLocation = loc;
+        ApplySideToFrontRemap(currentHandLocation);
+
         if (restart) RestartCurrent();
         else
         {
@@ -324,6 +415,19 @@ public class StudyFlowController : MonoBehaviour
             UpdateHUDStatic();
             ShowInstructionForCurrentState_ReturnSeconds();
         }
+    }
+
+    // ---------------- Side→Front remap toggle ----------------
+    private void ApplySideToFrontRemap(WorkspaceAnchorController.HandLocation loc)
+    {
+        if (remoteHand == null) return;
+
+        bool isSide =
+            (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) ||
+            (loc == WorkspaceAnchorController.HandLocation.SideOfBodyRight);
+
+        // near/front => false, side => true
+        remoteHand.SetSideToFrontRemap(isSide);
     }
 
     // ---------------- Apply workspace ----------------
@@ -431,7 +535,6 @@ public class StudyFlowController : MonoBehaviour
             (currentTask == TaskType.Scaling) ? "Overlay Scaling" : "";
 
         string cond = $"{currentTechnique} · {ShortHandLocation(currentHandLocation)}";
-
         taskContextHUD.SetTaskLabel(taskName);
         taskContextHUD.SetCondition(cond);
     }

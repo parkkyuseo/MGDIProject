@@ -1539,4 +1539,24 @@ public class RemoteHandRuntime : MonoBehaviour
 
         _applyingPresetGuard = false;
     }
+
+    public void SetSideToFrontRemap(bool enable)
+    {
+        if (enableSideToFrontRemap == enable)
+            return; // 이미 같은 상태면 아무 것도 안 함
+
+        enableSideToFrontRemap = enable;
+
+        // 켤 때는 반드시 neutral을 다시 잡아야 튐이 없음
+        if (enable)
+        {
+            _remapNeutralCaptured = false;
+            _remapOffsetCamSm = Vector3.zero;
+        }
+
+        // 상태가 바뀌었으므로 안정성 확보
+        _gainNeutralCaptured = false;
+        ClearInterpolationBuffer();
+        ResetSmoothingState(fullResetRemapAndGain: false);
+    }
 }
