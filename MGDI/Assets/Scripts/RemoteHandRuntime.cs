@@ -305,6 +305,59 @@ public class RemoteHandRuntime : MonoBehaviour
     float _joyInZSm = 0f;
     bool _joyHasInputPrev = false;
 
+    // ---- Workspace offset (for side-body visual alignment) ----
+    [SerializeField] private Transform workspaceOffsetAnchor; // WorkspaceAnchorController.workspaceAnchor
+    private bool _haveWorkspaceBase = false;
+    private Vector3 _wsBasePos;
+    private Quaternion _wsBaseYaw;   // yaw-only
+    private Vector3 _wsCurPos;
+    private Quaternion _wsCurYaw;    // yaw-only
+
+    public void SetWorkspaceOffsetAnchor(Transform t)
+    {
+        workspaceOffsetAnchor = t;
+    }
+
+    // Call this when entering NearHead (front) so it becomes the baseline frame.
+    public void CaptureWorkspaceBaseFromCurrentAnchor()
+    {
+        if (workspaceOffsetAnchor == null) { _haveWorkspaceBase = false; return; }
+        _wsBasePos = workspaceOffsetAnchor.position;
+        _wsBaseYaw = YawOnly(workspaceOffsetAnchor.rotation);
+        _haveWorkspaceBase = true;
+    }
+
+    // Call this every time after profiles are applied (near or side), so current pose is updated.
+    public void UpdateWorkspaceCurrentFromAnchor()
+    {
+        if (workspaceOffsetAnchor == null) return;
+        _wsCurPos = workspaceOffsetAnchor.position;
+        _wsCurYaw = YawOnly(workspaceOffsetAnchor.rotation);
+    }
+
+    // Apply baseline->current transform to an input world position (translation + yaw).
+    private Vector3 ApplyWorkspaceOffsetToWorldPos(Vector3 worldPos)
+    {
+        if (workspaceOffsetAnchor == null || !_haveWorkspaceBase)
+            return worldPos;
+
+        // Convert worldPos into baseline frame local (yaw-only around base)
+        Vector3 v = worldPos - _wsBasePos;
+        Vector3 local = Quaternion.Inverse(_wsBaseYaw) * v;
+
+        // Re-express in current frame
+        Vector3 outPos = _wsCurPos + (_wsCurYaw * local);
+        return outPos;
+    }
+
+    private static Quaternion YawOnly(Quaternion q)
+    {
+        Vector3 f = q * Vector3.forward;
+        f.y = 0f;
+        if (f.sqrMagnitude < 1e-8f) return Quaternion.identity;
+        return Quaternion.LookRotation(f.normalized, Vector3.up);
+    }
+
     // =========================================================
     // Preset helper
     // =========================================================
@@ -842,6 +895,9 @@ public class RemoteHandRuntime : MonoBehaviour
             else camFwd = Vector3.forward;
         }
 
+        // Update workspace-current pose once per frame (used for output mapping)
+        UpdateWorkspaceCurrentFromAnchor();
+
         // First frame init
         if (!_havePrevPos)
         {
@@ -854,13 +910,17 @@ public class RemoteHandRuntime : MonoBehaviour
                     _oneEuro[i].Reset(v);
 
                 if (remoteByIndex[i] != null)
-                    remoteByIndex[i].position = v;
+                {
+                    // Apply workspace offset ONLY to output pose
+                    Vector3 outV = ApplyWorkspaceOffsetToWorldPos(v);
+                    remoteByIndex[i].position = outV;
+                }
             }
 
-            // update filtered tips from applied pose
-            thumbTipFast = _prevPos[4];
-            indexTipFast = _prevPos[8];
-            middleTipFast = _prevPos[12];
+            // update filtered tips from applied pose (stable) — use OUTPUT frame
+            thumbTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[4]);
+            indexTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[8]);
+            middleTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[12]);
             fastTipsReady = true;
 
             _havePrevPos = true;
@@ -1001,16 +1061,20 @@ public class RemoteHandRuntime : MonoBehaviour
                 }
             }
 
+            // Apply workspace offset ONLY to output pose (visual hand),
+            // but keep filter state in original world space for stability.
+            Vector3 outPos = ApplyWorkspaceOffsetToWorldPos(filtered);
+
             if (remoteByIndex[i] != null)
-                remoteByIndex[i].position = filtered;
+                remoteByIndex[i].position = outPos;
 
             _prevPos[i] = filtered;
         }
 
-        // update filtered tips from applied pose (stable)
-        thumbTipFast = _prevPos[4];
-        indexTipFast = _prevPos[8];
-        middleTipFast = _prevPos[12];
+        // update filtered tips from applied pose (stable) — use OUTPUT frame
+        thumbTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[4]);
+        indexTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[8]);
+        middleTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[12]);
         fastTipsReady = true;
     }
 

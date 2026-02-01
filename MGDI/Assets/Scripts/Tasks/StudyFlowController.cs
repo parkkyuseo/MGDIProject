@@ -308,6 +308,22 @@ public class StudyFlowController : MonoBehaviour
         }
     }
 
+    private void SyncRemoteHandWorkspaceOffset()
+    {
+        if (remoteHand == null || workspaceController == null) return;
+        if (workspaceController.workspaceAnchor == null) return;
+
+        // 1) 어떤 anchor를 쓸지 알려주기
+        remoteHand.SetWorkspaceOffsetAnchor(workspaceController.workspaceAnchor);
+
+        // 2) NearHead는 baseline으로 삼기
+        if (currentHandLocation == WorkspaceAnchorController.HandLocation.NearHead)
+            remoteHand.CaptureWorkspaceBaseFromCurrentAnchor();
+
+        // 3) 매번 current pose 갱신
+        remoteHand.UpdateWorkspaceCurrentFromAnchor();
+    }
+
     // ---------------- Flow ----------------
     public void StartTask(TaskType t)
     {
@@ -328,6 +344,7 @@ public class StudyFlowController : MonoBehaviour
 
         ApplyTechnique();
         ApplyWorkspaceProfile(); // will place workspace per task/tech/location
+        SyncRemoteHandWorkspaceOffset();
         ApplySideToFrontRemap(currentHandLocation); // keep hand input consistent with location
         ApplyGrabberModeForCurrentTask();
 
@@ -412,6 +429,7 @@ public class StudyFlowController : MonoBehaviour
         else
         {
             ApplyWorkspaceProfile();
+            SyncRemoteHandWorkspaceOffset();
             UpdateHUDStatic();
             ShowInstructionForCurrentState_ReturnSeconds();
         }
