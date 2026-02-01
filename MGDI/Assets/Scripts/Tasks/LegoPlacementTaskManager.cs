@@ -145,44 +145,6 @@ public class LegoPlacementTaskManager : MonoBehaviour
         return p;
     }
 
-    // Optional gizmo drawing
-    void OnDrawGizmos()
-    {
-        if (blockRoot == null || targetSlotRoot == null) return;
-
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawSphere(blockRoot.position, 0.05f);
-
-        Gizmos.color = Color.green;
-        Gizmos.DrawSphere(targetSlotRoot.position, 0.05f);
-
-        var blockR = blockRoot.GetComponentInChildren<Renderer>();
-        var targetR = targetSlotRoot.GetComponentInChildren<Renderer>();
-
-        if (blockR != null)
-        {
-            Gizmos.color = new Color(1f, 0.5f, 0f, 1f);
-            Gizmos.DrawSphere(blockR.bounds.center, 0.07f);
-            Gizmos.DrawLine(blockRoot.position, blockR.bounds.center);
-        }
-
-        if (targetR != null)
-        {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawSphere(targetR.bounds.center, 0.05f);
-            Gizmos.DrawLine(targetSlotRoot.position, targetR.bounds.center);
-        }
-
-        Gizmos.color = Color.magenta;
-        Gizmos.DrawLine(blockRoot.position, targetSlotRoot.position);
-
-        if (blockR != null && targetR != null)
-        {
-            Gizmos.color = Color.white;
-            Gizmos.DrawLine(blockR.bounds.center, targetR.bounds.center);
-        }
-    }
-
     // ---------------- Public ----------------
     public void StartBlock()
     {
