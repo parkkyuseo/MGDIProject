@@ -20,7 +20,10 @@ public class ToolRotationTaskManager : MonoBehaviour
     [SerializeField] private RemoteHandRuntime remoteHand;
 
     [Header("Grabber rotation policy")]
+    [Tooltip("Rotation task: task manager controls yaw; grabber must not override rotation.")]
     [SerializeField] private ProxyHandGrabber.HeldRotationMode rotationTrialGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
+
+    [Tooltip("Rotation mode to restore when this manager is disabled.")]
     [SerializeField] private ProxyHandGrabber.HeldRotationMode restoreGrabberModeOnDisable = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
     [Header("Feedback (Audio / UI)")]
@@ -79,6 +82,15 @@ public class ToolRotationTaskManager : MonoBehaviour
     [SerializeField] private string restartKeyword = "restart rotation";
     [SerializeField] private bool autoStartInEditor = false;
 
+    [Header("Target ghost positioning (bring near active tool)")]
+    [SerializeField] private bool bringTargetNearActiveTool = true;
+
+    [Tooltip("Offset near the tool when bringing target close. X=right, Y=up, Z=forward (in chosen frame). Meters.")]
+    [SerializeField] private Vector3 targetOffsetLocal = new Vector3(0.18f, 0.03f, 0.00f);
+
+    [Tooltip("If true, offset uses Camera frame (cam.right/up/fwd). If false, uses tool frame (tool.right/up/fwd).")]
+    [SerializeField] private bool offsetInCameraFrame = true;
+
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
 
@@ -94,9 +106,15 @@ public class ToolRotationTaskManager : MonoBehaviour
         public Transform tool;
         public Rigidbody toolBody;
         public Transform target;
+
         public Transform startParent;
         public Vector3 startPos;
         public Quaternion startRot;
+
+        // Base pose snapshots (to preserve "lying down" pitch/roll)
+        public Quaternion startBaseRot;
+        public Quaternion targetBaseRot;
+        public Vector3 targetBasePos;
     }
 
     private readonly List<Item> _items = new List<Item>();
@@ -109,6 +127,8 @@ public class ToolRotationTaskManager : MonoBehaviour
     private bool _inTransition = false;
 
     private Item _active;
+
+    // Yaw variables (degrees)
     private float _startYawDeg;
     private float _twistBaselineDeg;
     private float _yawCmdDeg;
@@ -126,7 +146,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     public int TotalTrials => totalTrials;
     public int CurrentTrialIndex1Based => _trialIndex + 1;
 
-    // ✅ Expose active tool for micro controller
+    // Expose active tool for micro controller
     public Transform ActiveToolTransform => _active != null ? _active.tool : null;
     public string ActiveToolId => _active != null ? _active.id : null;
 
@@ -140,7 +160,7 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         if (microAllowWithoutHolding) return true;
 
-        // If microAllowWithoutHolding is false, fall back to holding gating.
+        // Fall back to holding gating if desired.
         return ShouldDriveRotationThisFrame();
     }
 
@@ -202,12 +222,11 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         _prevMacroDriving = macroDriving;
 
-        // ---------------- Evaluation gating ("release / stop input to evaluate") ----------------
+        // ---------------- Evaluation gating ("stop input to evaluate") ----------------
         bool evalAllowed = true;
 
         if (requireNotDrivingForEvaluation)
         {
-            // When macro is driving or micro is actively driving, do not accumulate dwell.
             if (macroDriving || _externalDriving)
                 evalAllowed = false;
         }
@@ -280,27 +299,41 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         EnsureActiveBody();
 
-        // Reset active tool to its start pose at trial start (controlled start)
+        // Reset active tool to its start pose at trial start
         ForceReleaseIfPossible();
         ResetActiveToolToStartPose();
+
+        // Snapshot base poses (preserve "lying down" pitch/roll)
+        _active.startBaseRot = _active.tool.rotation;
+        _active.targetBaseRot = _active.target.rotation;
+        _active.targetBasePos = _active.target.position;
+
+        // Move target near active tool (optional)
+        if (bringTargetNearActiveTool)
+            MoveTargetNearActiveTool();
 
         // Reset driving flags
         _externalDriving = false;
         _prevMacroDriving = false;
 
-        // Record start yaw and baseline twist (valid only when TwistReady)
-        _startYawDeg = _active.tool.eulerAngles.y;
+        // Record start yaw from base rotation (yaw-only measure)
+        _startYawDeg = GetYawDeg(_active.startBaseRot);
+
+        // Baseline twist
         _twistBaselineDeg = remoteHand.TwistReady ? remoteHand.TwistDegrees : 0f;
 
         _yawCmdDeg = _startYawDeg;
         _yawCmdInit = true;
 
-        // Sample target yaw offset and apply to target ghost (yaw-only)
+        // Sample target yaw offset
         float offset = Random.Range(yawMinDeg, yawMaxDeg);
         if (randomizeYawSign && Random.value < 0.5f) offset = -offset;
 
         float targetYaw = _startYawDeg + offset;
-        _active.target.rotation = Quaternion.Euler(0f, targetYaw, 0f);
+
+        // Apply yaw-only to target while preserving its base pose
+        float deltaTarget = Mathf.DeltaAngle(_startYawDeg, targetYaw);
+        _active.target.rotation = Quaternion.AngleAxis(deltaTarget, Vector3.up) * _active.targetBaseRot;
 
         _trialTimer = 0f;
         _dwellTimer = 0f;
@@ -313,9 +346,7 @@ public class ToolRotationTaskManager : MonoBehaviour
             UpdateProgressText(ComputeYawErrorDeg(), macroDriving: false, evalAllowed: true);
 
         if (logDebug)
-        {
             Debug.Log($"[ToolRotationTM] Trial {_trialIndex + 1}/{totalTrials} tool={_active.id} targetYawOffset={offset:F1}deg tol={yawToleranceDeg:F1}deg");
-        }
     }
 
     private IEnumerator EndTrialRoutine(bool success, bool timedOut)
@@ -343,6 +374,9 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         HideFeedbackUI();
 
+        // Restore target back to original placement
+        RestoreTargetPose();
+
         if (resetToolToStartAfterTrial)
         {
             ForceReleaseIfPossible();
@@ -351,6 +385,45 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         _trialIndex++;
         BeginNextTrial();
+    }
+
+    private void RestoreTargetPose()
+    {
+        if (_active == null || _active.target == null) return;
+        if (!bringTargetNearActiveTool) return;
+
+        _active.target.position = _active.targetBasePos;
+        _active.target.rotation = _active.targetBaseRot;
+    }
+
+    private void MoveTargetNearActiveTool()
+    {
+        if (_active == null || _active.tool == null || _active.target == null) return;
+
+        Transform cam = Camera.main != null ? Camera.main.transform : null;
+
+        Vector3 right, up, fwd;
+
+        if (offsetInCameraFrame && cam != null)
+        {
+            right = cam.right;
+            up = cam.up;
+            fwd = cam.forward;
+        }
+        else
+        {
+            right = _active.tool.right;
+            up = Vector3.up;
+            fwd = _active.tool.forward;
+        }
+
+        Vector3 pos =
+            _active.tool.position +
+            right * targetOffsetLocal.x +
+            up * targetOffsetLocal.y +
+            fwd * targetOffsetLocal.z;
+
+        _active.target.position = pos;
     }
 
     // ---------------- Registry ----------------
@@ -389,7 +462,10 @@ public class ToolRotationTaskManager : MonoBehaviour
                 startParent = toolTf != null ? toolTf.parent : null,
                 startPos = toolTf != null ? toolTf.position : Vector3.zero,
                 startRot = toolTf != null ? toolTf.rotation : Quaternion.identity,
-                toolBody = null
+                toolBody = null,
+                startBaseRot = Quaternion.identity,
+                targetBaseRot = Quaternion.identity,
+                targetBasePos = Vector3.zero
             };
 
             _items.Add(it);
@@ -445,7 +521,8 @@ public class ToolRotationTaskManager : MonoBehaviour
         if (!remoteHand.TwistReady) return;
 
         float twistNow = remoteHand.TwistDegrees;
-        float toolYawNow = _active.tool.eulerAngles.y;
+
+        float toolYawNow = GetYawDeg(_active.tool.rotation);
 
         float sign = invertTwistToYaw ? -1f : 1f;
         float denom = twistToYawGain * sign;
@@ -486,24 +563,39 @@ public class ToolRotationTaskManager : MonoBehaviour
         float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(yawLerp), dt * 60f);
         _yawCmdDeg = Mathf.LerpAngle(_yawCmdDeg, yawNext, k);
 
-        _active.tool.rotation = Quaternion.Euler(0f, _yawCmdDeg, 0f);
+        float deltaYaw = Mathf.DeltaAngle(_startYawDeg, _yawCmdDeg);
+        _active.tool.rotation = Quaternion.AngleAxis(deltaYaw, Vector3.up) * _active.startBaseRot;
     }
 
     private float ComputeYawErrorDeg()
     {
         if (_active == null || _active.tool == null || _active.target == null) return float.MaxValue;
-        float toolYaw = _active.tool.eulerAngles.y;
-        float targetYaw = _active.target.eulerAngles.y;
+
+        float toolYaw = GetYawDeg(_active.tool.rotation);
+        float targetYaw = GetYawDeg(_active.target.rotation);
+
         return Mathf.Abs(Mathf.DeltaAngle(toolYaw, targetYaw));
     }
 
     private void SnapYawToTarget()
     {
         if (_active == null || _active.tool == null || _active.target == null) return;
-        float targetYaw = _active.target.eulerAngles.y;
-        _active.tool.rotation = Quaternion.Euler(0f, targetYaw, 0f);
+
+        float targetYaw = GetYawDeg(_active.target.rotation);
+        float deltaYaw = Mathf.DeltaAngle(_startYawDeg, targetYaw);
+
+        _active.tool.rotation = Quaternion.AngleAxis(deltaYaw, Vector3.up) * _active.startBaseRot;
+
         _yawCmdDeg = targetYaw;
         _yawCmdInit = true;
+    }
+
+    private static float GetYawDeg(Quaternion q)
+    {
+        Vector3 f = q * Vector3.forward;
+        f.y = 0f;
+        if (f.sqrMagnitude < 1e-8f) return 0f;
+        return Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
     }
 
     // ---------------- UI ----------------
