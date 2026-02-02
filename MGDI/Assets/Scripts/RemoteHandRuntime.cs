@@ -157,6 +157,8 @@ public class RemoteHandRuntime : MonoBehaviour
     [Tooltip("If true, flips palm forward direction (useful when side condition makes hand face backwards).")]
     public bool invertPalmForward = false;
 
+    public float visualYawOffsetDeg = 0f;
+
     // =========================================================
     // Translation gain
     // =========================================================
@@ -1281,25 +1283,27 @@ public class RemoteHandRuntime : MonoBehaviour
         Vector3 mid = tMidMcp.position;
 
         // ----- Forward direction -----
-        // Option 1 (stable): wrist -> middle MCP
         Vector3 dir = (mid - w);
         if (dir.sqrMagnitude < 1e-8f) return;
         dir.Normalize();
 
-        if (invertPalmForward) dir = -dir; 
+        if (invertPalmForward) dir = -dir;
 
-        // Smooth forward direction (optional)
+        // Smooth forward direction
         if (_aimDirSm == Vector3.zero) _aimDirSm = dir;
         else _aimDirSm = Vector3.Slerp(_aimDirSm, dir, Mathf.Clamp01(aimDirLerp));
 
         float dist = Mathf.Max(0.01f, palmAimDistance);
 
-        // Place palmFwd in front of wrist
-        Vector3 fwdPos = w + _aimDirSm * dist;
+        // ✅ Apply VISUAL yaw offset ONLY to the aim direction (does not affect translation remap)
+        Quaternion visualYaw = Quaternion.Euler(0f, visualYawOffsetDeg, 0f);
+        Vector3 aimDirVis = visualYaw * _aimDirSm;
+
+        // Place palmFwd in front of wrist using visually-corrected direction
+        Vector3 fwdPos = w + aimDirVis * dist;
         if (palmFwd != null) palmFwd.position = fwdPos;
 
         // ----- Up direction -----
-        // Palm normal from wrist->index and wrist->middle
         Vector3 a = (idx - w);
         Vector3 b = (mid - w);
 
@@ -1309,8 +1313,7 @@ public class RemoteHandRuntime : MonoBehaviour
         if (n.sqrMagnitude < 1e-8f) n = Vector3.up;
         n.Normalize();
 
-        // Optional: keep up consistent (avoid flipping)
-        // If you see occasional sudden flips, uncomment this:
+        // (optional) If you see occasional flips, uncomment:
         // if (Vector3.Dot(n, Vector3.up) < 0f) n = -n;
 
         Vector3 upPos = w + n * dist;
