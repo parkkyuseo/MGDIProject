@@ -145,6 +145,13 @@ public class StudyFlowController : MonoBehaviour
 
     private void Start()
     {
+        DebugHUD.Log($"[SFC] Start() running on GO={gameObject.name} enabled={enabled} activeInHierarchy={gameObject.activeInHierarchy}");
+        var all = FindObjectsOfType<StudyFlowController>(true);
+        Debug.Log("[SFC] Count in scene (including inactive) = " + all.Length);
+        for (int i = 0; i < all.Length; i++)
+            Debug.Log("[SFC] instance[" + i + "] GO=" + all[i].gameObject.name + " enabled=" + all[i].enabled + " active=" + all[i].gameObject.activeInHierarchy);
+
+        // Above is only for log. can be removed
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();

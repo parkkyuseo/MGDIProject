@@ -388,7 +388,7 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         if (!_haveWorkspaceBase)
         {
-            if (Time.frameCount % 120 == 0) DebugHUD.Log("[RHR] No base -> passthrough");
+            /* if (Time.frameCount % 120 == 0) DebugHUD.Log("[RHR] No base -> passthrough"); */
             return worldPos;
         }
 
