@@ -305,6 +305,17 @@ public class RemoteHandRuntime : MonoBehaviour
     float _joyInZSm = 0f;
     bool _joyHasInputPrev = false;
 
+    // --- Driver joint base rotations (for workspace yaw offset) ---
+    Quaternion[] _driverBaseRot = new Quaternion[21];
+    bool _haveDriverBaseRot = false;
+
+    Quaternion WorkspaceYawDelta()
+    {
+        if (!_haveWorkspaceBase) return Quaternion.identity;
+        // deltaYaw = curYaw * inverse(baseYaw)
+        return _wsCurYaw * Quaternion.Inverse(_wsBaseYaw);
+    }
+
     // ---- Workspace offset (for side-body visual alignment) ----
     [SerializeField] private Transform workspaceOffsetAnchor; // WorkspaceAnchorController.workspaceAnchor
     private bool _haveWorkspaceBase = false;
@@ -334,6 +345,9 @@ public class RemoteHandRuntime : MonoBehaviour
         _wsBasePos = workspaceOffsetAnchor.position;
         _wsBaseYaw = YawOnly(workspaceOffsetAnchor.rotation);
         _haveWorkspaceBase = true;
+
+        // 추가: 다음 SmoothAndApply에서 baseline 기준 회전을 다시 캡처하도록 리셋
+        _haveDriverBaseRot = false;
 
         DebugHUD.Log($"[RHR] BaseCaptured pos={_wsBasePos}");
     }
@@ -927,6 +941,9 @@ public class RemoteHandRuntime : MonoBehaviour
         // Update workspace-current pose once per frame (used for output mapping)
         UpdateWorkspaceCurrentFromAnchor();
 
+        // Workspace yaw delta (baseline -> current). Identity if no base.
+        Quaternion dyaw = WorkspaceYawDelta();
+
         // First frame init
         if (!_havePrevPos)
         {
@@ -940,11 +957,21 @@ public class RemoteHandRuntime : MonoBehaviour
 
                 if (remoteByIndex[i] != null)
                 {
+                    // Capture base driver rotations once (baseline pose)
+                    if (!_haveDriverBaseRot)
+                        _driverBaseRot[i] = remoteByIndex[i].rotation;
+
                     // Apply workspace offset ONLY to output pose
                     Vector3 outV = ApplyWorkspaceOffsetToWorldPos(v);
                     remoteByIndex[i].position = outV;
+
+                    // Apply workspace yaw delta to driver joint rotation (visual alignment)
+                    if (_haveWorkspaceBase)
+                        remoteByIndex[i].rotation = dyaw * _driverBaseRot[i];
                 }
             }
+
+            _haveDriverBaseRot = true;
 
             // update filtered tips from applied pose (stable) — use OUTPUT frame
             thumbTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[4]);
@@ -954,6 +981,20 @@ public class RemoteHandRuntime : MonoBehaviour
 
             _havePrevPos = true;
             return;
+        }
+
+        // If base rotations were never captured (e.g., remoteByIndex was null at init),
+        // try capturing now once.
+        if (!_haveDriverBaseRot)
+        {
+            bool any = false;
+            for (int i = 0; i < 21; i++)
+            {
+                if (remoteByIndex[i] == null) continue;
+                _driverBaseRot[i] = remoteByIndex[i].rotation;
+                any = true;
+            }
+            _haveDriverBaseRot = any;
         }
 
         for (int i = 0; i < 21; i++)
@@ -1095,7 +1136,13 @@ public class RemoteHandRuntime : MonoBehaviour
             Vector3 outPos = ApplyWorkspaceOffsetToWorldPos(filtered);
 
             if (remoteByIndex[i] != null)
+            {
                 remoteByIndex[i].position = outPos;
+
+                // Apply workspace yaw delta to driver joint rotation (visual alignment)
+                if (_haveWorkspaceBase && _haveDriverBaseRot)
+                    remoteByIndex[i].rotation = dyaw * _driverBaseRot[i];
+            }
 
             _prevPos[i] = filtered;
         }

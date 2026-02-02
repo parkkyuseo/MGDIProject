@@ -149,6 +149,9 @@ public class StudyFlowController : MonoBehaviour
     float _nextCountdownUpdateTime = 0f;
     Coroutine _startTaskCo;
 
+    // ---------------- Remap state ----------------
+    private bool _lastRemapEnabled = false;
+
     private void Start()
     {
         if (taskContextHUD != null)
@@ -451,8 +454,13 @@ public class StudyFlowController : MonoBehaviour
             (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) ||
             (loc == WorkspaceAnchorController.HandLocation.SideOfBodyRight);
 
-        // near/front => false, side => true
-        remoteHand.SetSideToFrontRemap(isSide);
+        // side + macro일 때만 remap ON
+        bool enable = isSide && (currentTechnique == Technique.Macro);
+
+        if (enable == _lastRemapEnabled) return;
+        _lastRemapEnabled = enable;
+
+        remoteHand.SetSideToFrontRemap(enable);
     }
 
     // ---------------- Apply workspace ----------------
