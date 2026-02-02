@@ -143,15 +143,11 @@ public class StudyFlowController : MonoBehaviour
     // Remap toggle dedupe
     private bool _lastRemapEnabled = false;
 
+    private Transform _lastInjectedHandAnchor = null;
+
     private void Start()
     {
-        DebugHUD.Log($"[SFC] Start() running on GO={gameObject.name} enabled={enabled} activeInHierarchy={gameObject.activeInHierarchy}");
-        var all = FindObjectsOfType<StudyFlowController>(true);
-        DebugHUD.Log("[SFC] Count in scene (including inactive) = " + all.Length);
-        for (int i = 0; i < all.Length; i++)
-            DebugHUD.Log("[SFC] instance[" + i + "] GO=" + all[i].gameObject.name + " enabled=" + all[i].enabled + " active=" + all[i].gameObject.activeInHierarchy);
-
-        // Above is only for log. can be removed
+        SyncRemoteHandToHandAnchor();
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();
@@ -503,10 +499,13 @@ public class StudyFlowController : MonoBehaviour
         if (remoteHand == null) return;
         if (handWorkspaceController == null || handWorkspaceController.workspaceAnchor == null) return;
 
-        DebugHUD.Log("[SFC] SyncRemoteHandToHandAnchor: handAnchor=" +
-                  (handWorkspaceController != null && handWorkspaceController.workspaceAnchor != null ? handWorkspaceController.workspaceAnchor.name : "null"));
+        Transform anchor = handWorkspaceController.workspaceAnchor;
 
-        remoteHand.SetWorkspaceOffsetAnchor(handWorkspaceController.workspaceAnchor);
+        // 같은 anchor면 재주입할 필요 없음 (불필요한 리셋 방지)
+        if (_lastInjectedHandAnchor == anchor) return;
+        _lastInjectedHandAnchor = anchor;
+
+        remoteHand.SetWorkspaceOffsetAnchor(anchor);
     }
 
     // side-to-front remap: side + macro only
