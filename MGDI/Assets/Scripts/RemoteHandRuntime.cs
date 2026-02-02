@@ -373,7 +373,7 @@ public class RemoteHandRuntime : MonoBehaviour
     // Call this every time after profiles are applied (near or side), so current pose is updated.
     public void UpdateWorkspaceCurrentFromAnchor()
     {
-        if (workspaceOffsetAnchor == null) { DebugHUD.Log($"[RHR] UpdateCurrent failed: Anchor Null (self={gameObject.name})");  return; }
+        if (workspaceOffsetAnchor == null) { /*DebugHUD.Log($"[RHR] UpdateCurrent failed: Anchor Null (self={gameObject.name})"); */  return; }
 
         /* if (workspaceOffsetAnchor == null) return; */
         _wsCurPos = workspaceOffsetAnchor.position;
