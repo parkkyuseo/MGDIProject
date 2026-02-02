@@ -247,7 +247,7 @@ public class StudyFlowController : MonoBehaviour
         }
         else
         {
-            DebugHUD.LogWarning("[SFC] Cannot inject workspaceAnchor at Start (remoteHand/workspaceController/workspaceAnchor is null).");
+            DebugHUD.Log("[SFC] Cannot inject workspaceAnchor at Start (remoteHand/workspaceController/workspaceAnchor is null).");
         }
     }
 
