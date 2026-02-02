@@ -313,15 +313,11 @@ public class StudyFlowController : MonoBehaviour
         if (remoteHand == null || workspaceController == null) return;
         if (workspaceController.workspaceAnchor == null) return;
 
-        // 1) 어떤 anchor를 쓸지 알려주기
         remoteHand.SetWorkspaceOffsetAnchor(workspaceController.workspaceAnchor);
 
-        // 2) NearHead는 baseline으로 삼기
+        // baseline을 "near일 때만 다시 잡고 싶다"면 아래 한 줄만 유지(선택)
         if (currentHandLocation == WorkspaceAnchorController.HandLocation.NearHead)
             remoteHand.CaptureWorkspaceBaseFromCurrentAnchor();
-
-        // 3) 매번 current pose 갱신
-        remoteHand.UpdateWorkspaceCurrentFromAnchor();
     }
 
     // ---------------- Flow ----------------

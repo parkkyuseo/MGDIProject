@@ -316,6 +316,13 @@ public class RemoteHandRuntime : MonoBehaviour
     public void SetWorkspaceOffsetAnchor(Transform t)
     {
         workspaceOffsetAnchor = t;
+
+        // baseline이 아직 없으면 지금 anchor pose를 baseline으로 한 번 잡아둠
+        if (!_haveWorkspaceBase && workspaceOffsetAnchor != null)
+            CaptureWorkspaceBaseFromCurrentAnchor();
+
+        // current도 즉시 갱신
+        UpdateWorkspaceCurrentFromAnchor();
     }
 
     // Call this when entering NearHead (front) so it becomes the baseline frame.
@@ -568,6 +575,12 @@ public class RemoteHandRuntime : MonoBehaviour
             _initialOffset = anchorPos - _lastPreOffsetWrist;
             _offsetCaptured = true;
             capturedOffsetThisCall = true;
+
+            if (workspaceOffsetAnchor != null)
+            {
+                CaptureWorkspaceBaseFromCurrentAnchor();
+                UpdateWorkspaceCurrentFromAnchor();
+            }
 
             // coordinate frame changed => clear buffer + reset smoothing
             ClearInterpolationBuffer();
