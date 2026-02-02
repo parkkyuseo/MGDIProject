@@ -519,6 +519,9 @@ public class StudyFlowController : MonoBehaviour
 
         bool enable = isSide && (currentTechnique == Technique.Macro);
 
+        if (remoteHand != null)
+            remoteHand.invertPalmForward = isSide && (currentTechnique == Technique.Macro);
+
         if (enable == _lastRemapEnabled) return;
         _lastRemapEnabled = enable;
 

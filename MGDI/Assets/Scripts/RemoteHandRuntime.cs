@@ -153,6 +153,9 @@ public class RemoteHandRuntime : MonoBehaviour
     [Range(0f, 1f)]
     [Tooltip("Slerp factor for aim direction. (주의: 값이 클수록 더 즉각 반응)")]
     public float aimDirLerp = 0.20f;
+    [Header("Aim frame fix")]
+    [Tooltip("If true, flips palm forward direction (useful when side condition makes hand face backwards).")]
+    public bool invertPalmForward = false;
 
     // =========================================================
     // Translation gain
@@ -1282,6 +1285,8 @@ public class RemoteHandRuntime : MonoBehaviour
         Vector3 dir = (mid - w);
         if (dir.sqrMagnitude < 1e-8f) return;
         dir.Normalize();
+
+        if (invertPalmForward) dir = -dir; 
 
         // Smooth forward direction (optional)
         if (_aimDirSm == Vector3.zero) _aimDirSm = dir;
