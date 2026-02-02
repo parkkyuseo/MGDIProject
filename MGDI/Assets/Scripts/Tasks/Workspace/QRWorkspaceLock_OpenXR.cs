@@ -13,6 +13,9 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
     public bool zeroOutPitchRoll = true;  // 테이블이 수평이라고 가정하면 추천
     public Vector3 localOffset = Vector3.zero; // QR 중심에서 오프셋(미터)
 
+    [Header("Optional")]
+    public RemoteHandRuntime remoteHandRuntime;
+
     private bool _locked = false;
 
     void Awake()
@@ -59,6 +62,8 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
         _locked = true;
 
         Log("[Workspace] locked (first QR)");
+
+        remoteHandRuntime?.RebaseWorkspaceOffsetAfterAnchorJump();
         return true;
     }
 

@@ -1699,4 +1699,22 @@ public class RemoteHandRuntime : MonoBehaviour
         ClearInterpolationBuffer();
         ResetSmoothingState(fullResetRemapAndGain: false);
     }
+
+    public void RebaseWorkspaceOffsetAfterAnchorJump()
+    {
+        if (workspaceOffsetAnchor == null) return;
+
+        // baseline을 현재 anchor로 다시 잡아 Δ=0으로 만든다
+        CaptureWorkspaceBaseFromCurrentAnchor();
+        UpdateWorkspaceCurrentFromAnchor();
+
+        // 다음 프레임에 드라이버 회전도 새 기준으로 다시 캡처
+        _haveDriverBaseRot = false;
+
+        // 스무딩 상태도 리셋해서 sudden jump를 흡수
+        _havePrevPos = false;
+
+        // (선택) 버퍼를 쓰면 같이 비우는 게 안전
+        ClearInterpolationBuffer();
+    }
 }
