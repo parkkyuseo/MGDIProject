@@ -496,6 +496,9 @@ public class StudyFlowController : MonoBehaviour
         if (remoteHand == null) return;
         if (handWorkspaceController == null || handWorkspaceController.workspaceAnchor == null) return;
 
+        DebugHUD.Log("[SFC] SyncRemoteHandToHandAnchor: handAnchor=" +
+                  (handWorkspaceController != null && handWorkspaceController.workspaceAnchor != null ? handWorkspaceController.workspaceAnchor.name : "null"));
+
         remoteHand.SetWorkspaceOffsetAnchor(handWorkspaceController.workspaceAnchor);
     }
 
