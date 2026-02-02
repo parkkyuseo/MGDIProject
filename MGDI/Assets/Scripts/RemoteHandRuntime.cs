@@ -305,6 +305,15 @@ public class RemoteHandRuntime : MonoBehaviour
     float _joyInZSm = 0f;
     bool _joyHasInputPrev = false;
 
+    public enum RemapBasisFrame
+    {
+        Camera = 0,
+        WorkspaceAnchor = 1
+    }
+
+    [Header("Side-to-front remap basis")]
+    public RemapBasisFrame remapBasisFrame = RemapBasisFrame.WorkspaceAnchor;
+
     // --- Driver joint base rotations (for workspace yaw offset) ---
     Quaternion[] _driverBaseRot = new Quaternion[21];
     bool _haveDriverBaseRot = false;
@@ -1327,12 +1336,15 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         if (!enableSideToFrontRemap) return;
         if (joints == null || joints.Length < 1) return;
-        if (Camera.main == null) return;
+/*         if (Camera.main == null) return;
+ *
+ *         Transform cam = Camera.main.transform; */
 
-        Transform cam = Camera.main.transform;
+        Transform frame = GetRemapFrame();
+        if (frame == null) return;
 
         Vector3 wristWorld = joints[0];
-        Vector3 wristCam = cam.InverseTransformPoint(wristWorld);
+        Vector3 wristCam = frame.InverseTransformPoint(wristWorld);
 
         // 1) neutral capture
         if (!_remapNeutralCaptured)
@@ -1394,7 +1406,7 @@ public class RemoteHandRuntime : MonoBehaviour
         _remapOffsetCamSm = candidate;
 
         // 7) back to world -> apply delta to all joints
-        Vector3 newWristWorld = _remapNeutralWorld + cam.TransformVector(_remapOffsetCamSm);
+        Vector3 newWristWorld = _remapNeutralWorld + frame.TransformVector(_remapOffsetCamSm);
         Vector3 deltaWorld = newWristWorld - wristWorld;
 
         for (int i = 0; i < joints.Length; i++)
@@ -1734,5 +1746,15 @@ public class RemoteHandRuntime : MonoBehaviour
 
         // (선택) 버퍼를 쓰면 같이 비우는 게 안전
         ClearInterpolationBuffer();
+    }
+
+    Transform GetRemapFrame()
+    {
+        if (remapBasisFrame == RemapBasisFrame.WorkspaceAnchor)
+        {
+            if (workspaceOffsetAnchor != null) return workspaceOffsetAnchor;
+        }
+
+        return (Camera.main != null) ? Camera.main.transform : null;
     }
 }
