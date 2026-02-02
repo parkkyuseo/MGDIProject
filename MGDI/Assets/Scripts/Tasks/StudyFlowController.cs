@@ -239,6 +239,16 @@ public class StudyFlowController : MonoBehaviour
             if (actions.TryGetValue(k, out var a)) a.Invoke();
         };
         recognizer.Start();
+
+        if (remoteHand != null && workspaceController != null && workspaceController.workspaceAnchor != null)
+        {
+            remoteHand.SetWorkspaceOffsetAnchor(workspaceController.workspaceAnchor);
+            DebugHUD.Log("[SFC] Injected workspaceAnchor to RemoteHandRuntime at Start: " + workspaceController.workspaceAnchor.name);
+        }
+        else
+        {
+            DebugHUD.LogWarning("[SFC] Cannot inject workspaceAnchor at Start (remoteHand/workspaceController/workspaceAnchor is null).");
+        }
     }
 
     private void BeginMicroCalibration()
@@ -340,6 +350,7 @@ public class StudyFlowController : MonoBehaviour
 
         ApplyTechnique();
         ApplyWorkspaceProfile(); // will place workspace per task/tech/location
+        remoteHand?.SetWorkspaceOffsetAnchor(workspaceController.workspaceAnchor);
         SyncRemoteHandWorkspaceOffset();
         ApplySideToFrontRemap(currentHandLocation); // keep hand input consistent with location
         ApplyGrabberModeForCurrentTask();
