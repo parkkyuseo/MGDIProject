@@ -317,6 +317,8 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         workspaceOffsetAnchor = t;
 
+        DebugHUD.Log("[RHR] SetWorkspaceOffsetAnchor CALLED: " + (t ? t.name : "null"));
+
         // baseline이 아직 없으면 지금 anchor pose를 baseline으로 한 번 잡아둠
         if (!_haveWorkspaceBase && workspaceOffsetAnchor != null)
             CaptureWorkspaceBaseFromCurrentAnchor();
@@ -332,19 +334,33 @@ public class RemoteHandRuntime : MonoBehaviour
         _wsBasePos = workspaceOffsetAnchor.position;
         _wsBaseYaw = YawOnly(workspaceOffsetAnchor.rotation);
         _haveWorkspaceBase = true;
+
+        DebugHUD.Log($"[RHR] BaseCaptured pos={_wsBasePos}");
     }
 
     // Call this every time after profiles are applied (near or side), so current pose is updated.
     public void UpdateWorkspaceCurrentFromAnchor()
     {
-        if (workspaceOffsetAnchor == null) return;
+        if (workspaceOffsetAnchor == null) { DebugHUD.Log("[RHR] UpdateCurrent failed: anchor null"); return; }
+
+        /* if (workspaceOffsetAnchor == null) return; */
         _wsCurPos = workspaceOffsetAnchor.position;
         _wsCurYaw = YawOnly(workspaceOffsetAnchor.rotation);
+
+        if (Time.frameCount % 120 == 0)
+                Debug.Log($"[RHR] Cur pos={_wsCurPos}  dPos={( _wsCurPos - _wsBasePos).magnitude:F3}");
     }
 
     // Apply baseline->current transform to an input world position (translation + yaw).
     private Vector3 ApplyWorkspaceOffsetToWorldPos(Vector3 worldPos)
     {
+        if (!_haveWorkspaceBase)
+        {
+            if (Time.frameCount % 120 == 0) DebugHUD.Log("[RHR] No base -> passthrough");
+            return worldPos;
+        }
+
+
         if (workspaceOffsetAnchor == null || !_haveWorkspaceBase)
             return worldPos;
 
