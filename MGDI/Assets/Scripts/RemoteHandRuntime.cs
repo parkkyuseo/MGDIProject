@@ -1203,64 +1203,113 @@ public class RemoteHandRuntime : MonoBehaviour
     // =========================================================
     // Aim target (position only, no roll / no up)
     // =========================================================
+/*     void UpdateAimPositionOnly()
+ *     {
+ *         Transform tWrist = remoteByIndex[0];
+ *         if (tWrist == null) return;
+ *
+ *         Vector3 w = tWrist.position;
+ *         Vector3 dir;
+ *
+ *         // 1) choose direction source
+ *         if (aimFromVelocity)
+ *         {
+ *             if (!_haveWristPrev)
+ *             {
+ *                 _wristPrev = w;
+ *                 _haveWristPrev = true;
+ *             }
+ *
+ *             float dt = Mathf.Max(1e-4f, Time.deltaTime);
+ *             Vector3 v = (w - _wristPrev) / dt;
+ *             _wristPrev = w;
+ *
+ *             if (v.magnitude >= Mathf.Max(1e-4f, aimVelMinSpeed))
+ *             {
+ *                 dir = v;
+ *             }
+ *             else
+ *             {
+ *                 Transform tMid = remoteByIndex[9]; // MIDDLE_MCP
+ *                 if (tMid == null) return;
+ *                 dir = tMid.position - w;
+ *             }
+ *         }
+ *         else
+ *         {
+ *             Transform tMid = remoteByIndex[9]; // MIDDLE_MCP
+ *             if (tMid == null) return;
+ *             dir = tMid.position - w;
+ *         }
+ *
+ *         if (dir.sqrMagnitude < 1e-8f) return;
+ *
+ *         // 2) smooth direction
+ *         Vector3 dN = dir.normalized;
+ *         if (_aimDirSm == Vector3.zero)
+ *             _aimDirSm = dN;
+ *         else
+ *             _aimDirSm = Vector3.Slerp(_aimDirSm, dN, Mathf.Clamp01(aimDirLerp));
+ *
+ *         // 3) place aim target position only
+ *         float dist = Mathf.Max(0.01f, palmAimDistance);
+ *         Vector3 aimPos = w + _aimDirSm * dist;
+ *
+ *         if (palmFwd != null)
+ *             palmFwd.position = aimPos;
+ *
+ *         // UpType is None in the constraint, so rotation is ignored.
+ *         if (palmUp != null)
+ *             palmUp.position = w + Vector3.up * dist;
+ *     } */
+
     void UpdateAimPositionOnly()
     {
-        Transform tWrist = remoteByIndex[0];
-        if (tWrist == null) return;
+        if (remoteByIndex == null || remoteByIndex.Length < 13) return;
+
+        Transform tWrist = remoteByIndex[0];  // WRIST
+        Transform tIdxMcp = remoteByIndex[5]; // INDEX_MCP
+        Transform tMidMcp = remoteByIndex[9]; // MIDDLE_MCP
+
+        if (tWrist == null || tIdxMcp == null || tMidMcp == null) return;
 
         Vector3 w = tWrist.position;
-        Vector3 dir;
+        Vector3 idx = tIdxMcp.position;
+        Vector3 mid = tMidMcp.position;
 
-        // 1) choose direction source
-        if (aimFromVelocity)
-        {
-            if (!_haveWristPrev)
-            {
-                _wristPrev = w;
-                _haveWristPrev = true;
-            }
-
-            float dt = Mathf.Max(1e-4f, Time.deltaTime);
-            Vector3 v = (w - _wristPrev) / dt;
-            _wristPrev = w;
-
-            if (v.magnitude >= Mathf.Max(1e-4f, aimVelMinSpeed))
-            {
-                dir = v;
-            }
-            else
-            {
-                Transform tMid = remoteByIndex[9]; // MIDDLE_MCP
-                if (tMid == null) return;
-                dir = tMid.position - w;
-            }
-        }
-        else
-        {
-            Transform tMid = remoteByIndex[9]; // MIDDLE_MCP
-            if (tMid == null) return;
-            dir = tMid.position - w;
-        }
-
+        // ----- Forward direction -----
+        // Option 1 (stable): wrist -> middle MCP
+        Vector3 dir = (mid - w);
         if (dir.sqrMagnitude < 1e-8f) return;
+        dir.Normalize();
 
-        // 2) smooth direction
-        Vector3 dN = dir.normalized;
-        if (_aimDirSm == Vector3.zero)
-            _aimDirSm = dN;
-        else
-            _aimDirSm = Vector3.Slerp(_aimDirSm, dN, Mathf.Clamp01(aimDirLerp));
+        // Smooth forward direction (optional)
+        if (_aimDirSm == Vector3.zero) _aimDirSm = dir;
+        else _aimDirSm = Vector3.Slerp(_aimDirSm, dir, Mathf.Clamp01(aimDirLerp));
 
-        // 3) place aim target position only
         float dist = Mathf.Max(0.01f, palmAimDistance);
-        Vector3 aimPos = w + _aimDirSm * dist;
 
-        if (palmFwd != null)
-            palmFwd.position = aimPos;
+        // Place palmFwd in front of wrist
+        Vector3 fwdPos = w + _aimDirSm * dist;
+        if (palmFwd != null) palmFwd.position = fwdPos;
 
-        // UpType is None in the constraint, so rotation is ignored.
-        if (palmUp != null)
-            palmUp.position = w + Vector3.up * dist;
+        // ----- Up direction -----
+        // Palm normal from wrist->index and wrist->middle
+        Vector3 a = (idx - w);
+        Vector3 b = (mid - w);
+
+        if (a.sqrMagnitude < 1e-8f || b.sqrMagnitude < 1e-8f) return;
+
+        Vector3 n = Vector3.Cross(a, b);
+        if (n.sqrMagnitude < 1e-8f) n = Vector3.up;
+        n.Normalize();
+
+        // Optional: keep up consistent (avoid flipping)
+        // If you see occasional sudden flips, uncomment this:
+        // if (Vector3.Dot(n, Vector3.up) < 0f) n = -n;
+
+        Vector3 upPos = w + n * dist;
+        if (palmUp != null) palmUp.position = upPos;
     }
 
     // =========================================================
