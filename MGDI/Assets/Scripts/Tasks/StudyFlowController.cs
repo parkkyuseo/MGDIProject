@@ -11,7 +11,11 @@ public class StudyFlowController : MonoBehaviour
     public enum Technique { Macro, Micro }
 
     [Header("References")]
-    public WorkspaceAnchorController workspaceController;
+    [Tooltip("Workspace controller for CONTENT (moves tools/targets/overlays as a group).")]
+    public WorkspaceAnchorController contentWorkspaceController;
+
+    [Tooltip("Workspace controller for HAND output offset (drives RemoteHandRuntime output frame).")]
+    public WorkspaceAnchorController handWorkspaceController;
 
     [Tooltip("Placement task (tools).")]
     public ToolPlacementTaskManager placementTask;
@@ -25,7 +29,7 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
     public ProxyHandGrabber grabber;
 
-    [Tooltip("RemoteHandRuntime that provides side->front remap toggle.")]
+    [Tooltip("RemoteHandRuntime for side-to-front remap and workspace hand-offset injection.")]
     [SerializeField] private RemoteHandRuntime remoteHand;
 
     [Header("HUD (Task Context)")]
@@ -43,7 +47,10 @@ public class StudyFlowController : MonoBehaviour
     public Technique currentTechnique = Technique.Macro;
     public WorkspaceAnchorController.HandLocation currentHandLocation = WorkspaceAnchorController.HandLocation.NearHead;
 
-    [Header("Workspace Profiles (Task × Technique × Location)")]
+    // =======================
+    // CONTENT PROFILES
+    // =======================
+    [Header("Workspace Profiles (CONTENT) - Task × Technique × Location")]
     public WorkspaceAnchorController.WorkspaceProfile placement_macro_near;
     public WorkspaceAnchorController.WorkspaceProfile placement_macro_sideLeft;
     public WorkspaceAnchorController.WorkspaceProfile placement_macro_sideRight;
@@ -65,6 +72,31 @@ public class StudyFlowController : MonoBehaviour
     public WorkspaceAnchorController.WorkspaceProfile scaling_micro_sideLeft;
     public WorkspaceAnchorController.WorkspaceProfile scaling_micro_sideRight;
 
+    // =======================
+    // HAND PROFILES
+    // =======================
+    [Header("Workspace Profiles (HAND) - Task × Technique × Location")]
+    public WorkspaceAnchorController.WorkspaceProfile hand_placement_macro_near;
+    public WorkspaceAnchorController.WorkspaceProfile hand_placement_macro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile hand_placement_macro_sideRight;
+    public WorkspaceAnchorController.WorkspaceProfile hand_placement_micro_near;
+    public WorkspaceAnchorController.WorkspaceProfile hand_placement_micro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile hand_placement_micro_sideRight;
+
+    public WorkspaceAnchorController.WorkspaceProfile hand_rotation_macro_near;
+    public WorkspaceAnchorController.WorkspaceProfile hand_rotation_macro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile hand_rotation_macro_sideRight;
+    public WorkspaceAnchorController.WorkspaceProfile hand_rotation_micro_near;
+    public WorkspaceAnchorController.WorkspaceProfile hand_rotation_micro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile hand_rotation_micro_sideRight;
+
+    public WorkspaceAnchorController.WorkspaceProfile hand_scaling_macro_near;
+    public WorkspaceAnchorController.WorkspaceProfile hand_scaling_macro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile hand_scaling_macro_sideRight;
+    public WorkspaceAnchorController.WorkspaceProfile hand_scaling_micro_near;
+    public WorkspaceAnchorController.WorkspaceProfile hand_scaling_micro_sideLeft;
+    public WorkspaceAnchorController.WorkspaceProfile hand_scaling_micro_sideRight;
+
     [Header("Grabber rotation policy per task")]
     public ProxyHandGrabber.HeldRotationMode placementGrabberMode = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
     public ProxyHandGrabber.HeldRotationMode rotationGrabberMode = ProxyHandGrabber.HeldRotationMode.ExternalControl;
@@ -79,60 +111,19 @@ public class StudyFlowController : MonoBehaviour
     [SerializeField] private MicroThumbIndexSliderInput microSliderInput;
     [SerializeField] private float microCalibWindowSec = 0.20f;
 
-    // Basic task commands (start with current technique/location)
+    // Commands
     public string cmdStartPlacement = "start placement";
     public string cmdStartRotation  = "start rotation";
     public string cmdStartScaling   = "start scaling";
 
-    // One-shot micro starts (tech + task)
     public string cmdStartMicroPlacement = "start micro placement";
     public string cmdStartMicroRotation  = "start micro rotation";
     public string cmdStartMicroScaling   = "start micro scaling";
 
-    // One-shot macro starts (tech + task)
     public string cmdStartMacroPlacement = "start macro placement";
     public string cmdStartMacroRotation  = "start macro rotation";
     public string cmdStartMacroScaling   = "start macro scaling";
 
-    // NEW: one-shot location + task (keeps current technique)
-    public string cmdStartPlacementNear      = "start placement near";
-    public string cmdStartPlacementSideLeft  = "start placement side left";
-    public string cmdStartPlacementSideRight = "start placement side right";
-
-    public string cmdStartRotationNear      = "start rotation near";
-    public string cmdStartRotationSideLeft  = "start rotation side left";
-    public string cmdStartRotationSideRight = "start rotation side right";
-
-    public string cmdStartScalingNear      = "start scaling near";
-    public string cmdStartScalingSideLeft  = "start scaling side left";
-    public string cmdStartScalingSideRight = "start scaling side right";
-
-    // (Optional) one-shot technique + location + task (most explicit; avoids ambiguity)
-    public string cmdStartMicroPlacementNear      = "start micro placement near";
-    public string cmdStartMicroPlacementSideLeft  = "start micro placement side left";
-    public string cmdStartMicroPlacementSideRight = "start micro placement side right";
-
-    public string cmdStartMicroRotationNear      = "start micro rotation near";
-    public string cmdStartMicroRotationSideLeft  = "start micro rotation side left";
-    public string cmdStartMicroRotationSideRight = "start micro rotation side right";
-
-    public string cmdStartMicroScalingNear      = "start micro scaling near";
-    public string cmdStartMicroScalingSideLeft  = "start micro scaling side left";
-    public string cmdStartMicroScalingSideRight = "start micro scaling side right";
-
-    public string cmdStartMacroPlacementNear      = "start macro placement near";
-    public string cmdStartMacroPlacementSideLeft  = "start macro placement side left";
-    public string cmdStartMacroPlacementSideRight = "start macro placement side right";
-
-    public string cmdStartMacroRotationNear      = "start macro rotation near";
-    public string cmdStartMacroRotationSideLeft  = "start macro rotation side left";
-    public string cmdStartMacroRotationSideRight = "start macro rotation side right";
-
-    public string cmdStartMacroScalingNear      = "start macro scaling near";
-    public string cmdStartMacroScalingSideLeft  = "start macro scaling side left";
-    public string cmdStartMacroScalingSideRight = "start macro scaling side right";
-
-    // General
     public string cmdRestart = "restart";
     public string cmdNext = "next";
 
@@ -149,7 +140,7 @@ public class StudyFlowController : MonoBehaviour
     float _nextCountdownUpdateTime = 0f;
     Coroutine _startTaskCo;
 
-    // ---------------- Remap state ----------------
+    // Remap toggle dedupe
     private bool _lastRemapEnabled = false;
 
     private void Start()
@@ -163,19 +154,14 @@ public class StudyFlowController : MonoBehaviour
         if (instructionHUD != null)
             instructionHUD.HideImmediate();
 
-        // Make remap consistent at boot
-        ApplySideToFrontRemap(currentHandLocation);
-
         if (!enableVoice) return;
 
         actions = new Dictionary<string, Action>
         {
-            // Basic: start with current technique/location
             { cmdStartPlacement.ToLower(), () => StartTask(TaskType.Placement) },
             { cmdStartRotation.ToLower(),  () => StartTask(TaskType.Rotation) },
             { cmdStartScaling.ToLower(),   () => StartTask(TaskType.Scaling) },
 
-            // Tech + task one-shots (use current location)
             { cmdStartMicroPlacement.ToLower(), () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Placement); } },
             { cmdStartMicroRotation.ToLower(),  () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Rotation); } },
             { cmdStartMicroScaling.ToLower(),   () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Scaling); } },
@@ -184,52 +170,12 @@ public class StudyFlowController : MonoBehaviour
             { cmdStartMacroRotation.ToLower(),  () => StartTechniqueAndTask(Technique.Macro, TaskType.Rotation) },
             { cmdStartMacroScaling.ToLower(),   () => StartTechniqueAndTask(Technique.Macro, TaskType.Scaling) },
 
-            // Location + task one-shots (keep current technique)
-            { cmdStartPlacementNear.ToLower(),      () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Placement) },
-            { cmdStartPlacementSideLeft.ToLower(),  () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Placement) },
-            { cmdStartPlacementSideRight.ToLower(), () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Placement) },
-
-            { cmdStartRotationNear.ToLower(),      () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Rotation) },
-            { cmdStartRotationSideLeft.ToLower(),  () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Rotation) },
-            { cmdStartRotationSideRight.ToLower(), () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Rotation) },
-
-            { cmdStartScalingNear.ToLower(),      () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Scaling) },
-            { cmdStartScalingSideLeft.ToLower(),  () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Scaling) },
-            { cmdStartScalingSideRight.ToLower(), () => StartLocationAndTask(currentTechnique, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Scaling) },
-
-            // Tech + location + task one-shots (most explicit; recommended for experiments)
-            { cmdStartMicroPlacementNear.ToLower(),      () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Placement); } },
-            { cmdStartMicroPlacementSideLeft.ToLower(),  () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Placement); } },
-            { cmdStartMicroPlacementSideRight.ToLower(), () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Placement); } },
-
-            { cmdStartMicroRotationNear.ToLower(),      () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Rotation); } },
-            { cmdStartMicroRotationSideLeft.ToLower(),  () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Rotation); } },
-            { cmdStartMicroRotationSideRight.ToLower(), () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Rotation); } },
-
-            { cmdStartMicroScalingNear.ToLower(),      () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Scaling); } },
-            { cmdStartMicroScalingSideLeft.ToLower(),  () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Scaling); } },
-            { cmdStartMicroScalingSideRight.ToLower(), () => { BeginMicroCalibration(); StartLocationAndTask(Technique.Micro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Scaling); } },
-
-            { cmdStartMacroPlacementNear.ToLower(),      () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Placement) },
-            { cmdStartMacroPlacementSideLeft.ToLower(),  () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Placement) },
-            { cmdStartMacroPlacementSideRight.ToLower(), () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Placement) },
-
-            { cmdStartMacroRotationNear.ToLower(),      () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Rotation) },
-            { cmdStartMacroRotationSideLeft.ToLower(),  () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Rotation) },
-            { cmdStartMacroRotationSideRight.ToLower(), () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Rotation) },
-
-            { cmdStartMacroScalingNear.ToLower(),      () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.NearHead, TaskType.Scaling) },
-            { cmdStartMacroScalingSideLeft.ToLower(),  () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyLeft, TaskType.Scaling) },
-            { cmdStartMacroScalingSideRight.ToLower(), () => StartLocationAndTask(Technique.Macro, WorkspaceAnchorController.HandLocation.SideOfBodyRight, TaskType.Scaling) },
-
-            // Utility
             { cmdRestart.ToLower(), RestartCurrent },
             { cmdNext.ToLower(),    NextConditionAndRestart },
 
             { cmdMacro.ToLower(), () => SetTechnique(Technique.Macro, restart:true) },
             { cmdMicro.ToLower(), () => { BeginMicroCalibration(); SetTechnique(Technique.Micro, restart:true); } },
 
-            // Location-only toggles (do not start task)
             { cmdNear.ToLower(),      () => SetHandLocation(WorkspaceAnchorController.HandLocation.NearHead, restart:false) },
             { cmdSideLeft.ToLower(),  () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyLeft, restart:false) },
             { cmdSideRight.ToLower(), () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyRight, restart:false) },
@@ -242,16 +188,6 @@ public class StudyFlowController : MonoBehaviour
             if (actions.TryGetValue(k, out var a)) a.Invoke();
         };
         recognizer.Start();
-
-        if (remoteHand != null && workspaceController != null && workspaceController.workspaceAnchor != null)
-        {
-            remoteHand.SetWorkspaceOffsetAnchor(workspaceController.workspaceAnchor);
-            DebugHUD.Log("[SFC] Injected workspaceAnchor to RemoteHandRuntime at Start: " + workspaceController.workspaceAnchor.name);
-        }
-        else
-        {
-            DebugHUD.Log("[SFC] Cannot inject workspaceAnchor at Start (remoteHand/workspaceController/workspaceAnchor is null).");
-        }
     }
 
     private void BeginMicroCalibration()
@@ -262,14 +198,6 @@ public class StudyFlowController : MonoBehaviour
     private void StartTechniqueAndTask(Technique tech, TaskType task)
     {
         currentTechnique = tech;
-        StartTask(task);
-    }
-
-    private void StartLocationAndTask(Technique tech, WorkspaceAnchorController.HandLocation loc, TaskType task)
-    {
-        currentTechnique = tech;
-        currentHandLocation = loc;
-        ApplySideToFrontRemap(currentHandLocation);
         StartTask(task);
     }
 
@@ -321,18 +249,6 @@ public class StudyFlowController : MonoBehaviour
         }
     }
 
-    private void SyncRemoteHandWorkspaceOffset()
-    {
-        if (remoteHand == null || workspaceController == null) return;
-        if (workspaceController.workspaceAnchor == null) return;
-
-        remoteHand.SetWorkspaceOffsetAnchor(workspaceController.workspaceAnchor);
-
-        // baseline을 "near일 때만 다시 잡고 싶다"면 아래 한 줄만 유지(선택)
-        if (currentHandLocation == WorkspaceAnchorController.HandLocation.NearHead)
-            remoteHand.CaptureWorkspaceBaseFromCurrentAnchor();
-    }
-
     // ---------------- Flow ----------------
     public void StartTask(TaskType t)
     {
@@ -341,22 +257,28 @@ public class StudyFlowController : MonoBehaviour
 
         currentTask = t;
 
-        if (workspaceController == null)
+        if (contentWorkspaceController == null || handWorkspaceController == null)
         {
-            Debug.LogError("[StudyFlowController] workspaceController missing.");
+            Debug.LogError("[StudyFlowController] contentWorkspaceController / handWorkspaceController missing.");
             return;
         }
 
         SetOnlyTaskActive(currentTask);
-
         ForceReleaseIfPossible();
 
         ApplyTechnique();
-        ApplyWorkspaceProfile(); // will place workspace per task/tech/location
-        remoteHand?.SetWorkspaceOffsetAnchor(workspaceController.workspaceAnchor);
-        SyncRemoteHandWorkspaceOffset();
-        ApplySideToFrontRemap(currentHandLocation); // keep hand input consistent with location
+
+        // Apply BOTH workspace profiles
+        ApplyWorkspaceProfiles_ContentAndHand();
+
+        // Side-to-front remap (optional: side + macro only)
+        ApplySideToFrontRemap(currentHandLocation);
+
+        // Grabber mode per task
         ApplyGrabberModeForCurrentTask();
+
+        // Inject HAND anchor into RemoteHandRuntime (critical)
+        SyncRemoteHandToHandAnchor();
 
         HookTaskFinishedEvents(currentTask);
         HookTrialChangedEvents(currentTask);
@@ -364,7 +286,7 @@ public class StudyFlowController : MonoBehaviour
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();
-            taskContextHUD.SetVisible(currentTask == TaskType.Placement || currentTask == TaskType.Rotation || currentTask == TaskType.Scaling);
+            taskContextHUD.SetVisible(true);
             UpdateHUDStatic();
         }
 
@@ -416,7 +338,6 @@ public class StudyFlowController : MonoBehaviour
             currentTechnique = (currentTechnique == Technique.Macro) ? Technique.Micro : Technique.Macro;
         }
 
-        ApplySideToFrontRemap(currentHandLocation);
         RestartCurrent();
     }
 
@@ -426,6 +347,9 @@ public class StudyFlowController : MonoBehaviour
         ApplyTechnique();
         UpdateHUDStatic();
 
+        // remap condition depends on technique
+        ApplySideToFrontRemap(currentHandLocation);
+
         if (restart) RestartCurrent();
         else ShowInstructionForCurrentState_ReturnSeconds();
     }
@@ -433,47 +357,36 @@ public class StudyFlowController : MonoBehaviour
     public void SetHandLocation(WorkspaceAnchorController.HandLocation loc, bool restart)
     {
         currentHandLocation = loc;
+
+        // Apply BOTH profiles (content + hand) when location changes
+        ApplyWorkspaceProfiles_ContentAndHand();
+
         ApplySideToFrontRemap(currentHandLocation);
+
+        // RemoteHand should follow HAND anchor changes too
+        SyncRemoteHandToHandAnchor();
 
         if (restart) RestartCurrent();
         else
         {
-            ApplyWorkspaceProfile();
-            SyncRemoteHandWorkspaceOffset();
             UpdateHUDStatic();
             ShowInstructionForCurrentState_ReturnSeconds();
         }
     }
 
-    // ---------------- Side→Front remap toggle ----------------
-    private void ApplySideToFrontRemap(WorkspaceAnchorController.HandLocation loc)
+    // ---------------- Apply workspace (CONTENT + HAND) ----------------
+    private void ApplyWorkspaceProfiles_ContentAndHand()
     {
-        if (remoteHand == null) return;
+        // CONTENT
+        contentWorkspaceController.handLocation = currentHandLocation;
+        contentWorkspaceController.ApplyProfile(GetContentProfile(currentTask, currentTechnique, currentHandLocation));
 
-        bool isSide =
-            (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) ||
-            (loc == WorkspaceAnchorController.HandLocation.SideOfBodyRight);
-
-        // side + macro일 때만 remap ON
-        bool enable = isSide && (currentTechnique == Technique.Macro);
-
-        if (enable == _lastRemapEnabled) return;
-        _lastRemapEnabled = enable;
-
-        remoteHand.SetSideToFrontRemap(enable);
+        // HAND
+        handWorkspaceController.handLocation = currentHandLocation;
+        handWorkspaceController.ApplyProfile(GetHandProfile(currentTask, currentTechnique, currentHandLocation));
     }
 
-    // ---------------- Apply workspace ----------------
-    private void ApplyWorkspaceProfile()
-    {
-        var profile = GetProfile(currentTask, currentTechnique, currentHandLocation);
-        if (profile == null) return;
-
-        workspaceController.handLocation = currentHandLocation;
-        workspaceController.ApplyProfile(profile);
-    }
-
-    private WorkspaceAnchorController.WorkspaceProfile GetProfile(TaskType task, Technique tech, WorkspaceAnchorController.HandLocation loc)
+    private WorkspaceAnchorController.WorkspaceProfile GetContentProfile(TaskType task, Technique tech, WorkspaceAnchorController.HandLocation loc)
     {
         if (task == TaskType.Placement)
         {
@@ -507,23 +420,100 @@ public class StudyFlowController : MonoBehaviour
             }
         }
 
-        if (task == TaskType.Scaling)
+        // Scaling
+        if (tech == Technique.Macro)
+        {
+            if (loc == WorkspaceAnchorController.HandLocation.NearHead) return scaling_macro_near;
+            if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return scaling_macro_sideLeft;
+            return scaling_macro_sideRight;
+        }
+        else
+        {
+            if (loc == WorkspaceAnchorController.HandLocation.NearHead) return scaling_micro_near;
+            if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return scaling_micro_sideLeft;
+            return scaling_micro_sideRight;
+        }
+    }
+
+    private WorkspaceAnchorController.WorkspaceProfile GetHandProfile(TaskType task, Technique tech, WorkspaceAnchorController.HandLocation loc)
+    {
+        // If hand profiles are not assigned yet, fallback to content profiles to avoid nulls.
+        // (You can tune hand_* profiles later.)
+        WorkspaceAnchorController.WorkspaceProfile p = null;
+
+        if (task == TaskType.Placement)
         {
             if (tech == Technique.Macro)
             {
-                if (loc == WorkspaceAnchorController.HandLocation.NearHead) return scaling_macro_near;
-                if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return scaling_macro_sideLeft;
-                return scaling_macro_sideRight;
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) p = hand_placement_macro_near;
+                else if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) p = hand_placement_macro_sideLeft;
+                else p = hand_placement_macro_sideRight;
             }
             else
             {
-                if (loc == WorkspaceAnchorController.HandLocation.NearHead) return scaling_micro_near;
-                if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) return scaling_micro_sideLeft;
-                return scaling_micro_sideRight;
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) p = hand_placement_micro_near;
+                else if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) p = hand_placement_micro_sideLeft;
+                else p = hand_placement_micro_sideRight;
+            }
+        }
+        else if (task == TaskType.Rotation)
+        {
+            if (tech == Technique.Macro)
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) p = hand_rotation_macro_near;
+                else if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) p = hand_rotation_macro_sideLeft;
+                else p = hand_rotation_macro_sideRight;
+            }
+            else
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) p = hand_rotation_micro_near;
+                else if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) p = hand_rotation_micro_sideLeft;
+                else p = hand_rotation_micro_sideRight;
+            }
+        }
+        else // Scaling
+        {
+            if (tech == Technique.Macro)
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) p = hand_scaling_macro_near;
+                else if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) p = hand_scaling_macro_sideLeft;
+                else p = hand_scaling_macro_sideRight;
+            }
+            else
+            {
+                if (loc == WorkspaceAnchorController.HandLocation.NearHead) p = hand_scaling_micro_near;
+                else if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) p = hand_scaling_micro_sideLeft;
+                else p = hand_scaling_micro_sideRight;
             }
         }
 
-        return null;
+        return p != null ? p : GetContentProfile(task, tech, loc);
+    }
+
+    // ---------------- RemoteHand integration ----------------
+    private void SyncRemoteHandToHandAnchor()
+    {
+        if (remoteHand == null) return;
+        if (handWorkspaceController == null || handWorkspaceController.workspaceAnchor == null) return;
+
+        remoteHand.SetWorkspaceOffsetAnchor(handWorkspaceController.workspaceAnchor);
+    }
+
+    // side-to-front remap: side + macro only
+    private void ApplySideToFrontRemap(WorkspaceAnchorController.HandLocation loc)
+    {
+        if (remoteHand == null) return;
+
+        bool isSide =
+            (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) ||
+            (loc == WorkspaceAnchorController.HandLocation.SideOfBodyRight);
+
+        bool enable = isSide && (currentTechnique == Technique.Macro);
+
+        if (enable == _lastRemapEnabled) return;
+        _lastRemapEnabled = enable;
+
+        remoteHand.SetSideToFrontRemap(enable);
     }
 
     // ---------------- Technique toggles ----------------
