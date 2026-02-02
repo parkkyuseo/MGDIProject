@@ -326,16 +326,35 @@ public class RemoteHandRuntime : MonoBehaviour
 
     public void SetWorkspaceOffsetAnchor(Transform t)
     {
+        // Same anchor: only refresh current pose
+        if (workspaceOffsetAnchor == t)
+        {
+            UpdateWorkspaceCurrentFromAnchor();
+            return;
+        }
+
         workspaceOffsetAnchor = t;
 
         DebugHUD.Log("[RHR] SetWorkspaceOffsetAnchor CALLED: " + (t ? t.name : "null"));
 
-        // baseline이 아직 없으면 지금 anchor pose를 baseline으로 한 번 잡아둠
-        if (!_haveWorkspaceBase && workspaceOffsetAnchor != null)
-            CaptureWorkspaceBaseFromCurrentAnchor();
+        if (workspaceOffsetAnchor == null)
+        {
+            _haveWorkspaceBase = false;
+            return;
+        }
 
-        // current도 즉시 갱신
+        // Anchor changed -> treat this as a new reference frame.
+        CaptureWorkspaceBaseFromCurrentAnchor();   // sets _haveWorkspaceBase=true
         UpdateWorkspaceCurrentFromAnchor();
+
+        // Make rotation follow the new baseline cleanly on next SmoothAndApply
+        _haveDriverBaseRot = false;
+
+        // Prevent a big jump due to previous smoothing history
+        _havePrevPos = false;
+
+        // If using interpolation buffer, clear it to avoid blending old-frame into new-frame
+        ClearInterpolationBuffer();
     }
 
     // Call this when entering NearHead (front) so it becomes the baseline frame.
