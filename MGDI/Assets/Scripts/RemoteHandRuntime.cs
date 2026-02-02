@@ -314,6 +314,12 @@ public class RemoteHandRuntime : MonoBehaviour
     [Header("Side-to-front remap basis")]
     public RemapBasisFrame remapBasisFrame = RemapBasisFrame.WorkspaceAnchor;
 
+    [Header("Side permutation remap (table-based)")]
+    public bool useSidePermutationRemap = true;
+
+    [Tooltip("Basis frame for permutation remap (should be WorkshopEnvironment_SceneRoot). If null, uses workspaceOffsetAnchor.parent.")]
+    public Transform permutationFrame;
+
     // --- Driver joint base rotations (for workspace yaw offset) ---
     Quaternion[] _driverBaseRot = new Quaternion[21];
     bool _haveDriverBaseRot = false;
@@ -857,9 +863,22 @@ public class RemoteHandRuntime : MonoBehaviour
 
         // --- REMAP 단계 ---
         if (useJoystickRemap)
+        {
             RemapJoystickStyle(worldPos);
+        }
         else
-            RemapSideToFront(worldPos);
+        {
+            if (enableSideToFrontRemap)
+            {
+                // 여기서 기존 RemapSideToFront 대신 permutation 적용
+                ApplySidePermutationRemap(worldPos);
+            }
+            else
+            {
+                // near or micro -> no remap (or keep old remap off)
+                // do nothing
+            }
+        }
 
         // --- Translation gain (amplify wrist translation) ---
         if (translationGain != 1.0f && translationGain > 0f)
@@ -1756,5 +1775,36 @@ public class RemoteHandRuntime : MonoBehaviour
         }
 
         return (Camera.main != null) ? Camera.main.transform : null;
+    }
+
+    void ApplySidePermutationRemap(Vector3[] joints)
+    {
+        if (!useSidePermutationRemap) return;
+        if (joints == null || joints.Length < 21) return;
+
+        Transform frame = permutationFrame;
+        if (frame == null)
+        {
+            if (workspaceOffsetAnchor != null && workspaceOffsetAnchor.parent != null) frame = workspaceOffsetAnchor.parent;
+            else return;
+        }
+
+        // Convert each joint to frame-local coordinates (x=right, y=up, z=forward)
+        for (int i = 0; i < 21; i++)
+        {
+            Vector3 pLocal = frame.InverseTransformPoint(joints[i]);
+
+            // Desired mapping:
+            // user X (left/right) -> proxy Y (up/down)
+            // user Y (up/down)   -> proxy Z (forward/back)
+            // user Z (forward)   -> proxy X (left/right)
+            Vector3 qLocal = new Vector3(
+                pLocal.z,  // x' = z
+                pLocal.x,  // y' = x
+                pLocal.y   // z' = y
+            );
+
+            joints[i] = frame.TransformPoint(qLocal);
+        }
     }
 }
