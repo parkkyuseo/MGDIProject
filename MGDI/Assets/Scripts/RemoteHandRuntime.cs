@@ -310,6 +310,21 @@ public class RemoteHandRuntime : MonoBehaviour
     float _joyInZSm = 0f;
     bool _joyHasInputPrev = false;
 
+    [Header("Axis permutation remap (delta-based, table frame)")]
+    public bool useAxisPermutationRemap = true;
+
+    [Tooltip("Frame for delta computation. Set to WorkshopEnvironment_SceneRoot.")]
+    public Transform axisPermFrame;
+
+    [Tooltip("Gain applied after permutation (range extension). 1 = no gain.")]
+    public float axisPermGain = 1.0f;
+
+    [Tooltip("Max delta (meters) applied per frame after gain, to prevent jumps.")]
+    public float axisPermMaxStepMeters = 0.03f;
+
+    private bool _axisPermNeutralCaptured = false;
+    private Vector3 _axisPermNeutralWristLocal = Vector3.zero;
+
     public enum RemapBasisFrame
     {
         Camera = 0,
@@ -876,7 +891,8 @@ public class RemoteHandRuntime : MonoBehaviour
             if (enableSideToFrontRemap)
             {
                 // 여기서 기존 RemapSideToFront 대신 permutation 적용
-                ApplySidePermutationRemap(worldPos);
+                /* ApplySidePermutationRemap(worldPos); */
+                RemapDeltaAxisPermutation(worldPos);
             }
             else
             {
@@ -1798,6 +1814,7 @@ public class RemoteHandRuntime : MonoBehaviour
         {
             _remapNeutralCaptured = false;
             _remapOffsetCamSm = Vector3.zero;
+            _axisPermNeutralCaptured = false;
         }
 
         // 상태가 바뀌었으므로 안정성 확보
@@ -1863,5 +1880,59 @@ public class RemoteHandRuntime : MonoBehaviour
 
             joints[i] = frame.TransformPoint(qLocal);
         }
+    }
+    void RemapDeltaAxisPermutation(Vector3[] joints)
+    {
+        if (!useAxisPermutationRemap) return;
+        if (joints == null || joints.Length < 21) return;
+
+        Transform frame = axisPermFrame;
+        if (frame == null)
+        {
+            // fallback: table/workshop root if available
+            if (workspaceOffsetAnchor != null && workspaceOffsetAnchor.parent != null) frame = workspaceOffsetAnchor.parent;
+            else return;
+        }
+
+        // Wrist in frame-local coordinates
+        Vector3 wristWorld = joints[0];
+        Vector3 wristLocal = frame.InverseTransformPoint(wristWorld);
+
+        // Capture neutral once (or recapture when switching into side/macro)
+        if (!_axisPermNeutralCaptured)
+        {
+            _axisPermNeutralWristLocal = wristLocal;
+            _axisPermNeutralCaptured = true;
+            return;
+        }
+
+        // Delta in frame-local
+        Vector3 d = wristLocal - _axisPermNeutralWristLocal;
+
+        // Permute delta: ΔX->ΔY, ΔY->ΔZ, ΔZ->ΔX
+        Vector3 dPerm = new Vector3(
+            d.z,  // X' = ΔZ
+            d.x,  // Y' = ΔX
+            d.y   // Z' = ΔY
+        );
+
+        // Optional gain (range extension)
+        dPerm *= Mathf.Max(0f, axisPermGain);
+
+        // Step clamp to avoid large jumps
+        float maxStep = Mathf.Max(0f, axisPermMaxStepMeters);
+        float mag = dPerm.magnitude;
+        if (maxStep > 0f && mag > maxStep && mag > 1e-8f)
+            dPerm = dPerm * (maxStep / mag);
+
+        // Desired wrist local = neutral + permuted delta
+        Vector3 wristLocalPerm = _axisPermNeutralWristLocal + dPerm;
+
+        // Convert back to world and apply as pure translation to all joints
+        Vector3 wristWorldPerm = frame.TransformPoint(wristLocalPerm);
+        Vector3 deltaWorld = wristWorldPerm - wristWorld;
+
+        for (int i = 0; i < 21; i++)
+            joints[i] += deltaWorld;
     }
 }
