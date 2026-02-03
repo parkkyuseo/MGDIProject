@@ -1956,7 +1956,7 @@ public class RemoteHandRuntime : MonoBehaviour
 
         if (Time.frameCount % 12 == 0)
         {
-            DebugHUD.Log($"[Perm] dStep={dStep:F4}  dPerm={dPerm:F4}  gain={axisPermGain:F1}");
+            DebugHUD.Log($"[Perm] dStep=({dStep.x:F4},{dStep.y:F4},{dStep.z:F4}) dPerm=({dPerm.x:F4},{dPerm.y:F4},{dPerm.z:F4}) gain={axisPermGain:F1} maxStep={axisPermMaxStepMeters:F3}");
         }
     }
 }
