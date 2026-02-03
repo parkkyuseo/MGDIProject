@@ -364,7 +364,7 @@ public class RemoteHandRuntime : MonoBehaviour
 
     public void SetWorkspaceOffsetAnchor(Transform t)
     {
-        DebugHUD.Log($"[RHR] SetWorkspaceOffsetAnchor CALLED on {gameObject.name} with {(t ? t.name : "null")}");
+        /* DebugHUD.Log($"[RHR] SetWorkspaceOffsetAnchor CALLED on {gameObject.name} with {(t ? t.name : "null")}"); */
         // Same anchor: only refresh current pose
         if (workspaceOffsetAnchor == t)
         {
@@ -405,7 +405,7 @@ public class RemoteHandRuntime : MonoBehaviour
         // 추가: 다음 SmoothAndApply에서 baseline 기준 회전을 다시 캡처하도록 리셋
         _haveDriverBaseRot = false;
 
-        DebugHUD.Log($"[RHR] BaseCaptured pos={_wsBasePos}");
+        /* DebugHUD.Log($"[RHR] BaseCaptured pos={_wsBasePos}"); */
     }
 
     // Call this every time after profiles are applied (near or side), so current pose is updated.
@@ -942,8 +942,6 @@ public class RemoteHandRuntime : MonoBehaviour
             if (armer != null) armer.ArmNow();
             _firstArmed = true;
         }
-        if (enableSideToFrontRemap && Time.frameCount % 30 == 0)
-            DebugHUD.Log("[RHR] side remap ACTIVE (which remap path is running?)");
     }
 
     // =========================================================
@@ -1225,8 +1223,6 @@ public class RemoteHandRuntime : MonoBehaviour
         middleTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[12]);
         fastTipsReady = true;
 
-        if (Time.frameCount % 30 == 0 && remoteByIndex[0] != null)
-            DebugHUD.Log("[RHR] remote wrist pos=" + remoteByIndex[0].position);
     }
 
     // =========================================================
