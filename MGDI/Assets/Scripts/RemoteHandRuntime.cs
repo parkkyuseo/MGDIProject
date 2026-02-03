@@ -232,6 +232,9 @@ public class RemoteHandRuntime : MonoBehaviour
     public float TwistDegrees => _twistSmoothedDeg;
     public bool TwistReady => _twistNeutralReady;
 
+    private bool _axisPermHavePrev = false;
+    private Vector3 _axisPermPrevWristLocal = Vector3.zero;
+
     // =========================================================
     // Side-to-front remap
     // =========================================================
@@ -1810,21 +1813,32 @@ public class RemoteHandRuntime : MonoBehaviour
     public void SetSideToFrontRemap(bool enable)
     {
         DebugHUD.Log($"[RHR] SetSideToFrontRemap called enable={enable} frame={Time.frameCount}");
+
         if (enableSideToFrontRemap == enable)
-            return; // 이미 같은 상태면 아무 것도 안 함
+            return;
 
         enableSideToFrontRemap = enable;
 
-        // 켤 때는 반드시 neutral을 다시 잡아야 튐이 없음
         if (enable)
         {
-            _remapNeutralCaptured = false;
-            _remapOffsetCamSm = Vector3.zero;
-            _axisPermNeutralCaptured = false;
+            // Delta-per-frame permutation remap: reset "prev" so first frame won't jump
+            _axisPermHavePrev = false;
+            _axisPermPrevWristLocal = Vector3.zero;
+
+            // Optional: if joystick remap has state, reset it too (only if using it)
+            _joyNeutralCaptured = false;
+
+            // If gain uses neutral wrist, reset it so gain doesn't jump
+            _gainNeutralCaptured = false;
+        }
+        else
+        {
+            // Turning remap off: reset prev so re-enabling later starts cleanly
+            _axisPermHavePrev = false;
+            _axisPermPrevWristLocal = Vector3.zero;
         }
 
-        // 상태가 바뀌었으므로 안정성 확보
-        _gainNeutralCaptured = false;
+        // Stability: clear buffer + reset smoothing state (keeps offset capture intact)
         ClearInterpolationBuffer();
         ResetSmoothingState(fullResetRemapAndGain: false);
     }
@@ -1895,7 +1909,6 @@ public class RemoteHandRuntime : MonoBehaviour
         Transform frame = axisPermFrame;
         if (frame == null)
         {
-            // fallback: table/workshop root if available
             if (workspaceOffsetAnchor != null && workspaceOffsetAnchor.parent != null) frame = workspaceOffsetAnchor.parent;
             else return;
         }
@@ -1904,42 +1917,45 @@ public class RemoteHandRuntime : MonoBehaviour
         Vector3 wristWorld = joints[0];
         Vector3 wristLocal = frame.InverseTransformPoint(wristWorld);
 
-        // Capture neutral once (or recapture when switching into side/macro)
-        if (!_axisPermNeutralCaptured)
+        // Capture prev once (no jump)
+        if (!_axisPermHavePrev)
         {
-            _axisPermNeutralWristLocal = wristLocal;
-            _axisPermNeutralCaptured = true;
+            _axisPermPrevWristLocal = wristLocal;
+            _axisPermHavePrev = true;
             return;
         }
 
-        // Delta in frame-local
-        Vector3 d = wristLocal - _axisPermNeutralWristLocal;
+        // Frame-to-frame delta in frame-local
+        Vector3 dStep = wristLocal - _axisPermPrevWristLocal;
+        _axisPermPrevWristLocal = wristLocal;
+
+        // Optional dead-zone to ignore tiny jitter (recommended)
+        // (tune 0.001~0.005)
+        const float dz = 0.0015f;
+        if (dStep.sqrMagnitude < dz * dz)
+            return;
 
         // Permute delta: ΔX->ΔY, ΔY->ΔZ, ΔZ->ΔX
         Vector3 dPerm = new Vector3(
-            d.z,  // X' = ΔZ
-            d.x,  // Y' = ΔX
-            d.y   // Z' = ΔY
+            dStep.z,  // X' = ΔZ
+            dStep.x,  // Y' = ΔX
+            dStep.y   // Z' = ΔY
         );
 
-        // Optional gain (range extension)
+        // Gain (range extension)
         dPerm *= Mathf.Max(0f, axisPermGain);
 
-        // Step clamp to avoid large jumps
+        // Step clamp (in frame-local)
         float maxStep = Mathf.Max(0f, axisPermMaxStepMeters);
         float mag = dPerm.magnitude;
         if (maxStep > 0f && mag > maxStep && mag > 1e-8f)
-            dPerm = dPerm * (maxStep / mag);
+            dPerm *= (maxStep / mag);
 
-        // Desired wrist local = neutral + permuted delta
-        Vector3 wristLocalPerm = _axisPermNeutralWristLocal + dPerm;
+        // Convert permuted local delta to world delta using the SAME frame
+        Vector3 deltaWorld = frame.TransformVector(dPerm);
 
-        // Convert back to world and apply as pure translation to all joints
-        Vector3 wristWorldPerm = frame.TransformPoint(wristLocalPerm);
-        Vector3 deltaWorld = wristWorldPerm - wristWorld;
-
+        // Apply delta to all joints (pure translation, keeps hand shape)
         for (int i = 0; i < 21; i++)
             joints[i] += deltaWorld;
-        /* DebugHUD.Log("[RHR] RemapDeltaAxisPermutation running"); */
     }
 }
