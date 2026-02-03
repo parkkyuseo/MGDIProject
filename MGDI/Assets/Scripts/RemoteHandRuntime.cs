@@ -939,6 +939,8 @@ public class RemoteHandRuntime : MonoBehaviour
             if (armer != null) armer.ArmNow();
             _firstArmed = true;
         }
+        if (enableSideToFrontRemap && Time.frameCount % 30 == 0)
+            DebugHUD.Log("[RHR] side remap ACTIVE (which remap path is running?)");
     }
 
     // =========================================================
@@ -1219,6 +1221,9 @@ public class RemoteHandRuntime : MonoBehaviour
         indexTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[8]);
         middleTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[12]);
         fastTipsReady = true;
+
+        if (Time.frameCount % 30 == 0 && remoteByIndex[0] != null)
+            DebugHUD.Log("[RHR] remote wrist pos=" + remoteByIndex[0].position);
     }
 
     // =========================================================
@@ -1804,6 +1809,7 @@ public class RemoteHandRuntime : MonoBehaviour
 
     public void SetSideToFrontRemap(bool enable)
     {
+        DebugHUD.Log($"[RHR] SetSideToFrontRemap called enable={enable} frame={Time.frameCount}");
         if (enableSideToFrontRemap == enable)
             return; // 이미 같은 상태면 아무 것도 안 함
 
@@ -1934,5 +1940,6 @@ public class RemoteHandRuntime : MonoBehaviour
 
         for (int i = 0; i < 21; i++)
             joints[i] += deltaWorld;
+        DebugHUD.Log("[RHR] RemapDeltaAxisPermutation running");
     }
 }
