@@ -63,8 +63,30 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
 
         Log("[Workspace] locked (first QR)");
 
-        remoteHandRuntime?.RebaseWorkspaceOffsetAfterAnchorJump();
+        // ✅ RemoteHandRuntime: WorkspaceAnchor 기반 리베이스는 제거됐으므로,
+        // QR로 워크스페이스가 점프하면 "오프셋 재캡처/스무딩 리셋"으로 대응.
+        HandleRemoteHandAfterWorkspaceJump();
+
         return true;
+    }
+
+    private void HandleRemoteHandAfterWorkspaceJump()
+    {
+        if (remoteHandRuntime == null) return;
+
+        // RemoteHandRuntime이 이미 샘플을 받았고 rWrist가 있으면 즉시 오프셋 재캡처
+        // (QR lock으로 리그가 이동/회전했으니, 손 정렬을 다시 맞추기 위함)
+        bool canRecaptureNow = (remoteHandRuntime.SampleId > 0) && (remoteHandRuntime.rWrist != null);
+
+        if (canRecaptureNow)
+        {
+            remoteHandRuntime.ContextRecaptureNow();
+        }
+        else
+        {
+            // 샘플이 아직 없거나 rWrist가 없으면, 다음 샘플에서 자동 캡처되도록 리셋
+            remoteHandRuntime.ContextClearAndRearm();
+        }
     }
 
     private void ApplyWorkspacePose(Transform markerTf)
