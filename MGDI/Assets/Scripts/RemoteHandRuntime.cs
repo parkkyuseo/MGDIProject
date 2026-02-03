@@ -1957,5 +1957,10 @@ public class RemoteHandRuntime : MonoBehaviour
         // Apply delta to all joints (pure translation, keeps hand shape)
         for (int i = 0; i < 21; i++)
             joints[i] += deltaWorld;
+
+        if (Time.frameCount % 12 == 0)
+        {
+            DebugHUD.Log($"[Perm] dStep={dStep:F4}  dPerm={dPerm:F4}  gain={axisPermGain:F1}");
+        }
     }
 }
