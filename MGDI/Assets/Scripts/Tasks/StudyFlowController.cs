@@ -526,6 +526,7 @@ public class StudyFlowController : MonoBehaviour
         _lastRemapEnabled = enable;
 
         remoteHand.SetSideToFrontRemap(enable);
+        DebugHUD.Log($"[SFC] ApplySideToFrontRemap enable={enable} frame={Time.frameCount}");
     }
 
     // ---------------- Technique toggles ----------------
