@@ -14,7 +14,7 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("Workspace controller for CONTENT (moves tools/targets/overlays as a group).")]
     public WorkspaceAnchorController contentWorkspaceController;
 
-    [Tooltip("Workspace controller for HAND output offset (drives RemoteHandRuntime output frame).")]
+    [Tooltip("Workspace controller for HAND (optional). Keeps your existing hand profiles system, but NOT injected to RemoteHandRuntime anymore.")]
     public WorkspaceAnchorController handWorkspaceController;
 
     [Tooltip("Placement task (tools).")]
@@ -29,7 +29,7 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
     public ProxyHandGrabber grabber;
 
-    [Tooltip("RemoteHandRuntime for side-to-front remap and workspace hand-offset injection.")]
+    [Tooltip("RemoteHandRuntime for side-to-front remap toggle (Macro+Side).")]
     [SerializeField] private RemoteHandRuntime remoteHand;
 
     [Header("HUD (Task Context)")]
@@ -75,7 +75,7 @@ public class StudyFlowController : MonoBehaviour
     // =======================
     // HAND PROFILES
     // =======================
-    [Header("Workspace Profiles (HAND) - Task × Technique × Location")]
+    [Header("Workspace Profiles (HAND) - Task × Technique × Location (optional)")]
     public WorkspaceAnchorController.WorkspaceProfile hand_placement_macro_near;
     public WorkspaceAnchorController.WorkspaceProfile hand_placement_macro_sideLeft;
     public WorkspaceAnchorController.WorkspaceProfile hand_placement_macro_sideRight;
@@ -140,14 +140,17 @@ public class StudyFlowController : MonoBehaviour
     float _nextCountdownUpdateTime = 0f;
     Coroutine _startTaskCo;
 
-    // Remap toggle dedupe
+    // Remap toggle dedupe + recenter logic
     private bool _lastRemapEnabled = false;
+    private WorkspaceAnchorController.HandLocation _lastRemapLoc;
 
-    private Transform _lastInjectedHandAnchor = null;
+    // Optional: avoid spamming warnings
+    private bool _warnedHandWorkspaceMissing = false;
 
     private void Start()
     {
-        SyncRemoteHandToHandAnchor();
+        _lastRemapLoc = currentHandLocation;
+
         if (taskContextHUD != null)
         {
             taskContextHUD.Clear();
@@ -260,10 +263,17 @@ public class StudyFlowController : MonoBehaviour
 
         currentTask = t;
 
-        if (contentWorkspaceController == null || handWorkspaceController == null)
+        if (contentWorkspaceController == null)
         {
-            Debug.LogError("[StudyFlowController] contentWorkspaceController / handWorkspaceController missing.");
+            Debug.LogError("[StudyFlowController] contentWorkspaceController missing.");
             return;
+        }
+
+        if (handWorkspaceController == null && !_warnedHandWorkspaceMissing)
+        {
+            // Not fatal anymore (RemoteHandRuntime no longer needs it), but warn once.
+            Debug.LogWarning("[StudyFlowController] handWorkspaceController is null. HAND profiles will be skipped.");
+            _warnedHandWorkspaceMissing = true;
         }
 
         SetOnlyTaskActive(currentTask);
@@ -271,17 +281,14 @@ public class StudyFlowController : MonoBehaviour
 
         ApplyTechnique();
 
-        // Apply BOTH workspace profiles
+        // Apply workspace profiles (CONTENT + HAND optional)
         ApplyWorkspaceProfiles_ContentAndHand();
 
-        // Side-to-front remap (optional: side + macro only)
-        ApplySideToFrontRemap(currentHandLocation);
+        // Side-to-front remap (Macro + Side). Force recenter at task start for clean baseline.
+        ApplySideToFrontRemap(currentHandLocation, forceRecenter: true);
 
         // Grabber mode per task
         ApplyGrabberModeForCurrentTask();
-
-        // Inject HAND anchor into RemoteHandRuntime (critical)
-        SyncRemoteHandToHandAnchor();
 
         HookTaskFinishedEvents(currentTask);
         HookTrialChangedEvents(currentTask);
@@ -350,8 +357,8 @@ public class StudyFlowController : MonoBehaviour
         ApplyTechnique();
         UpdateHUDStatic();
 
-        // remap condition depends on technique
-        ApplySideToFrontRemap(currentHandLocation);
+        // Remap enable depends on technique; don't force recenter here (task start will recenter).
+        ApplySideToFrontRemap(currentHandLocation, forceRecenter: false);
 
         if (restart) RestartCurrent();
         else ShowInstructionForCurrentState_ReturnSeconds();
@@ -361,13 +368,12 @@ public class StudyFlowController : MonoBehaviour
     {
         currentHandLocation = loc;
 
-        // Apply BOTH profiles (content + hand) when location changes
+        // Apply BOTH profiles (content + hand optional) when location changes
         ApplyWorkspaceProfiles_ContentAndHand();
 
-        ApplySideToFrontRemap(currentHandLocation);
-
-        // RemoteHand should follow HAND anchor changes too
-        SyncRemoteHandToHandAnchor();
+        // Location change is the classic case where enable stays true (Side L<->R),
+        // so force recenter for neutral-based remap.
+        ApplySideToFrontRemap(currentHandLocation, forceRecenter: true);
 
         if (restart) RestartCurrent();
         else
@@ -381,12 +387,18 @@ public class StudyFlowController : MonoBehaviour
     private void ApplyWorkspaceProfiles_ContentAndHand()
     {
         // CONTENT
-        contentWorkspaceController.handLocation = currentHandLocation;
-        contentWorkspaceController.ApplyProfile(GetContentProfile(currentTask, currentTechnique, currentHandLocation));
+        if (contentWorkspaceController != null)
+        {
+            contentWorkspaceController.handLocation = currentHandLocation;
+            contentWorkspaceController.ApplyProfile(GetContentProfile(currentTask, currentTechnique, currentHandLocation));
+        }
 
-        // HAND
-        handWorkspaceController.handLocation = currentHandLocation;
-        handWorkspaceController.ApplyProfile(GetHandProfile(currentTask, currentTechnique, currentHandLocation));
+        // HAND (optional)
+        if (handWorkspaceController != null)
+        {
+            handWorkspaceController.handLocation = currentHandLocation;
+            handWorkspaceController.ApplyProfile(GetHandProfile(currentTask, currentTechnique, currentHandLocation));
+        }
     }
 
     private WorkspaceAnchorController.WorkspaceProfile GetContentProfile(TaskType task, Technique tech, WorkspaceAnchorController.HandLocation loc)
@@ -440,8 +452,7 @@ public class StudyFlowController : MonoBehaviour
 
     private WorkspaceAnchorController.WorkspaceProfile GetHandProfile(TaskType task, Technique tech, WorkspaceAnchorController.HandLocation loc)
     {
-        // If hand profiles are not assigned yet, fallback to content profiles to avoid nulls.
-        // (You can tune hand_* profiles later.)
+        // If hand profiles are not assigned, fallback to content profiles to avoid nulls.
         WorkspaceAnchorController.WorkspaceProfile p = null;
 
         if (task == TaskType.Placement)
@@ -493,23 +504,12 @@ public class StudyFlowController : MonoBehaviour
         return p != null ? p : GetContentProfile(task, tech, loc);
     }
 
-    // ---------------- RemoteHand integration ----------------
-    private void SyncRemoteHandToHandAnchor()
-    {
-        if (remoteHand == null) return;
-        if (handWorkspaceController == null || handWorkspaceController.workspaceAnchor == null) return;
-
-        Transform anchor = handWorkspaceController.workspaceAnchor;
-
-        // 같은 anchor면 재주입할 필요 없음 (불필요한 리셋 방지)
-        if (_lastInjectedHandAnchor == anchor) return;
-        _lastInjectedHandAnchor = anchor;
-
-        remoteHand.SetWorkspaceOffsetAnchor(anchor);
-    }
-
-    // side-to-front remap: side + macro only
-    private void ApplySideToFrontRemap(WorkspaceAnchorController.HandLocation loc)
+    // ---------------- Side-to-front remap: Macro + Side only ----------------
+    // For neutral-based absolute remap:
+    // - toggle enable/disable using SetSideToFrontRemap(enable)
+    // - if enable stays true but location changes (Side L<->R) or task restarts,
+    //   recenter neutral using RecenterRemapNeutralNow()
+    private void ApplySideToFrontRemap(WorkspaceAnchorController.HandLocation loc, bool forceRecenter)
     {
         if (remoteHand == null) return;
 
@@ -519,17 +519,25 @@ public class StudyFlowController : MonoBehaviour
 
         bool enable = isSide && (currentTechnique == Technique.Macro);
 
-        // if (remoteHand != null)
-        //     remoteHand.invertPalmForward = isSide && (currentTechnique == Technique.Macro);
+        // 1) enable state changed => full toggle (RemoteHandRuntime will reset buffer/smoothing/neutral)
+        if (enable != _lastRemapEnabled)
+        {
+            _lastRemapEnabled = enable;
+            _lastRemapLoc = loc;
 
-        remoteHand.invertPalmForward = false;
+            remoteHand.SetSideToFrontRemap(enable);
+            DebugHUD.Log($"[SFC] SideToFrontRemap toggle enable={enable} loc={loc} tech={currentTechnique} frame={Time.frameCount}");
+            return;
+        }
 
+        // 2) enable is still true but condition changed (Side L<->R) or we want fresh baseline
+        if (enable && (forceRecenter || loc != _lastRemapLoc))
+        {
+            remoteHand.RecenterRemapNeutralNow();
+            DebugHUD.Log($"[SFC] SideToFrontRemap recenter loc={loc} tech={currentTechnique} frame={Time.frameCount}");
+        }
 
-        if (enable == _lastRemapEnabled) return;
-        _lastRemapEnabled = enable;
-
-        remoteHand.SetSideToFrontRemap(enable);
-        DebugHUD.Log($"[SFC] ApplySideToFrontRemap enable={enable} frame={Time.frameCount}");
+        _lastRemapLoc = loc;
     }
 
     // ---------------- Technique toggles ----------------

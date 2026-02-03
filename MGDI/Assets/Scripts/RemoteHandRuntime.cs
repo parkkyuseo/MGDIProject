@@ -2,18 +2,28 @@
 
 public class RemoteHandRuntime : MonoBehaviour
 {
+    // =========================================================
+    // Remote driver joints
+    // =========================================================
     [Header("Remote driver joints (21)")]
     public Transform[] remoteByIndex = new Transform[21]; // 0..20 (WRIST..PINKY_TIP)
 
+    // =========================================================
+    // Wrist aim target (position only)
+    // =========================================================
     [Header("Wrist aim target (position only)")]
     public Transform palmFwd; // Remote_PALM_FWD
     public Transform palmUp;  // Remote_PALM_UP
     [Tooltip("Distance from wrist to aim target in meters.")]
-    public float palmAimDistance = 0.08f; // about 5-10 cm
+    public float palmAimDistance = 0.08f;
 
+    // =========================================================
+    // Options
+    // =========================================================
     [Header("Options")]
-    [Tooltip("True for left hand, false for right hand. Filled by UdpHandReceiver.")]
+    [Tooltip("True for left hand, false for right hand. (Optional)")]
     public bool isLeft = false;
+
     [Tooltip("If true, incoming network data is ignored.")]
     public bool manualTestMode = false;
 
@@ -44,17 +54,17 @@ public class RemoteHandRuntime : MonoBehaviour
     public float cutoffHzTips = 6f;
 
     [Tooltip("Max joint speed for non-tip joints (meters/second).")]
-    public float maxSpeedMps = 4.8f; // ~= 0.08 m/frame @ 60fps
+    public float maxSpeedMps = 4.8f;
 
     [Tooltip("Max joint speed for tip joints (meters/second).")]
-    public float maxSpeedTipsMps = 0.9f; // ~= 0.015 m/frame @ 60fps
+    public float maxSpeedTipsMps = 0.9f;
 
     [Header("Micro-jitter suppression (soft dead-zone)")]
     [Tooltip("If true, very small moves are softened (NOT hard-clamped).")]
     public bool useJitterDeadZone = true;
 
     [Tooltip("Soft dead-zone radius (meters). Smaller deltas are attenuated smoothly.")]
-    public float jitterDeadZoneMeters = 0.003f; // 3 mm
+    public float jitterDeadZoneMeters = 0.003f;
 
     // =========================================================
     // Fast signals (filtered pose) + raw samples
@@ -120,8 +130,10 @@ public class RemoteHandRuntime : MonoBehaviour
     [Header("Rig arming")]
     [Tooltip("HandRigArmer that controls the rig weight.")]
     public HandRigArmer armer;
+
     [Tooltip("Minimum wrist-to-finger distance for a frame to be considered valid.")]
     public float firstValidDistance = 0.02f;
+
     [Tooltip("If true, rig weight is armed automatically on first valid frame.")]
     public bool autoArm = false;
 
@@ -131,12 +143,16 @@ public class RemoteHandRuntime : MonoBehaviour
     [Header("Initial offset from rig and camera")]
     [Tooltip("If true, capture offset on first frame so proxy hand stays near rWrist.")]
     public bool addInitialOffset = true;
+
     [Tooltip("Wrist bone of the proxy hand rig (for offset capture).")]
     public Transform rWrist;
+
     [Tooltip("If true, push proxy hand forward from the headset camera when capturing offset.")]
     public bool useExtraCameraOffset = true;
+
     [Tooltip("Extra forward offset from camera when capturing initial offset (meters).")]
     public float extraForwardMeters = 0.25f;
+
     [Tooltip("Extra vertical offset from camera when capturing initial offset (meters).")]
     public float extraUpMeters = 0.0f;
 
@@ -144,25 +160,27 @@ public class RemoteHandRuntime : MonoBehaviour
     // Aim settings
     // =========================================================
     [Header("Aim settings (position only)")]
-    [Tooltip("If true, palmFwd is updated every frame to follow the hand direction.")]
+    [Tooltip("If true, palmFwd/palmUp are updated every frame to follow the hand direction.")]
     public bool computePalmFrame = true;
-    [Tooltip("If true, aim direction is based on wrist velocity. If false, use wrist-to-middle vector.")]
-    public bool aimFromVelocity = true;
-    [Tooltip("Minimum wrist speed for velocity-based aiming (meters per second).")]
-    public float aimVelMinSpeed = 0.05f;
+
     [Range(0f, 1f)]
-    [Tooltip("Slerp factor for aim direction. (주의: 값이 클수록 더 즉각 반응)")]
+    [Tooltip("Slerp factor for palm forward direction (higher = more responsive).")]
     public float aimDirLerp = 0.20f;
-    [Header("Aim frame fix")]
+
+    [Range(0f, 1f)]
+    [Tooltip("Slerp factor for palm up direction (higher = more responsive).")]
+    public float aimUpLerp = 0.20f;
+
     [Tooltip("If true, flips palm forward direction (useful when side condition makes hand face backwards).")]
     public bool invertPalmForward = false;
 
+    [Tooltip("Extra yaw offset applied to the AIM direction ONLY (degrees).")]
     public float visualYawOffsetDeg = 0f;
 
     // =========================================================
     // Translation gain
     // =========================================================
-    [Header("Translation gain (no remap)")]
+    [Header("Translation gain (optional)")]
     [Tooltip("Proxy translation gain. 1=1:1, 2=twice as far.")]
     public float translationGain = 1.0f;
 
@@ -183,27 +201,26 @@ public class RemoteHandRuntime : MonoBehaviour
     public bool stabilizeDepthWristOnly = true;
 
     [Tooltip("Extra dead-zone for depth component (meters).")]
-    public float depthDeadZoneMeters = 0.010f; // 1 cm
+    public float depthDeadZoneMeters = 0.010f;
 
     [Tooltip("Max depth speed when gated (meters/second).")]
-    public float depthMaxSpeedMps = 0.30f; // ~= 5mm/frame @60fps
+    public float depthMaxSpeedMps = 0.30f;
 
     [Tooltip("Extra low-pass cutoff for depth delta when gated (Hz). Lower = smoother, more lag.")]
     public float depthCutoffHz = 2.0f;
 
-    // gating
     [Header("Depth stabilization gating (wrist intent detection)")]
     [Tooltip("If true, depth stabilization is applied only when lateral motion dominates.")]
     public bool depthUseGating = true;
 
     [Tooltip("Minimum non-depth speed to consider as 'lateral motion' (m/s).")]
-    public float depthGateMinNonDepthSpeed = 0.24f; // ~= 4mm/frame @60fps
+    public float depthGateMinNonDepthSpeed = 0.24f;
 
     [Tooltip("If |dDepth| <= ratio * nonDepthMag, treat depth as noise and stabilize it.")]
-    public float depthGateDepthToNonDepthRatio = 0.35f; // 0.2~0.6
+    public float depthGateDepthToNonDepthRatio = 0.35f;
 
     [Tooltip("Max depth speed when NOT gated (user intends forward/back) (m/s).")]
-    public float depthMaxSpeedMpsFree = 2.4f; // ~= 4cm/frame @60fps
+    public float depthMaxSpeedMpsFree = 2.4f;
 
     [Tooltip("Depth deadzone when NOT gated.")]
     public float depthDeadZoneMetersFree = 0.000f;
@@ -217,73 +234,59 @@ public class RemoteHandRuntime : MonoBehaviour
     [Header("Twist (door knob style)")]
     [Tooltip("Bone that should twist around its local forward axis (usually R_Wrist_Twist).")]
     public Transform wristTwist;
+
     [Tooltip("Maximum twist angle from neutral (degrees).")]
     public float twistMaxAbsDeg = 60f;
+
     [Tooltip("Angles smaller than this are treated as zero twist (degrees).")]
     public float twistDeadZoneDeg = 5f;
+
     [Tooltip("Maximum twist speed (degrees per second).")]
     public float twistMaxDegPerSec = 360f;
+
     [Range(0f, 1f)]
     [Tooltip("Extra smoothing for twist angle (0 = no smoothing, 1 = very slow).")]
     public float twistLerp = 0.2f;
+
     [Tooltip("Invert twist sign if the direction feels reversed.")]
     public bool twistInvertSign = false;
 
     public float TwistDegrees => _twistSmoothedDeg;
     public bool TwistReady => _twistNeutralReady;
 
-    private bool _axisPermHavePrev = false;
-    private Vector3 _axisPermPrevWristLocal = Vector3.zero;
-
     // =========================================================
-    // Side-to-front remap
+    // Side-to-front remap (absolute axis permutation, neutral-based)
     // =========================================================
-    [Header("Side-to-front remap")]
+    [Header("Side-to-front remap (absolute axis permutation)")]
+    [Tooltip("Enable remap for side condition. Uses neutral-based absolute axis permutation.")]
     public bool enableSideToFrontRemap = false;
 
-    [Tooltip("Camera-local X (left/right) to workspace X scale.")]
-    public float remapXScale = 1.0f;
+    [Tooltip("Basis frame for axis permutation. If null, uses Camera.main.")]
+    public Transform axisPermFrame;
 
-    [Tooltip("Camera-local Z (forward) to workspace Y (up) scale.")]
-    public float remapYFromZScale = 0.6f;
-    public bool remapInvertYFromZ = false;
+    [Tooltip("Gain applied to neutral-based displacement after permutation. 1 = no gain.")]
+    public float axisPermGain = 1.0f;
 
-    [Tooltip("Camera-local Y (up) to workspace Z (forward/back) scale.")]
-    public float remapZFromYScale = 0.6f;
-    public bool remapInvertZFromY = false;
+    [Tooltip("Dead-zone radius (meters) applied to NEUTRAL displacement in frame-local space.")]
+    public float axisPermDeadZoneMeters = 0.0f;
 
-    [Range(0f, 1f)]
-    [Tooltip("Smoothing factor for remap offset (0 = very stiff, 1 = no smoothing).")]
-    public float remapLerp = 0.15f;
-
-    [Tooltip("Max remap offset change per frame in camera space (meters).")]
-    public float remapMaxStepMeters = 0.02f;
-
-    [Tooltip("Max absolute workspace offset in camera-local space (meters).")]
-    public Vector3 remapMaxOffsetCam = new Vector3(0.30f, 0.20f, 0.30f);
-
-    [Tooltip("Camera-space dead-zone for remap offset changes (meters).")]
-    public float remapDeadZoneMeters = 0.005f;
-
-    Vector3 _remapNeutralCam = Vector3.zero;
-    Vector3 _remapNeutralWorld = Vector3.zero;
-    Vector3 _remapOffsetCamSm = Vector3.zero;
-    bool _remapNeutralCaptured = false;
+    [Tooltip("Max absolute workspace offset in remap-frame local space. (<=0 means no clamp for that axis)")]
+    public Vector3 axisPermMaxOffsetLocal = new Vector3(0.30f, 0.30f, 0.30f);
 
     // =========================================================
-    // Joystick-style remap (experimental)
+    // Joystick-style remap (experimental, kept for later)
     // =========================================================
     [Header("Joystick-style remap (experimental)")]
-    [Tooltip("If true, use joystick-style remap instead of position remap.")]
+    [Tooltip("If true, use joystick-style remap instead of axis-permutation remap.")]
     public bool useJoystickRemap = false;
 
     [Tooltip("Half-size of the dead-zone box near your real hand (meters, world space).")]
-    public Vector3 joyBoxHalfSizeWorld = new Vector3(0.10f, 0.10f, 0.10f); // 10cm cube
+    public Vector3 joyBoxHalfSizeWorld = new Vector3(0.10f, 0.10f, 0.10f);
 
     [Tooltip("Max proxy speed along camera-right (X), camera-up (Y), camera-forward (Z) in m/s.")]
-    public float joyMaxSpeedX = 0.4f; // real X -> proxy X
-    public float joyMaxSpeedY = 0.4f; // real Z -> proxy Y
-    public float joyMaxSpeedZ = 0.4f; // real Y -> proxy Z
+    public float joyMaxSpeedX = 0.4f;
+    public float joyMaxSpeedY = 0.4f;
+    public float joyMaxSpeedZ = 0.4f;
 
     [Tooltip("Exponent for joystick response (1 = linear, 2 = softer near center).")]
     public float joyExpo = 1.0f;
@@ -300,156 +303,18 @@ public class RemoteHandRuntime : MonoBehaviour
     [Tooltip("Invert proxy Z when real hand moves up/down (real Y).")]
     public bool joyInvertZFromY = false;
 
+    [Range(0f, 1f)]
+    [Tooltip("Extra smoothing for joystick inputs (0 = no extra smoothing, 1 = very slow).")]
+    public float joyInputLerp = 0.3f;
+
     Vector3 _joyOffsetCam = Vector3.zero;
     Vector3 _joyNeutralWorld = Vector3.zero;
     bool _joyNeutralCaptured = false;
-
-    [Tooltip("Extra smoothing for joystick inputs (0 = no extra smoothing, 1 = very slow).")]
-    [Range(0f, 1f)]
-    public float joyInputLerp = 0.3f;
 
     float _joyInXSm = 0f;
     float _joyInYSm = 0f;
     float _joyInZSm = 0f;
     bool _joyHasInputPrev = false;
-
-    [Header("Axis permutation remap (delta-based, table frame)")]
-    public bool useAxisPermutationRemap = true;
-
-    [Tooltip("Frame for delta computation. Set to WorkshopEnvironment_SceneRoot.")]
-    public Transform axisPermFrame;
-
-    [Tooltip("Gain applied after permutation (range extension). 1 = no gain.")]
-    public float axisPermGain = 1.0f;
-
-    [Tooltip("Max delta (meters) applied per frame after gain, to prevent jumps.")]
-    public float axisPermMaxStepMeters = 0.03f;
-
-    private bool _axisPermNeutralCaptured = false;
-    private Vector3 _axisPermNeutralWristLocal = Vector3.zero;
-
-    public enum RemapBasisFrame
-    {
-        Camera = 0,
-        WorkspaceAnchor = 1
-    }
-
-    [Header("Side-to-front remap basis")]
-    public RemapBasisFrame remapBasisFrame = RemapBasisFrame.WorkspaceAnchor;
-
-    [Header("Side permutation remap (table-based)")]
-    public bool useSidePermutationRemap = true;
-
-    [Tooltip("Basis frame for permutation remap (should be WorkshopEnvironment_SceneRoot). If null, uses workspaceOffsetAnchor.parent.")]
-    public Transform permutationFrame;
-
-    // --- Driver joint base rotations (for workspace yaw offset) ---
-    Quaternion[] _driverBaseRot = new Quaternion[21];
-    bool _haveDriverBaseRot = false;
-
-    Quaternion WorkspaceYawDelta()
-    {
-        if (!_haveWorkspaceBase) return Quaternion.identity;
-        // deltaYaw = curYaw * inverse(baseYaw)
-        return _wsCurYaw * Quaternion.Inverse(_wsBaseYaw);
-    }
-
-    // ---- Workspace offset (for side-body visual alignment) ----
-    [SerializeField] private Transform workspaceOffsetAnchor; // WorkspaceAnchorController.workspaceAnchor
-    private bool _haveWorkspaceBase = false;
-    private Vector3 _wsBasePos;
-    private Quaternion _wsBaseYaw;   // yaw-only
-    private Vector3 _wsCurPos;
-    private Quaternion _wsCurYaw;    // yaw-only
-
-    public void SetWorkspaceOffsetAnchor(Transform t)
-    {
-        /* DebugHUD.Log($"[RHR] SetWorkspaceOffsetAnchor CALLED on {gameObject.name} with {(t ? t.name : "null")}"); */
-        // Same anchor: only refresh current pose
-        if (workspaceOffsetAnchor == t)
-        {
-            UpdateWorkspaceCurrentFromAnchor();
-            return;
-        }
-
-        workspaceOffsetAnchor = t;
-
-        if (workspaceOffsetAnchor == null)
-        {
-            _haveWorkspaceBase = false;
-            return;
-        }
-
-        // Anchor changed -> treat this as a new reference frame.
-        CaptureWorkspaceBaseFromCurrentAnchor();   // sets _haveWorkspaceBase=true
-        UpdateWorkspaceCurrentFromAnchor();
-
-        // Make rotation follow the new baseline cleanly on next SmoothAndApply
-        _haveDriverBaseRot = false;
-
-        // Prevent a big jump due to previous smoothing history
-        _havePrevPos = false;
-
-        // If using interpolation buffer, clear it to avoid blending old-frame into new-frame
-        ClearInterpolationBuffer();
-    }
-
-    // Call this when entering NearHead (front) so it becomes the baseline frame.
-    public void CaptureWorkspaceBaseFromCurrentAnchor()
-    {
-        if (workspaceOffsetAnchor == null) { _haveWorkspaceBase = false; return; }
-        _wsBasePos = workspaceOffsetAnchor.position;
-        _wsBaseYaw = YawOnly(workspaceOffsetAnchor.rotation);
-        _haveWorkspaceBase = true;
-
-        // 추가: 다음 SmoothAndApply에서 baseline 기준 회전을 다시 캡처하도록 리셋
-        _haveDriverBaseRot = false;
-
-        /* DebugHUD.Log($"[RHR] BaseCaptured pos={_wsBasePos}"); */
-    }
-
-    // Call this every time after profiles are applied (near or side), so current pose is updated.
-    public void UpdateWorkspaceCurrentFromAnchor()
-    {
-        if (workspaceOffsetAnchor == null) { /*DebugHUD.Log($"[RHR] UpdateCurrent failed: Anchor Null (self={gameObject.name})"); */  return; }
-
-        /* if (workspaceOffsetAnchor == null) return; */
-        _wsCurPos = workspaceOffsetAnchor.position;
-        _wsCurYaw = YawOnly(workspaceOffsetAnchor.rotation);
-
-        if (Time.frameCount % 120 == 0)
-                Debug.Log($"[RHR] Cur pos={_wsCurPos}  dPos={( _wsCurPos - _wsBasePos).magnitude:F3}");
-    }
-
-    // Apply baseline->current transform to an input world position (translation + yaw).
-    private Vector3 ApplyWorkspaceOffsetToWorldPos(Vector3 worldPos)
-    {
-        if (!_haveWorkspaceBase)
-        {
-            /* if (Time.frameCount % 120 == 0) DebugHUD.Log("[RHR] No base -> passthrough"); */
-            return worldPos;
-        }
-
-
-        if (workspaceOffsetAnchor == null || !_haveWorkspaceBase)
-            return worldPos;
-
-        // Convert worldPos into baseline frame local (yaw-only around base)
-        Vector3 v = worldPos - _wsBasePos;
-        Vector3 local = Quaternion.Inverse(_wsBaseYaw) * v;
-
-        // Re-express in current frame
-        Vector3 outPos = _wsCurPos + (_wsCurYaw * local);
-        return outPos;
-    }
-
-    private static Quaternion YawOnly(Quaternion q)
-    {
-        Vector3 f = q * Vector3.forward;
-        f.y = 0f;
-        if (f.sqrMagnitude < 1e-8f) return Quaternion.identity;
-        return Quaternion.LookRotation(f.normalized, Vector3.up);
-    }
 
     // =========================================================
     // Preset helper
@@ -488,10 +353,10 @@ public class RemoteHandRuntime : MonoBehaviour
     Vector3[] _prevPos = new Vector3[21];
     bool _havePrevPos = false;
 
-    // aim state
-    Vector3 _wristPrev;
-    bool _haveWristPrev = false;
+    // aim state (forward + up continuity)
     Vector3 _aimDirSm = Vector3.zero;
+    Vector3 _palmUpPrev = Vector3.up;
+    bool _palmUpHavePrev = false;
 
     // offset
     bool _offsetCaptured = false;
@@ -508,6 +373,13 @@ public class RemoteHandRuntime : MonoBehaviour
     float _twistSmoothedDeg = 0f;
     Quaternion _twistBaseLocalRot = Quaternion.identity;
     bool _twistBaseCaptured = false;
+
+    // =========================================================
+    // Side-to-front remap (absolute) state
+    // =========================================================
+    bool _axisPermNeutralCaptured = false;
+    Vector3 _axisPermNeutralWristLocal = Vector3.zero;
+    Vector3 _axisPermNeutralWristWorld = Vector3.zero;
 
     // =========================================================
     // Interpolation buffer (ring)
@@ -560,17 +432,13 @@ public class RemoteHandRuntime : MonoBehaviour
                 return x;
             }
 
-            // derivative from filtered signal
             Vector3 dx = (x - _xHat) / dt;
 
-            // filter derivative
             float aD = Alpha(dCutoffHz, dt);
             _dxHat = Vector3.Lerp(_dxHat, dx, Mathf.Clamp01(aD));
 
-            // adaptive cutoff
             float cutoff = Mathf.Max(0.0001f, minCutoffHz + beta * _dxHat.magnitude);
 
-            // filter signal
             float a = Alpha(cutoff, dt);
             _xHat = Vector3.Lerp(_xHat, x, Mathf.Clamp01(a));
 
@@ -614,7 +482,6 @@ public class RemoteHandRuntime : MonoBehaviour
         if (Application.isPlaying) return;
         if (smoothingPreset == SmoothingPreset.Custom) return;
 
-        // 편집 중에는 상태 리셋/버퍼 클리어 불필요
         ApplyPreset(smoothingPreset, resetState: false, clearBuffer: false);
     }
 #endif
@@ -623,12 +490,10 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         if (manualTestMode) return;
 
-        // If using interpolation buffer, we render from buffer every frame.
         if (useInterpolationBuffer)
         {
             RenderFromBuffer();
         }
-        // else: ApplyWorldPositions() processes immediately (receiver-driven)
     }
 
     // =========================================================
@@ -641,12 +506,9 @@ public class RemoteHandRuntime : MonoBehaviour
         _sampleId++;
         _lastSampleTime = Time.time;
 
-        // store wrist before applying offset
         _lastPreOffsetWrist = worldPos[0];
 
-        bool capturedOffsetThisCall = false;
-
-        // capture initial offset once so that remote hand aligns with proxy rig
+        // Capture initial offset once so remote hand aligns near proxy rig
         if (addInitialOffset && !_offsetCaptured && rWrist != null)
         {
             Vector3 anchorPos = rWrist.position;
@@ -660,15 +522,11 @@ public class RemoteHandRuntime : MonoBehaviour
 
             _initialOffset = anchorPos - _lastPreOffsetWrist;
             _offsetCaptured = true;
-            capturedOffsetThisCall = true;
 
-            if (workspaceOffsetAnchor != null)
-            {
-                CaptureWorkspaceBaseFromCurrentAnchor();
-                UpdateWorkspaceCurrentFromAnchor();
-            }
+            // Coordinate frame changed => reset buffer + smoothing + remap neutral
+            _axisPermNeutralCaptured = false;
+            _joyNeutralCaptured = false;
 
-            // coordinate frame changed => clear buffer + reset smoothing
             ClearInterpolationBuffer();
             ResetSmoothingState(fullResetRemapAndGain: false);
         }
@@ -694,16 +552,10 @@ public class RemoteHandRuntime : MonoBehaviour
 
         if (useInterpolationBuffer)
         {
-            // enqueue sample (copy into ring, apply initial offset if captured)
             EnqueueSample(worldPos);
-
-            // NOTE:
-            // thumbTipFast/... are updated from the filtered/applied pose in SmoothAndApply()
-            // so we don't touch them here.
         }
         else
         {
-            // immediate mode: copy -> apply offset -> process now
             CopyWithInitialOffset(worldPos, _workPos);
             ProcessFrame(_workPos);
         }
@@ -715,6 +567,7 @@ public class RemoteHandRuntime : MonoBehaviour
     void EnsureBufferAllocated()
     {
         int N = Mathf.Max(2, bufferMaxSamples);
+
         if (_bufTimes != null && _bufPos != null && _bufTimes.Length == N && _bufPos.Length == N)
             return;
 
@@ -746,7 +599,6 @@ public class RemoteHandRuntime : MonoBehaviour
 
         int N = _bufTimes.Length;
 
-        // Drop oldest while too old
         while (_bufCount > 0)
         {
             int tail = TailIndex(N);
@@ -770,17 +622,13 @@ public class RemoteHandRuntime : MonoBehaviour
         for (int i = 0; i < 21; i++)
         {
             Vector3 v = worldPos[i];
-
-            if (addInitialOffset && _offsetCaptured)
-                v += _initialOffset;
-
+            if (addInitialOffset && _offsetCaptured) v += _initialOffset;
             dst[i] = v;
         }
 
         _bufHead = (_bufHead + 1) % N;
         if (_bufCount < N) _bufCount++;
 
-        // Ensure buffer retention covers interpolation delay
         float keep = Mathf.Max(bufferMaxSeconds, interpolationDelaySeconds + 0.05f);
         float minTime = Time.time - Mathf.Max(0.01f, keep);
         PruneOldSamples(minTime);
@@ -818,7 +666,6 @@ public class RemoteHandRuntime : MonoBehaviour
         int N = _bufTimes.Length;
         int tail = TailIndex(N);
 
-        // If only one sample, use it.
         if (_bufCount == 1)
         {
             CopyPose(_bufPos[tail], _workPos);
@@ -826,7 +673,6 @@ public class RemoteHandRuntime : MonoBehaviour
             return;
         }
 
-        // Find first sample with time >= targetTime
         int prev = tail;
         int next = tail;
         bool found = false;
@@ -847,7 +693,6 @@ public class RemoteHandRuntime : MonoBehaviour
 
         if (!found)
         {
-            // target is newer than newest => use newest
             int newest = (tail + _bufCount - 1) % N;
             CopyPose(_bufPos[newest], _workPos);
             ProcessFrame(_workPos);
@@ -889,22 +734,12 @@ public class RemoteHandRuntime : MonoBehaviour
         {
             RemapJoystickStyle(worldPos);
         }
-        else
+        else if (enableSideToFrontRemap)
         {
-            if (enableSideToFrontRemap)
-            {
-                // 여기서 기존 RemapSideToFront 대신 permutation 적용
-                /* ApplySidePermutationRemap(worldPos); */
-                RemapDeltaAxisPermutation(worldPos);
-            }
-            else
-            {
-                // near or micro -> no remap (or keep old remap off)
-                // do nothing
-            }
+            RemapAbsoluteAxisPermutation(worldPos);
         }
 
-        // --- Translation gain (amplify wrist translation) ---
+        // --- Translation gain (optional) ---
         if (translationGain != 1.0f && translationGain > 0f)
         {
             Vector3 wrist = worldPos[0];
@@ -945,7 +780,59 @@ public class RemoteHandRuntime : MonoBehaviour
     }
 
     // =========================================================
-    // Smoothing and apply (OneEuro + m/s step clamp + soft dead-zone)
+    // Side-to-front remap: ABSOLUTE axis permutation (neutral-based)
+    // Desired mapping (frame-local):
+    //   real X (left/right)  -> proxy Y
+    //   real Y (up/down)     -> proxy Z
+    //   real Z (forward)     -> proxy X
+    // => dPerm = (dz, dx, dy)
+    // =========================================================
+    void RemapAbsoluteAxisPermutation(Vector3[] joints)
+    {
+        if (joints == null || joints.Length < 21) return;
+
+        Transform frame = axisPermFrame != null ? axisPermFrame :
+                          (Camera.main != null ? Camera.main.transform : null);
+
+        if (frame == null) return;
+
+        Vector3 wristWorld = joints[0];
+        Vector3 wristLocal = frame.InverseTransformPoint(wristWorld);
+
+        if (!_axisPermNeutralCaptured)
+        {
+            _axisPermNeutralWristLocal = wristLocal;
+            _axisPermNeutralWristWorld = wristWorld;
+            _axisPermNeutralCaptured = true;
+            // Do not return: apply zero offset this frame to keep smoothing consistent.
+        }
+
+        Vector3 dLocal = wristLocal - _axisPermNeutralWristLocal;
+
+        float dz = Mathf.Max(0f, axisPermDeadZoneMeters);
+        if (dz > 0f && dLocal.sqrMagnitude < dz * dz)
+            dLocal = Vector3.zero;
+
+        Vector3 dPerm = new Vector3(dLocal.z, dLocal.x, dLocal.y);
+        dPerm *= Mathf.Max(0f, axisPermGain);
+
+        // per-axis clamp (<=0 means no clamp)
+        if (axisPermMaxOffsetLocal.x > 0f)
+            dPerm.x = Mathf.Clamp(dPerm.x, -axisPermMaxOffsetLocal.x, axisPermMaxOffsetLocal.x);
+        if (axisPermMaxOffsetLocal.y > 0f)
+            dPerm.y = Mathf.Clamp(dPerm.y, -axisPermMaxOffsetLocal.y, axisPermMaxOffsetLocal.y);
+        if (axisPermMaxOffsetLocal.z > 0f)
+            dPerm.z = Mathf.Clamp(dPerm.z, -axisPermMaxOffsetLocal.z, axisPermMaxOffsetLocal.z);
+
+        Vector3 newWristWorld = _axisPermNeutralWristWorld + frame.TransformVector(dPerm);
+        Vector3 deltaWorld = newWristWorld - wristWorld;
+
+        for (int i = 0; i < 21; i++)
+            joints[i] += deltaWorld;
+    }
+
+    // =========================================================
+    // Smoothing and apply
     // =========================================================
     void EnsureOneEuroAllocated()
     {
@@ -961,17 +848,17 @@ public class RemoteHandRuntime : MonoBehaviour
 
     float StableDt()
     {
-        // Avoid dt=0 and avoid huge dt on hitches.
         return Mathf.Clamp(Time.deltaTime, 1e-4f, 0.05f);
     }
 
     void ResetSmoothingState(bool fullResetRemapAndGain)
     {
         _havePrevPos = false;
-        _haveWristPrev = false;
-        _aimDirSm = Vector3.zero;
 
-        // reset fast/raw readiness
+        _aimDirSm = Vector3.zero;
+        _palmUpHavePrev = false;
+        _palmUpPrev = Vector3.up;
+
         fastTipsReady = false;
         rawTipsReady = false;
 
@@ -985,8 +872,7 @@ public class RemoteHandRuntime : MonoBehaviour
         {
             _gainNeutralCaptured = false;
 
-            _remapNeutralCaptured = false;
-            _remapOffsetCamSm = Vector3.zero;
+            _axisPermNeutralCaptured = false;
 
             _joyNeutralCaptured = false;
             _joyOffsetCam = Vector3.zero;
@@ -1008,12 +894,6 @@ public class RemoteHandRuntime : MonoBehaviour
             else camFwd = Vector3.forward;
         }
 
-        // Update workspace-current pose once per frame (used for output mapping)
-        UpdateWorkspaceCurrentFromAnchor();
-
-        // Workspace yaw delta (baseline -> current). Identity if no base.
-        Quaternion dyaw = WorkspaceYawDelta();
-
         // First frame init
         if (!_havePrevPos)
         {
@@ -1026,54 +906,23 @@ public class RemoteHandRuntime : MonoBehaviour
                     _oneEuro[i].Reset(v);
 
                 if (remoteByIndex[i] != null)
-                {
-                    // Capture base driver rotations once (baseline pose)
-                    if (!_haveDriverBaseRot)
-                        _driverBaseRot[i] = remoteByIndex[i].rotation;
-
-                    // Apply workspace offset ONLY to output pose
-                    Vector3 outV = ApplyWorkspaceOffsetToWorldPos(v);
-                    remoteByIndex[i].position = outV;
-
-                    // Apply workspace yaw delta to driver joint rotation (visual alignment)
-                    if (_haveWorkspaceBase)
-                        remoteByIndex[i].rotation = dyaw * _driverBaseRot[i];
-                }
+                    remoteByIndex[i].position = v;
             }
 
-            _haveDriverBaseRot = true;
-
-            // update filtered tips from applied pose (stable) — use OUTPUT frame
-            thumbTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[4]);
-            indexTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[8]);
-            middleTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[12]);
+            thumbTipFast = _prevPos[4];
+            indexTipFast = _prevPos[8];
+            middleTipFast = _prevPos[12];
             fastTipsReady = true;
 
             _havePrevPos = true;
             return;
         }
 
-        // If base rotations were never captured (e.g., remoteByIndex was null at init),
-        // try capturing now once.
-        if (!_haveDriverBaseRot)
-        {
-            bool any = false;
-            for (int i = 0; i < 21; i++)
-            {
-                if (remoteByIndex[i] == null) continue;
-                _driverBaseRot[i] = remoteByIndex[i].rotation;
-                any = true;
-            }
-            _haveDriverBaseRot = any;
-        }
-
         for (int i = 0; i < 21; i++)
         {
             Vector3 target = inPos[i];
 
-            // -----------------------------------------------------
             // 0) speed-based step clamp (m/s -> m/frame)
-            // -----------------------------------------------------
             float maxSpeed = IsTip(i) ? maxSpeedTipsMps : maxSpeedMps;
             float stepCap = Mathf.Max(0f, maxSpeed) * dt;
 
@@ -1086,9 +935,7 @@ public class RemoteHandRuntime : MonoBehaviour
                     candidate = _prevPos[i] + d * (stepCap / mag);
             }
 
-            // -----------------------------------------------------
             // 1) optional depth stabilization (camera-forward component)
-            // -----------------------------------------------------
             bool applyDepth = stabilizeDepth && (!stabilizeDepthWristOnly || i == 0);
             if (applyDepth)
             {
@@ -1125,23 +972,18 @@ public class RemoteHandRuntime : MonoBehaviour
                 float depthOmega = 2f * Mathf.PI * depthCutoffLocalHz;
                 float depthAlpha = (depthOmega * dt) / (1f + depthOmega * dt);
 
-                // soft dead-zone on depth component (still hard threshold, but depth only)
                 if (dzDepth > 0f && Mathf.Abs(dDepth) < dzDepth)
                     dDepth = 0f;
 
-                // depth step clamp (speed-based)
                 if (maxDepthStep > 0f)
                     dDepth = Mathf.Clamp(dDepth, -maxDepthStep, maxDepthStep);
 
-                // depth delta attenuation (acts like low-pass on delta)
                 float dDepthSm = Mathf.Lerp(0f, dDepth, Mathf.Clamp01(depthAlpha));
 
                 candidate = _prevPos[i] + deltaNonDepth + (dDepthSm * camFwd);
             }
 
-            // -----------------------------------------------------
             // 2) One Euro filter (adaptive smoothing)
-            // -----------------------------------------------------
             Vector3 filtered;
 
             if (useOneEuro && _oneEuro != null && _oneEuro[i] != null)
@@ -1170,7 +1012,6 @@ public class RemoteHandRuntime : MonoBehaviour
             }
             else
             {
-                // fallback: simple LPF
                 float baseCutoffHz = IsTip(i) ? cutoffHzTips : cutoffHz;
                 baseCutoffHz = Mathf.Max(0.01f, baseCutoffHz);
                 float omega = 2f * Mathf.PI * baseCutoffHz;
@@ -1180,9 +1021,7 @@ public class RemoteHandRuntime : MonoBehaviour
                 filtered = Vector3.Lerp(_prevPos[i], candidate, alpha);
             }
 
-            // -----------------------------------------------------
-            // 3) soft dead-zone (replace old hard dead-zone)
-            // -----------------------------------------------------
+            // 3) soft dead-zone
             if (useJitterDeadZone)
             {
                 float dz = Mathf.Max(0f, jitterDeadZoneMeters);
@@ -1194,107 +1033,36 @@ public class RemoteHandRuntime : MonoBehaviour
                     if (mag > 1e-8f && mag < dz)
                     {
                         float t = Mathf.Clamp01(mag / dz);
-                        // Smoothstep: 0->0, 1->1, continuous derivative
-                        float s = t * t * (3f - 2f * t);
+                        float s = t * t * (3f - 2f * t); // smoothstep
                         filtered = _prevPos[i] + d * s;
                     }
                 }
             }
 
-            // Apply workspace offset ONLY to output pose (visual hand),
-            // but keep filter state in original world space for stability.
-            Vector3 outPos = ApplyWorkspaceOffsetToWorldPos(filtered);
-
             if (remoteByIndex[i] != null)
-            {
-                remoteByIndex[i].position = outPos;
-
-                // Apply workspace yaw delta to driver joint rotation (visual alignment)
-                if (_haveWorkspaceBase && _haveDriverBaseRot)
-                    remoteByIndex[i].rotation = dyaw * _driverBaseRot[i];
-            }
+                remoteByIndex[i].position = filtered;
 
             _prevPos[i] = filtered;
         }
 
-        // update filtered tips from applied pose (stable) — use OUTPUT frame
-        thumbTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[4]);
-        indexTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[8]);
-        middleTipFast = ApplyWorkspaceOffsetToWorldPos(_prevPos[12]);
+        thumbTipFast = _prevPos[4];
+        indexTipFast = _prevPos[8];
+        middleTipFast = _prevPos[12];
         fastTipsReady = true;
-
     }
 
     // =========================================================
-    // Aim target (position only, no roll / no up)
+    // Aim target (position only)
+    // - forward: wrist -> middle MCP (optionally inverted)
+    // - up: palm normal from cross(idx-w, mid-w), stabilized to avoid flipping
     // =========================================================
-/*     void UpdateAimPositionOnly()
- *     {
- *         Transform tWrist = remoteByIndex[0];
- *         if (tWrist == null) return;
- *
- *         Vector3 w = tWrist.position;
- *         Vector3 dir;
- *
- *         // 1) choose direction source
- *         if (aimFromVelocity)
- *         {
- *             if (!_haveWristPrev)
- *             {
- *                 _wristPrev = w;
- *                 _haveWristPrev = true;
- *             }
- *
- *             float dt = Mathf.Max(1e-4f, Time.deltaTime);
- *             Vector3 v = (w - _wristPrev) / dt;
- *             _wristPrev = w;
- *
- *             if (v.magnitude >= Mathf.Max(1e-4f, aimVelMinSpeed))
- *             {
- *                 dir = v;
- *             }
- *             else
- *             {
- *                 Transform tMid = remoteByIndex[9]; // MIDDLE_MCP
- *                 if (tMid == null) return;
- *                 dir = tMid.position - w;
- *             }
- *         }
- *         else
- *         {
- *             Transform tMid = remoteByIndex[9]; // MIDDLE_MCP
- *             if (tMid == null) return;
- *             dir = tMid.position - w;
- *         }
- *
- *         if (dir.sqrMagnitude < 1e-8f) return;
- *
- *         // 2) smooth direction
- *         Vector3 dN = dir.normalized;
- *         if (_aimDirSm == Vector3.zero)
- *             _aimDirSm = dN;
- *         else
- *             _aimDirSm = Vector3.Slerp(_aimDirSm, dN, Mathf.Clamp01(aimDirLerp));
- *
- *         // 3) place aim target position only
- *         float dist = Mathf.Max(0.01f, palmAimDistance);
- *         Vector3 aimPos = w + _aimDirSm * dist;
- *
- *         if (palmFwd != null)
- *             palmFwd.position = aimPos;
- *
- *         // UpType is None in the constraint, so rotation is ignored.
- *         if (palmUp != null)
- *             palmUp.position = w + Vector3.up * dist;
- *     } */
-
     void UpdateAimPositionOnly()
     {
         if (remoteByIndex == null || remoteByIndex.Length < 13) return;
 
-        Transform tWrist = remoteByIndex[0];  // WRIST
-        Transform tIdxMcp = remoteByIndex[5]; // INDEX_MCP
-        Transform tMidMcp = remoteByIndex[9]; // MIDDLE_MCP
+        Transform tWrist = remoteByIndex[0];   // WRIST
+        Transform tIdxMcp = remoteByIndex[5];  // INDEX_MCP
+        Transform tMidMcp = remoteByIndex[9];  // MIDDLE_MCP
 
         if (tWrist == null || tIdxMcp == null || tMidMcp == null) return;
 
@@ -1302,42 +1070,58 @@ public class RemoteHandRuntime : MonoBehaviour
         Vector3 idx = tIdxMcp.position;
         Vector3 mid = tMidMcp.position;
 
-        // ----- Forward direction -----
+        // forward dir
         Vector3 dir = (mid - w);
         if (dir.sqrMagnitude < 1e-8f) return;
         dir.Normalize();
 
         if (invertPalmForward) dir = -dir;
 
-        // Smooth forward direction
         if (_aimDirSm == Vector3.zero) _aimDirSm = dir;
         else _aimDirSm = Vector3.Slerp(_aimDirSm, dir, Mathf.Clamp01(aimDirLerp));
 
         float dist = Mathf.Max(0.01f, palmAimDistance);
 
-        // ✅ Apply VISUAL yaw offset ONLY to the aim direction (does not affect translation remap)
         Quaternion visualYaw = Quaternion.Euler(0f, visualYawOffsetDeg, 0f);
         Vector3 aimDirVis = visualYaw * _aimDirSm;
 
-        // Place palmFwd in front of wrist using visually-corrected direction
-        Vector3 fwdPos = w + aimDirVis * dist;
-        if (palmFwd != null) palmFwd.position = fwdPos;
+        if (palmFwd != null)
+            palmFwd.position = w + aimDirVis * dist;
 
-        // ----- Up direction -----
+        // up dir (palm normal)
         Vector3 a = (idx - w);
         Vector3 b = (mid - w);
-
         if (a.sqrMagnitude < 1e-8f || b.sqrMagnitude < 1e-8f) return;
 
         Vector3 n = Vector3.Cross(a, b);
         if (n.sqrMagnitude < 1e-8f) n = Vector3.up;
         n.Normalize();
 
-        // (optional) If you see occasional flips, uncomment:
-        // if (Vector3.Dot(n, Vector3.up) < 0f) n = -n;
+        // Stabilize flips: keep continuity
+        if (!_palmUpHavePrev)
+        {
+            // initial sign: try to keep it generally aligned with camera up (if available)
+            if (Camera.main != null)
+            {
+                Vector3 camUp = Camera.main.transform.up;
+                if (Vector3.Dot(n, camUp) < 0f) n = -n;
+            }
 
-        Vector3 upPos = w + n * dist;
-        if (palmUp != null) palmUp.position = upPos;
+            _palmUpPrev = n;
+            _palmUpHavePrev = true;
+        }
+        else
+        {
+            if (Vector3.Dot(_palmUpPrev, n) < 0f)
+                n = -n;
+
+            float k = Mathf.Clamp01(aimUpLerp);
+            _palmUpPrev = Vector3.Slerp(_palmUpPrev, n, k);
+            n = _palmUpPrev;
+        }
+
+        if (palmUp != null)
+            palmUp.position = w + n * dist;
     }
 
     // =========================================================
@@ -1358,26 +1142,22 @@ public class RemoteHandRuntime : MonoBehaviour
         Vector3 mcpMPos = tMid.position;
         Vector3 mcpIPos = tIdx.position;
 
-        // 1) twist axis: roughly wrist -> middle MCP
         Vector3 axis = mcpMPos - wristPos;
         if (axis.sqrMagnitude < 1e-8f) return;
         axis.Normalize();
 
-        // 2) reference vector in palm plane: middle -> index
         Vector3 refVec = mcpIPos - mcpMPos;
         if (refVec.sqrMagnitude < 1e-8f) return;
         refVec = Vector3.ProjectOnPlane(refVec, axis);
         if (refVec.sqrMagnitude < 1e-8f) return;
         refVec.Normalize();
 
-        // capture base local rotation once
         if (!_twistBaseCaptured)
         {
             _twistBaseLocalRot = wristTwist.localRotation;
             _twistBaseCaptured = true;
         }
 
-        // capture neutral once
         if (!_twistNeutralReady)
         {
             _twistAxisNeutral = axis;
@@ -1388,7 +1168,6 @@ public class RemoteHandRuntime : MonoBehaviour
             return;
         }
 
-        // 3) roll around neutral axis
         Vector3 refNow = Vector3.ProjectOnPlane(refVec, _twistAxisNeutral);
         Vector3 ref0 = Vector3.ProjectOnPlane(_twistRefNeutral, _twistAxisNeutral);
 
@@ -1400,12 +1179,10 @@ public class RemoteHandRuntime : MonoBehaviour
 
         float rawRollDeg = Vector3.SignedAngle(ref0, refNow, _twistAxisNeutral);
 
-        // 4) clamp + dead zone
         rawRollDeg = Mathf.Clamp(rawRollDeg, -twistMaxAbsDeg, twistMaxAbsDeg);
         if (Mathf.Abs(rawRollDeg) < twistDeadZoneDeg)
             rawRollDeg = 0f;
 
-        // 5) limit speed
         float dt = StableDt();
         float maxStep = twistMaxDegPerSec * dt;
         float delta = rawRollDeg - _twistSmoothedDeg;
@@ -1415,113 +1192,24 @@ public class RemoteHandRuntime : MonoBehaviour
 
         float targetDeg = _twistSmoothedDeg + delta;
 
-        // 6) extra low-pass
         float s = 1f - Mathf.Pow(1f - Mathf.Clamp01(twistLerp), dt * 60f);
         _twistSmoothedDeg = Mathf.Lerp(_twistSmoothedDeg, targetDeg, s);
 
-        // 7) apply around local forward axis (Z)
         float finalDeg = twistInvertSign ? -_twistSmoothedDeg : _twistSmoothedDeg;
         Quaternion twistRot = Quaternion.AngleAxis(finalDeg, Vector3.forward);
         wristTwist.localRotation = _twistBaseLocalRot * twistRot;
     }
 
     // =========================================================
-    // Side-to-front remap
-    // =========================================================
-    void RemapSideToFront(Vector3[] joints)
-    {
-        if (!enableSideToFrontRemap) return;
-        if (joints == null || joints.Length < 1) return;
-/*         if (Camera.main == null) return;
- *
- *         Transform cam = Camera.main.transform; */
-
-        Transform frame = GetRemapFrame();
-        if (frame == null) return;
-
-        Vector3 wristWorld = joints[0];
-        Vector3 wristCam = frame.InverseTransformPoint(wristWorld);
-
-        // 1) neutral capture
-        if (!_remapNeutralCaptured)
-        {
-            _remapNeutralCam = wristCam;
-            _remapNeutralWorld = wristWorld;
-            _remapOffsetCamSm = Vector3.zero;
-            _remapNeutralCaptured = true;
-            return;
-        }
-
-        // 2) camera local delta
-        Vector3 dCam = wristCam - _remapNeutralCam;
-        Vector3 dWorld = wristWorld - _remapNeutralWorld;
-
-        float xOff = dWorld.x * remapXScale;
-
-        float yOff = dCam.z * remapYFromZScale;
-        if (remapInvertYFromZ) yOff = -yOff;
-
-        float zOff = dCam.y * remapZFromYScale;
-        if (remapInvertZFromY) zOff = -zOff;
-
-        Vector3 targetOffsetCam = new Vector3(xOff, yOff, zOff);
-
-        // 4) workspace clamp
-        if (remapMaxOffsetCam.x > 0f)
-            targetOffsetCam.x = Mathf.Clamp(targetOffsetCam.x, -remapMaxOffsetCam.x, remapMaxOffsetCam.x);
-        if (remapMaxOffsetCam.y > 0f)
-            targetOffsetCam.y = Mathf.Clamp(targetOffsetCam.y, -remapMaxOffsetCam.y, remapMaxOffsetCam.y);
-        if (remapMaxOffsetCam.z > 0f)
-            targetOffsetCam.z = Mathf.Clamp(targetOffsetCam.z, -remapMaxOffsetCam.z, remapMaxOffsetCam.z);
-
-        // 5) dead-zone (remap offset)
-        float dz = Mathf.Max(0f, remapDeadZoneMeters);
-        if (dz > 0f)
-        {
-            Vector3 diff = targetOffsetCam - _remapOffsetCamSm;
-            if (diff.sqrMagnitude < dz * dz)
-            {
-                targetOffsetCam = _remapOffsetCamSm;
-            }
-        }
-
-        // 6) smoothing + step clamp (camera space)
-        float dt = StableDt();
-        float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(remapLerp), dt * 60f);
-        Vector3 candidate = Vector3.Lerp(_remapOffsetCamSm, targetOffsetCam, k);
-
-        float maxStep = Mathf.Max(0f, remapMaxStepMeters);
-        if (maxStep > 0f)
-        {
-            Vector3 step = candidate - _remapOffsetCamSm;
-            float stepMag = step.magnitude;
-            if (stepMag > maxStep && stepMag > 1e-8f)
-                candidate = _remapOffsetCamSm + step * (maxStep / stepMag);
-        }
-
-        _remapOffsetCamSm = candidate;
-
-        // 7) back to world -> apply delta to all joints
-        Vector3 newWristWorld = _remapNeutralWorld + frame.TransformVector(_remapOffsetCamSm);
-        Vector3 deltaWorld = newWristWorld - wristWorld;
-
-        for (int i = 0; i < joints.Length; i++)
-            joints[i] += deltaWorld;
-    }
-
-    // =========================================================
-    // Joystick-style remap helpers
+    // Joystick-style remap (kept as-is for later use)
     // =========================================================
     float JoyAxisInput(float delta, float halfSize)
     {
         float hs = Mathf.Abs(halfSize);
-        if (hs <= 1e-5f)
-            return 0f;
+        if (hs <= 1e-5f) return 0f;
 
         float absD = Mathf.Abs(delta);
-
-        if (absD <= hs)
-            return 0f;
+        if (absD <= hs) return 0f;
 
         float over = absD - hs;
         float range = hs;
@@ -1549,7 +1237,7 @@ public class RemoteHandRuntime : MonoBehaviour
             _joyNeutralWorld = wristWorld;
             _joyOffsetCam = Vector3.zero;
             _joyNeutralCaptured = true;
-            return;
+            // Do not return; zero-input results in zero delta anyway.
         }
 
         Vector3 dWorld = wristWorld - _joyNeutralWorld;
@@ -1558,7 +1246,6 @@ public class RemoteHandRuntime : MonoBehaviour
         float rawInY = JoyAxisInput(dWorld.y, joyBoxHalfSizeWorld.y);
         float rawInZ = JoyAxisInput(dWorld.z, joyBoxHalfSizeWorld.z);
 
-        // input smoothing
         if (!_joyHasInputPrev)
         {
             _joyInXSm = rawInX;
@@ -1585,10 +1272,8 @@ public class RemoteHandRuntime : MonoBehaviour
         if (joyInvertZFromY) vzCam = -vzCam;
 
         Vector3 velCam = new Vector3(vxCam, vyCam, vzCam);
-
         _joyOffsetCam += velCam * dt;
 
-        // workspace clamp
         if (joyMaxOffsetCam.x > 0f)
             _joyOffsetCam.x = Mathf.Clamp(_joyOffsetCam.x, -joyMaxOffsetCam.x, joyMaxOffsetCam.x);
         if (joyMaxOffsetCam.y > 0f)
@@ -1631,6 +1316,7 @@ public class RemoteHandRuntime : MonoBehaviour
         _firstArmed = false;
 
         _gainNeutralCaptured = false;
+        _axisPermNeutralCaptured = false;
 
         ResetSmoothingState(fullResetRemapAndGain: true);
         ClearInterpolationBuffer();
@@ -1649,6 +1335,7 @@ public class RemoteHandRuntime : MonoBehaviour
         _offsetCaptured = true;
 
         _gainNeutralCaptured = false;
+        _axisPermNeutralCaptured = false;
 
         ResetSmoothingState(fullResetRemapAndGain: true);
         ClearInterpolationBuffer();
@@ -1666,26 +1353,21 @@ public class RemoteHandRuntime : MonoBehaviour
         if (_applyingPresetGuard) return;
         _applyingPresetGuard = true;
 
-        // 공통: 프리셋은 기본적으로 '부드럽게' 목표라서 기능 ON
         useInterpolationBuffer = true;
         useJitterDeadZone = true;
         stabilizeDepth = true;
         stabilizeDepthWristOnly = true;
         depthUseGating = true;
-
-        // A 버전 기준: OneEuro도 프리셋이면 ON
         useOneEuro = true;
 
         switch (preset)
         {
             case SmoothingPreset.Balanced:
             {
-                // --- Interpolation buffer ---
                 interpolationDelaySeconds = 0.06f;
                 bufferMaxSeconds = 0.60f;
                 bufferMaxSamples = 120;
 
-                // --- One Euro ---
                 oneEuroDerivativeCutoffHz = 5.0f;
                 oneEuroMinCutoffWristHz = 1.5f;
                 oneEuroBetaWrist = 0.70f;
@@ -1694,14 +1376,11 @@ public class RemoteHandRuntime : MonoBehaviour
                 oneEuroMinCutoffTipsHz = 0.9f;
                 oneEuroBetaTips = 0.35f;
 
-                // --- Speed clamp (m/s) ---
                 maxSpeedMps = 4.8f;
                 maxSpeedTipsMps = 0.90f;
 
-                // --- Soft dead-zone ---
                 jitterDeadZoneMeters = 0.0020f;
 
-                // --- Depth stabilization ---
                 depthDeadZoneMeters = 0.010f;
                 depthMaxSpeedMps = 0.30f;
                 depthCutoffHz = 2.0f;
@@ -1713,8 +1392,8 @@ public class RemoteHandRuntime : MonoBehaviour
                 depthDeadZoneMetersFree = 0.0f;
                 depthCutoffHzFree = 10.0f;
 
-                // --- Aim (값이 작을수록 더 부드러움) ---
                 aimDirLerp = 0.20f;
+                aimUpLerp = 0.20f;
                 break;
             }
 
@@ -1749,6 +1428,7 @@ public class RemoteHandRuntime : MonoBehaviour
                 depthCutoffHzFree = 8.0f;
 
                 aimDirLerp = 0.12f;
+                aimUpLerp = 0.12f;
                 break;
             }
 
@@ -1783,6 +1463,7 @@ public class RemoteHandRuntime : MonoBehaviour
                 depthCutoffHzFree = 6.0f;
 
                 aimDirLerp = 0.08f;
+                aimUpLerp = 0.08f;
                 break;
             }
 
@@ -1791,10 +1472,7 @@ public class RemoteHandRuntime : MonoBehaviour
                 break;
         }
 
-        // 안정장치: 버퍼 유지시간이 delay보다 짧으면 이상해지므로 보정
         bufferMaxSeconds = Mathf.Max(bufferMaxSeconds, interpolationDelaySeconds + 0.05f);
-
-        // bufferMaxSamples 변경됐을 수 있으니 재할당 체크
         EnsureBufferAllocated();
 
         if (clearBuffer)
@@ -1806,157 +1484,30 @@ public class RemoteHandRuntime : MonoBehaviour
         _applyingPresetGuard = false;
     }
 
+    // =========================================================
+    // External control methods
+    // =========================================================
     public void SetSideToFrontRemap(bool enable)
     {
-        DebugHUD.Log($"[RHR] SetSideToFrontRemap called enable={enable} frame={Time.frameCount}");
-
         if (enableSideToFrontRemap == enable)
             return;
 
         enableSideToFrontRemap = enable;
 
-        if (enable)
-        {
-            // Delta-per-frame permutation remap: reset "prev" so first frame won't jump
-            _axisPermHavePrev = false;
-            _axisPermPrevWristLocal = Vector3.zero;
+        // ✅ 핵심: 토글 시 neutral을 리셋해서 "현재 손 위치"가 새 기준이 되게 함
+        _axisPermNeutralCaptured = false;
 
-            // Optional: if joystick remap has state, reset it too (only if using it)
-            _joyNeutralCaptured = false;
+        // Optional: gain neutral도 리셋 (조건 전환 시 튐 방지)
+        _gainNeutralCaptured = false;
 
-            // If gain uses neutral wrist, reset it so gain doesn't jump
-            _gainNeutralCaptured = false;
-        }
-        else
-        {
-            // Turning remap off: reset prev so re-enabling later starts cleanly
-            _axisPermHavePrev = false;
-            _axisPermPrevWristLocal = Vector3.zero;
-        }
-
-        // Stability: clear buffer + reset smoothing state (keeps offset capture intact)
+        // Stability: clear buffer + reset smoothing
         ClearInterpolationBuffer();
         ResetSmoothingState(fullResetRemapAndGain: false);
     }
 
-    public void RebaseWorkspaceOffsetAfterAnchorJump()
+    public void RecenterRemapNeutralNow()
     {
-        if (workspaceOffsetAnchor == null) return;
-
-        // baseline을 현재 anchor로 다시 잡아 Δ=0으로 만든다
-        CaptureWorkspaceBaseFromCurrentAnchor();
-        UpdateWorkspaceCurrentFromAnchor();
-
-        // 다음 프레임에 드라이버 회전도 새 기준으로 다시 캡처
-        _haveDriverBaseRot = false;
-
-        // 스무딩 상태도 리셋해서 sudden jump를 흡수
-        _havePrevPos = false;
-
-        // (선택) 버퍼를 쓰면 같이 비우는 게 안전
-        ClearInterpolationBuffer();
-    }
-
-    Transform GetRemapFrame()
-    {
-        if (remapBasisFrame == RemapBasisFrame.WorkspaceAnchor)
-        {
-            if (workspaceOffsetAnchor != null) return workspaceOffsetAnchor;
-        }
-
-        return (Camera.main != null) ? Camera.main.transform : null;
-    }
-
-    void ApplySidePermutationRemap(Vector3[] joints)
-    {
-        if (!useSidePermutationRemap) return;
-        if (joints == null || joints.Length < 21) return;
-
-        Transform frame = permutationFrame;
-        if (frame == null)
-        {
-            if (workspaceOffsetAnchor != null && workspaceOffsetAnchor.parent != null) frame = workspaceOffsetAnchor.parent;
-            else return;
-        }
-
-        // Convert each joint to frame-local coordinates (x=right, y=up, z=forward)
-        for (int i = 0; i < 21; i++)
-        {
-            Vector3 pLocal = frame.InverseTransformPoint(joints[i]);
-
-            // Desired mapping:
-            // user X (left/right) -> proxy Y (up/down)
-            // user Y (up/down)   -> proxy Z (forward/back)
-            // user Z (forward)   -> proxy X (left/right)
-            Vector3 qLocal = new Vector3(
-                pLocal.z,  // x' = z
-                pLocal.x,  // y' = x
-                pLocal.y   // z' = y
-            );
-
-            joints[i] = frame.TransformPoint(qLocal);
-        }
-    }
-    void RemapDeltaAxisPermutation(Vector3[] joints)
-    {
-        if (!useAxisPermutationRemap) return;
-        if (joints == null || joints.Length < 21) return;
-
-        Transform frame = axisPermFrame;
-        if (frame == null)
-        {
-            if (workspaceOffsetAnchor != null && workspaceOffsetAnchor.parent != null) frame = workspaceOffsetAnchor.parent;
-            else return;
-        }
-
-        // Wrist in frame-local coordinates
-        Vector3 wristWorld = joints[0];
-        Vector3 wristLocal = frame.InverseTransformPoint(wristWorld);
-
-        // Capture prev once (no jump)
-        if (!_axisPermHavePrev)
-        {
-            _axisPermPrevWristLocal = wristLocal;
-            _axisPermHavePrev = true;
-            return;
-        }
-
-        // Frame-to-frame delta in frame-local
-        Vector3 dStep = wristLocal - _axisPermPrevWristLocal;
-        _axisPermPrevWristLocal = wristLocal;
-
-        // Optional dead-zone to ignore tiny jitter (recommended)
-        // (tune 0.001~0.005)
-        const float dz = 0.0015f;
-        if (dStep.sqrMagnitude < dz * dz)
-            return;
-
-        // Permute delta: ΔX->ΔY, ΔY->ΔZ, ΔZ->ΔX
-        Vector3 dPerm = new Vector3(
-            dStep.z,  // X' = ΔZ
-            dStep.x,  // Y' = ΔX
-            dStep.y   // Z' = ΔY
-        );
-
-        // Gain (range extension)
-        dPerm *= Mathf.Max(0f, axisPermGain);
-
-        // Step clamp (in frame-local)
-        float maxStep = Mathf.Max(0f, axisPermMaxStepMeters);
-        float mag = dPerm.magnitude;
-        if (maxStep > 0f && mag > maxStep && mag > 1e-8f)
-            dPerm *= (maxStep / mag);
-
-        // Convert permuted local delta to world delta using the SAME frame
-        Vector3 deltaWorld = frame.TransformVector(dPerm);
-
-        // Apply delta to all joints (pure translation, keeps hand shape)
-        for (int i = 0; i < 21; i++)
-            joints[i] += deltaWorld;
-
-        if (Time.frameCount % 12 == 0)
-        {
-            DebugHUD.Log($"[Perm] dStep=({dStep.x:F4},{dStep.y:F4},{dStep.z:F4}) dPerm=({dPerm.x:F4},{dPerm.y:F4},{dPerm.z:F4}) gain={axisPermGain:F1} maxStep={axisPermMaxStepMeters:F3}");
-        }
+        // Next frame will capture current wrist as neutral
+        _axisPermNeutralCaptured = false;
     }
 }
