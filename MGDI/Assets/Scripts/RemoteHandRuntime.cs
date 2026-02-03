@@ -1940,6 +1940,6 @@ public class RemoteHandRuntime : MonoBehaviour
 
         for (int i = 0; i < 21; i++)
             joints[i] += deltaWorld;
-        DebugHUD.Log("[RHR] RemapDeltaAxisPermutation running");
+        /* DebugHUD.Log("[RHR] RemapDeltaAxisPermutation running"); */
     }
 }
