@@ -298,6 +298,15 @@ public class RemoteHandRuntime : MonoBehaviour
     float _joyInZSm = 0f;
     bool _joyHasInputPrev = false;
 
+
+
+    ///////DEBUGDEBUG////////
+    // 클래스 필드로 선언
+    int _dbgFrame = -1;
+    int _dbgCount = 0;
+    bool _dbgLoggedThisFrame = false;
+    ///////DEBUGDEBUG////////
+  
     // =========================================================
     // Preset helper
     // =========================================================
@@ -472,10 +481,26 @@ public class RemoteHandRuntime : MonoBehaviour
     // Entry from UdpHandReceiver
     // =========================================================
     
-    int _dbgFrame = -1;
-    int _dbgCount = 0;
     public void ApplyWorldPositions(Vector3[] worldPos)
     {
+        // (가능하면 맨 위에) 카운트 먼저
+        int fc = Time.frameCount;
+        if (fc != _dbgFrame)
+        {
+            _dbgFrame = fc;
+            _dbgCount = 0;
+            _dbgLoggedThisFrame = false;
+        }
+
+        _dbgCount++;
+        if (!_dbgLoggedThisFrame && _dbgCount >= 2)
+        {
+            _dbgLoggedThisFrame = true;
+            DebugHUD.Log($"ApplyWorldPositions called >=2 times in frame {fc}");
+        }
+
+        // 기존 로직...
+        
         if (manualTestMode || worldPos == null || worldPos.Length < 21) return;
 
         _sampleId++;
@@ -535,13 +560,6 @@ public class RemoteHandRuntime : MonoBehaviour
             ProcessFrame(_workPos);
         }
 
-        if (_dbgFrame != Time.frameCount)
-        {
-            if (_dbgCount > 1) DebugHUD.Log($"ApplyWorldPositions calls in frame {_dbgFrame}: {_dbgCount}");
-            _dbgFrame = Time.frameCount;
-            _dbgCount = 0;
-        }
-        _dbgCount++;
     }
 
     // =========================================================
