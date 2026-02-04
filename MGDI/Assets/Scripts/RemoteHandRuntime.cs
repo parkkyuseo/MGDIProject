@@ -471,6 +471,9 @@ public class RemoteHandRuntime : MonoBehaviour
     // =========================================================
     // Entry from UdpHandReceiver
     // =========================================================
+    
+    int _dbgFrame = -1;
+    int _dbgCount = 0;
     public void ApplyWorldPositions(Vector3[] worldPos)
     {
         if (manualTestMode || worldPos == null || worldPos.Length < 21) return;
@@ -531,6 +534,14 @@ public class RemoteHandRuntime : MonoBehaviour
             CopyWithInitialOffset(worldPos, _workPos);
             ProcessFrame(_workPos);
         }
+
+        if (_dbgFrame != Time.frameCount)
+        {
+            if (_dbgCount > 1) DebugHUD.Log($"ApplyWorldPositions calls in frame {_dbgFrame}: {_dbgCount}");
+            _dbgFrame = Time.frameCount;
+            _dbgCount = 0;
+        }
+        _dbgCount++;
     }
 
     // =========================================================
@@ -825,7 +836,10 @@ public class RemoteHandRuntime : MonoBehaviour
 
         // If the locked axis changed, reset remap filter state to avoid diagonal "tail"
         if (axisAfter != axisBefore)
-            ResetRemapSmoothingState();
+        {
+            // lock은 유지하고, diagonal tail 방지를 위해 필터만 리셋
+            ResetRemapFilterStateOnly();
+        }
 
         // 7) strong smoothing specifically for remap displacement
         if (useRemapStrongSmoothing)
@@ -942,11 +956,18 @@ public class RemoteHandRuntime : MonoBehaviour
         return (omega * dt) / (1f + omega * dt);
     }
 
-    void ResetRemapSmoothingState()
+    // lock은 건드리지 않고 remap 필터만 리셋
+    void ResetRemapFilterStateOnly()
     {
         _remapOffsetInit = false;
         _remapOffsetPrev = Vector3.zero;
         _remapOneEuro.Invalidate();
+    }
+
+    // 기존 함수는 "전체 리셋" 용도로 유지 (neutral recenter 등)
+    void ResetRemapSmoothingState()
+    {
+        ResetRemapFilterStateOnly();
         _lockedAxis = AxisId.None;
     }
 
