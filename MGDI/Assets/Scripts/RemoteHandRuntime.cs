@@ -246,26 +246,14 @@ public class RemoteHandRuntime : MonoBehaviour
     [Tooltip("If true, remap displacement is constrained to ONE dominant axis (no diagonal).")]
     public bool useDominantAxisLock = true;
 
-    // [PATCH] Hard cardinal mode: unlocked 구간에서도 대각 성분이 나오지 않게 0으로 만들고,
-    //         (기본) 락 상태에서 축 스위칭을 막아 center 복귀 후에만 다른 축으로 전환되게 함.
-    [Tooltip("Hard mode: removes diagonal drift even when UNLOCKED (outputs zero below start). Also disables in-lock axis switching (must release to center).")]
-    public bool hardCardinalRemap = true;
-
     [Tooltip("Start locking when max(|dPerm|) exceeds this (meters).")]
-    public float axisLockStartMeters = 0.008f; // [PATCH] 1.5cm -> 0.8cm (더 빨리 락, 더 적은 대각 구간)
+    public float axisLockStartMeters = 0.015f; // 1.5 cm
 
     [Tooltip("Release lock when locked-axis |component| falls below this (meters).")]
-    public float axisLockReleaseMeters = 0.004f; // [PATCH] 8mm -> 4mm (히스테리시스 유지)
-
-    [Tooltip("Minimum time to keep the lock once engaged (seconds). Helps prevent flicker due to jitter.")]
-    public float axisLockMinHoldSeconds = 0.04f;
-
-    // [PATCH] 락 진입 시 “대각(두 축 비슷)”이면 아예 락을 안 걸고 0으로 유지해서 축 흔들림/지터 감소
-    [Tooltip("Enter-lock dominance ratio. 1 = always enter. >1 requires dominant axis to be clearly stronger than 2nd axis.")]
-    public float axisLockEnterDominanceRatio = 1.25f;
+    public float axisLockReleaseMeters = 0.008f; // 8 mm
 
     [Tooltip("If true, allow switching to another axis while locked when it becomes clearly dominant.")]
-    public bool axisLockAllowSwitch = false; // [PATCH] 기본 false 추천 (대각 궤적 최소화 목적)
+    public bool axisLockAllowSwitch = true;
 
     [Tooltip("Switch requires newDominant >= ratio * currentLocked (>=1.2).")]
     public float axisLockSwitchRatio = 1.8f;
@@ -277,9 +265,6 @@ public class RemoteHandRuntime : MonoBehaviour
 
     enum AxisId { None = -1, X = 0, Y = 1, Z = 2 }
     AxisId _lockedAxis = AxisId.None;
-
-    // [PATCH] 락이 막 걸린 직후 흔들려서 바로 풀리는 현상 방지용
-    float _axisLockEngagedTime = -999f;
 
     // =========================================================
     // Joystick-style remap (kept for later)
@@ -779,15 +764,12 @@ public class RemoteHandRuntime : MonoBehaviour
         if (frame == null) return;
 
         Vector3 wristWorld = joints[0];
+        Vector3 wristLocal = frame.InverseTransformPoint(wristWorld);
 
         if (!_axisPermNeutralCaptured)
         {
-            // [PATCH] Neutral은 WORLD 기준으로만 캡처 (frame position 흔들림이 dLocal로 들어오는 걸 줄임)
+            _axisPermNeutralWristLocal = wristLocal;
             _axisPermNeutralWristWorld = wristWorld;
-
-            // (옵션/디버그용) 기존 변수도 채워두되, 아래 dLocal 계산에는 쓰지 않음
-            _axisPermNeutralWristLocal = frame.InverseTransformPoint(wristWorld);
-
             _axisPermNeutralCaptured = true;
 
             // Neutral capture implies the remap displacement should start from zero
@@ -795,16 +777,14 @@ public class RemoteHandRuntime : MonoBehaviour
         }
 
         // 1) neutral-based displacement in frame-local
-        // [PATCH] frame.InverseTransformPoint 차분 대신, rotation 기반 벡터 변환 사용 (frame 위치 노이즈 제거)
-        Vector3 dWorld = wristWorld - _axisPermNeutralWristWorld;
-        Vector3 dLocal = frame.InverseTransformVector(dWorld);
+        Vector3 dLocal = wristLocal - _axisPermNeutralWristLocal;
 
         // 2) dead-zone on dLocal
         float dz = Mathf.Max(0f, axisPermDeadZoneMeters);
         if (dz > 0f && dLocal.sqrMagnitude < dz * dz)
             dLocal = Vector3.zero;
 
-        // 3) soft axis gating (선택) - 대각 완전 제거는 아래 락에서 강제로 처리됨
+        // 3) soft axis gating (suppresses small cross-axis while keeping diagonals)
         if (useSoftAxisGating)
         {
             float mag = dLocal.magnitude;
@@ -812,6 +792,7 @@ public class RemoteHandRuntime : MonoBehaviour
             float t = 1f;
             if (axisGatingFadeOutMeters > axisGatingFullStrengthMeters)
             {
+                // t=1 near fullStrength, t->0 near fadeOut
                 t = Mathf.InverseLerp(axisGatingFadeOutMeters, axisGatingFullStrengthMeters, mag);
                 t = Mathf.Clamp01(t);
             }
@@ -834,7 +815,7 @@ public class RemoteHandRuntime : MonoBehaviour
         if (axisPermMaxOffsetLocal.z > 0f)
             dPerm.z = Mathf.Clamp(dPerm.z, -axisPermMaxOffsetLocal.z, axisPermMaxOffsetLocal.z);
 
-        // 6.5) dominant axis lock (cardinal-only)
+        // 6.5) dominant axis lock (cardinal-only) + detect axis changes
         AxisId axisBefore = _lockedAxis;
 
         if (useDominantAxisLock)
@@ -842,9 +823,9 @@ public class RemoteHandRuntime : MonoBehaviour
 
         AxisId axisAfter = _lockedAxis;
 
-        // [PATCH] 축 상태가 바뀌면 "필터만" 리셋 (락은 유지)
+        // If the locked axis changed, reset remap filter state to avoid diagonal "tail"
         if (axisAfter != axisBefore)
-            ResetRemapFilterStateOnly();
+            ResetRemapSmoothingState();
 
         // 7) strong smoothing specifically for remap displacement
         if (useRemapStrongSmoothing)
@@ -854,11 +835,10 @@ public class RemoteHandRuntime : MonoBehaviour
         }
         else
         {
-            // [PATCH] 매 프레임 락까지 날려버리면 대각/지터가 다시 생김 → 필터만 리셋
-            ResetRemapFilterStateOnly();
+            ResetRemapSmoothingState();
         }
 
-        // Ensure the final output is strictly cardinal even after filtering
+        // Ensure the final output is strictly cardinal (no diagonal) even after filtering
         if (useDominantAxisLock && _lockedAxis != AxisId.None)
             dPerm = KeepOnlyAxis(dPerm, _lockedAxis);
 
@@ -868,6 +848,7 @@ public class RemoteHandRuntime : MonoBehaviour
 
         for (int i = 0; i < 21; i++)
             joints[i] += deltaWorld;
+
     }
 
     // Soft axis gating: reduces small cross-axis components but keeps diagonals.
@@ -903,10 +884,6 @@ public class RemoteHandRuntime : MonoBehaviour
         float dz = Mathf.Max(0f, remapOffsetDeadZoneMeters);
         if (dz > 0f && dPerm.magnitude < dz)
             dPerm = Vector3.zero;
-
-        // [PATCH] 락 상태면 remap offset은 항상 락 축 하나만 유지 (필터 내부 상태도 cardinal로 유지)
-        if (useDominantAxisLock && _lockedAxis != AxisId.None)
-            dPerm = KeepOnlyAxis(dPerm, _lockedAxis);
 
         if (!_remapOffsetInit)
         {
@@ -954,9 +931,6 @@ public class RemoteHandRuntime : MonoBehaviour
             candidate = Vector3.Lerp(_remapOffsetPrev, candidate, a);
         }
 
-        if (useDominantAxisLock && _lockedAxis != AxisId.None)
-            candidate = KeepOnlyAxis(candidate, _lockedAxis);
-
         _remapOffsetPrev = candidate;
         return candidate;
     }
@@ -968,20 +942,12 @@ public class RemoteHandRuntime : MonoBehaviour
         return (omega * dt) / (1f + omega * dt);
     }
 
-    // [PATCH] 필터만 리셋 (락 유지)
-    void ResetRemapFilterStateOnly()
+    void ResetRemapSmoothingState()
     {
         _remapOffsetInit = false;
         _remapOffsetPrev = Vector3.zero;
         _remapOneEuro.Invalidate();
-    }
-
-    // [PATCH] 전체 리셋 (락 포함)
-    void ResetRemapSmoothingState()
-    {
-        ResetRemapFilterStateOnly();
         _lockedAxis = AxisId.None;
-        _axisLockEngagedTime = -999f;
     }
 
     // =========================================================
@@ -1686,71 +1652,37 @@ public class RemoteHandRuntime : MonoBehaviour
         float az = Mathf.Abs(dPerm.z);
         float maxAbs = Mathf.Max(ax, Mathf.Max(ay, az));
 
-        float start = Mathf.Max(0f, axisLockStartMeters);
-        float release = Mathf.Max(0f, axisLockReleaseMeters);
-
-        // Helper: dominant + 2nd
-        AxisId dom = DominantAxis(dPerm);
-        float domAbs = AbsAxis(dPerm, dom);
-        float secondAbs = 0f;
-        switch (dom)
-        {
-            case AxisId.X: secondAbs = Mathf.Max(ay, az); break;
-            case AxisId.Y: secondAbs = Mathf.Max(ax, az); break;
-            case AxisId.Z: secondAbs = Mathf.Max(ax, ay); break;
-        }
-
         // Not locked yet
         if (_lockedAxis == AxisId.None)
         {
-            // [PATCH] Hard mode: 언락 구간에서는 아예 0 (대각/미세 지터 제거 + center 복귀 기반 스위칭)
-            if (maxAbs < start)
-                return hardCardinalRemap ? Vector3.zero : dPerm;
+            if (maxAbs < Mathf.Max(0f, axisLockStartMeters))
+                return dPerm;
 
-            // [PATCH] 대각(두 축 비슷)일 때 락 진입을 막아서 축 흔들림 감소
-            float enterRatio = Mathf.Max(1f, axisLockEnterDominanceRatio);
-            if (hardCardinalRemap && enterRatio > 1f && secondAbs > 1e-6f)
-            {
-                if (domAbs < enterRatio * secondAbs)
-                    return Vector3.zero;
-            }
-
-            _lockedAxis = dom;
-            _axisLockEngagedTime = Time.time;
+            _lockedAxis = DominantAxis(dPerm);
             return KeepOnlyAxis(dPerm, _lockedAxis);
         }
 
         // Locked
         float lockedAbs = AbsAxis(dPerm, _lockedAxis);
 
-        // [PATCH] 락 직후 잠깐은 무조건 유지 (트래킹 지터로 lock flicker 방지)
-        if (axisLockMinHoldSeconds > 0f && (Time.time - _axisLockEngagedTime) < axisLockMinHoldSeconds)
-            return KeepOnlyAxis(dPerm, _lockedAxis);
-
         // Release when near-still on the locked axis
-        if (lockedAbs < release)
+        if (lockedAbs < Mathf.Max(0f, axisLockReleaseMeters))
         {
             _lockedAxis = AxisId.None;
-            _axisLockEngagedTime = -999f;
-            return hardCardinalRemap ? Vector3.zero : dPerm;
+            return dPerm;
         }
 
-        // Optional switching (HARD 모드에서는 꺼서 대각 궤적 최소화)
-        bool allowSwitch = axisLockAllowSwitch && !hardCardinalRemap;
-
-        if (allowSwitch)
+        // Optional switching
+        if (axisLockAllowSwitch)
         {
-            AxisId newDom = DominantAxis(dPerm);
-            if (newDom != _lockedAxis)
+            AxisId dom = DominantAxis(dPerm);
+            if (dom != _lockedAxis)
             {
-                float newDomAbs = AbsAxis(dPerm, newDom);
-                float ratio = (lockedAbs > 1e-6f) ? (newDomAbs / lockedAbs) : 999f;
+                float domAbs = AbsAxis(dPerm, dom);
+                float ratio = (lockedAbs > 1e-6f) ? (domAbs / lockedAbs) : 999f;
 
-                if (newDomAbs >= axisLockSwitchMinMeters && ratio >= Mathf.Max(1.2f, axisLockSwitchRatio))
-                {
-                    _lockedAxis = newDom;
-                    _axisLockEngagedTime = Time.time;
-                }
+                if (domAbs >= axisLockSwitchMinMeters && ratio >= Mathf.Max(1.2f, axisLockSwitchRatio))
+                    _lockedAxis = dom;
             }
         }
 
