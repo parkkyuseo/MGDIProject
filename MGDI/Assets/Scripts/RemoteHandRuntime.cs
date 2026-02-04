@@ -267,23 +267,6 @@ public class RemoteHandRuntime : MonoBehaviour
     AxisId _lockedAxis = AxisId.None;
 
     // =========================================================
-    // Remap frame handling (remove scale/tilt influence)
-    // =========================================================
-    [Header("Remap frame handling")]
-    [Tooltip("If true, use yaw-only rotation of axisPermFrame for remap basis (recommended for table).")]
-    public bool remapUseYawOnlyFrame = true;
-
-    [Tooltip("If true, ignore frame scale by using rotation-only transforms (recommended).")]
-    public bool remapIgnoreFrameScale = true;
-
-    // =========================================================
-    // 1D smoothing state for locked-axis remap (prevents diagonal tails)
-    // =========================================================
-    bool _remap1DInit = false;
-    float _remap1DPrev = 0f;
-    OneEuroFloat _remap1DEuro = new OneEuroFloat();
-
-    // =========================================================
     // Joystick-style remap (kept for later)
     // =========================================================
     [Header("Joystick-style remap (experimental)")]
@@ -438,57 +421,6 @@ public class RemoteHandRuntime : MonoBehaviour
     }
 
     OneEuroVec3[] _oneEuro = new OneEuroVec3[21];
-
-    class OneEuroFloat
-    {
-        bool _init = false;
-        float _xHat = 0f;
-        float _dxHat = 0f;
-
-        static float Alpha(float cutoffHz, float dt)
-        {
-            cutoffHz = Mathf.Max(0.0001f, cutoffHz);
-            float omega = 2f * Mathf.PI * cutoffHz;
-            return (omega * dt) / (1f + omega * dt);
-        }
-
-        public void Invalidate()
-        {
-            _init = false;
-            _xHat = 0f;
-            _dxHat = 0f;
-        }
-
-        public void Reset(float x0)
-        {
-            _init = true;
-            _xHat = x0;
-            _dxHat = 0f;
-        }
-
-        public float Filter(float x, float dt, float minCutoffHz, float beta, float dCutoffHz)
-        {
-            dt = Mathf.Max(1e-4f, dt);
-
-            if (!_init)
-            {
-                Reset(x);
-                return x;
-            }
-
-            float dx = (x - _xHat) / dt;
-
-            float aD = Alpha(dCutoffHz, dt);
-            _dxHat = Mathf.Lerp(_dxHat, dx, Mathf.Clamp01(aD));
-
-            float cutoff = Mathf.Max(0.0001f, minCutoffHz + beta * Mathf.Abs(_dxHat));
-
-            float a = Alpha(cutoff, dt);
-            _xHat = Mathf.Lerp(_xHat, x, Mathf.Clamp01(a));
-
-            return _xHat;
-        }
-    }
 
     // =========================================================
     // Unity lifecycle
@@ -826,20 +758,13 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         if (joints == null || joints.Length < 21) return;
 
-        Transform frameT = axisPermFrame != null ? axisPermFrame :
+        Transform frame = axisPermFrame != null ? axisPermFrame :
                           (Camera.main != null ? Camera.main.transform : null);
-        if (frameT == null) return;
+
+        if (frame == null) return;
 
         Vector3 wristWorld = joints[0];
-
-        // ✅ frame rotation 선택: yaw-only(optional)
-        Quaternion frameRot = remapUseYawOnlyFrame ? YawOnly(frameT.rotation) : frameT.rotation;
-        Vector3 framePos = frameT.position;
-
-        // ✅ local 변환: rotation-only (scale 영향 제거)
-        Vector3 wristLocal = remapIgnoreFrameScale
-            ? (Quaternion.Inverse(frameRot) * (wristWorld - framePos))
-            : frameT.InverseTransformPoint(wristWorld);
+        Vector3 wristLocal = frame.InverseTransformPoint(wristWorld);
 
         if (!_axisPermNeutralCaptured)
         {
@@ -847,8 +772,8 @@ public class RemoteHandRuntime : MonoBehaviour
             _axisPermNeutralWristWorld = wristWorld;
             _axisPermNeutralCaptured = true;
 
+            // Neutral capture implies the remap displacement should start from zero
             ResetRemapSmoothingState();
-            // ResetRemapSmoothingState 안에서 1D state도 같이 리셋됨
         }
 
         // 1) neutral-based displacement in frame-local
@@ -859,7 +784,7 @@ public class RemoteHandRuntime : MonoBehaviour
         if (dz > 0f && dLocal.sqrMagnitude < dz * dz)
             dLocal = Vector3.zero;
 
-        // 3) soft axis gating
+        // 3) soft axis gating (suppresses small cross-axis while keeping diagonals)
         if (useSoftAxisGating)
         {
             float mag = dLocal.magnitude;
@@ -867,6 +792,7 @@ public class RemoteHandRuntime : MonoBehaviour
             float t = 1f;
             if (axisGatingFadeOutMeters > axisGatingFullStrengthMeters)
             {
+                // t=1 near fullStrength, t->0 near fadeOut
                 t = Mathf.InverseLerp(axisGatingFadeOutMeters, axisGatingFullStrengthMeters, mag);
                 t = Mathf.Clamp01(t);
             }
@@ -889,98 +815,40 @@ public class RemoteHandRuntime : MonoBehaviour
         if (axisPermMaxOffsetLocal.z > 0f)
             dPerm.z = Mathf.Clamp(dPerm.z, -axisPermMaxOffsetLocal.z, axisPermMaxOffsetLocal.z);
 
-        float dt = StableDt();
+        // 6.5) dominant axis lock (cardinal-only) + detect axis changes
+        AxisId axisBefore = _lockedAxis;
 
-        // =====================================================
-        // ✅ Cardinal lock + 1D smoothing only (no diagonal possible)
-        // =====================================================
         if (useDominantAxisLock)
-        {
-            AxisId axisBefore = _lockedAxis;
-
-            // lock 결정 + other axes 제거
             dPerm = ApplyDominantAxisLock(dPerm);
 
-            AxisId axisAfter = _lockedAxis;
+        AxisId axisAfter = _lockedAxis;
 
-            // lock 상태가 바뀌면 1D 필터 리셋 (스파이크/잔상 방지)
-            if (axisAfter != axisBefore)
-                ResetRemap1DState();
+        // If the locked axis changed, reset remap filter state to avoid diagonal "tail"
+        if (axisAfter != axisBefore)
+            ResetRemapSmoothingState();
 
-            if (_lockedAxis != AxisId.None)
-            {
-                // locked axis scalar
-                float v = GetAxisValue(dPerm, _lockedAxis);
-
-                if (useRemapStrongSmoothing)
-                {
-                    // dead-zone on scalar
-                    float dzRemap = Mathf.Max(0f, remapOffsetDeadZoneMeters);
-                    if (dzRemap > 0f && Mathf.Abs(v) < dzRemap)
-                        v = 0f;
-
-                    // speed clamp on scalar
-                    float stepCap = Mathf.Max(0f, remapOffsetMaxSpeedMps) * Mathf.Max(1e-4f, dt);
-                    if (_remap1DInit)
-                    {
-                        float step = v - _remap1DPrev;
-                        if (stepCap > 0f && Mathf.Abs(step) > stepCap)
-                            v = _remap1DPrev + Mathf.Sign(step) * stepCap;
-                    }
-
-                    // OneEuro on scalar
-                    if (useRemapOneEuro)
-                    {
-                        if (!_remap1DInit) _remap1DEuro.Reset(v);
-                        v = _remap1DEuro.Filter(v, dt, remapOneEuroMinCutoffHz, remapOneEuroBeta, remapOneEuroDerivCutoffHz);
-                    }
-
-                    // LPF on scalar
-                    if (useRemapLPF)
-                    {
-                        float aLP = Mathf.Clamp01(LowPassAlpha(remapOffsetCutoffHz, dt));
-                        if (_remap1DInit)
-                            v = Mathf.Lerp(_remap1DPrev, v, aLP);
-                    }
-
-                    _remap1DPrev = v;
-                    _remap1DInit = true;
-                }
-                else
-                {
-                    // no smoothing: still keep state consistent
-                    _remap1DPrev = v;
-                    _remap1DInit = true;
-                }
-
-                // Final: strictly cardinal (only one axis)
-                dPerm = MakeAxisVector(_remap1DPrev, _lockedAxis);
-            }
-            else
-            {
-                // unlocked: clear 1D filter state to avoid tails
-                ResetRemap1DState();
-            }
+        // 7) strong smoothing specifically for remap displacement
+        if (useRemapStrongSmoothing)
+        {
+            float dt = StableDt();
+            dPerm = SmoothRemapOffset(dPerm, dt);
         }
         else
         {
-            // lock off: use original vector smoothing path
-            if (useRemapStrongSmoothing)
-                dPerm = SmoothRemapOffset(dPerm, dt);
-            else
-                ResetRemapSmoothingState();
+            ResetRemapSmoothingState();
         }
 
-        // 8) apply to joints by translating all joints equally
-        // ✅ world 변환도 rotation-only (scale 영향 제거)
-        Vector3 newWristWorld = remapIgnoreFrameScale
-            ? (_axisPermNeutralWristWorld + (frameRot * dPerm))
-            : (_axisPermNeutralWristWorld + frameT.TransformVector(dPerm));
+        // Ensure the final output is strictly cardinal (no diagonal) even after filtering
+        if (useDominantAxisLock && _lockedAxis != AxisId.None)
+            dPerm = KeepOnlyAxis(dPerm, _lockedAxis);
 
+        // 8) apply to joints by translating all joints equally
+        Vector3 newWristWorld = _axisPermNeutralWristWorld + frame.TransformVector(dPerm);
         Vector3 deltaWorld = newWristWorld - wristWorld;
 
         for (int i = 0; i < 21; i++)
             joints[i] += deltaWorld;
+
     }
 
     // Soft axis gating: reduces small cross-axis components but keeps diagonals.
@@ -1080,7 +948,6 @@ public class RemoteHandRuntime : MonoBehaviour
         _remapOffsetPrev = Vector3.zero;
         _remapOneEuro.Invalidate();
         _lockedAxis = AxisId.None;
-        ResetRemap1DState();
     }
 
     // =========================================================
@@ -1778,6 +1645,8 @@ public class RemoteHandRuntime : MonoBehaviour
 
     Vector3 ApplyDominantAxisLock(Vector3 dPerm)
     {
+        // dPerm is in remap-frame local space (after permutation + gain + clamp)
+
         float ax = Mathf.Abs(dPerm.x);
         float ay = Mathf.Abs(dPerm.y);
         float az = Mathf.Abs(dPerm.z);
@@ -1803,46 +1672,20 @@ public class RemoteHandRuntime : MonoBehaviour
             return dPerm;
         }
 
-        // ✅ switching disabled (cardinal-only 안정화)
-        // (axisLockAllowSwitch / ratio / minMeters are ignored intentionally)
+        // Optional switching
+        if (axisLockAllowSwitch)
+        {
+            AxisId dom = DominantAxis(dPerm);
+            if (dom != _lockedAxis)
+            {
+                float domAbs = AbsAxis(dPerm, dom);
+                float ratio = (lockedAbs > 1e-6f) ? (domAbs / lockedAbs) : 999f;
+
+                if (domAbs >= axisLockSwitchMinMeters && ratio >= Mathf.Max(1.2f, axisLockSwitchRatio))
+                    _lockedAxis = dom;
+            }
+        }
 
         return KeepOnlyAxis(dPerm, _lockedAxis);
-    }
-
-    static Quaternion YawOnly(Quaternion q)
-    {
-        Vector3 fwd = q * Vector3.forward;
-        fwd.y = 0f;
-        if (fwd.sqrMagnitude < 1e-8f) return Quaternion.identity;
-        return Quaternion.LookRotation(fwd.normalized, Vector3.up);
-    }
-
-    void ResetRemap1DState()
-    {
-        _remap1DInit = false;
-        _remap1DPrev = 0f;
-        _remap1DEuro.Invalidate();
-    }
-
-    float GetAxisValue(Vector3 v, AxisId a)
-    {
-        switch (a)
-        {
-            case AxisId.X: return v.x;
-            case AxisId.Y: return v.y;
-            case AxisId.Z: return v.z;
-            default: return 0f;
-        }
-    }
-
-    Vector3 MakeAxisVector(float value, AxisId a)
-    {
-        switch (a)
-        {
-            case AxisId.X: return new Vector3(value, 0f, 0f);
-            case AxisId.Y: return new Vector3(0f, value, 0f);
-            case AxisId.Z: return new Vector3(0f, 0f, value);
-            default: return Vector3.zero;
-        }
     }
 }
