@@ -242,6 +242,30 @@ public class RemoteHandRuntime : MonoBehaviour
 
     public float remapOffsetCutoffHz = 6.0f;
 
+    [Header("Dominant Axis Lock (cardinal-only motion)")]
+    [Tooltip("If true, remap displacement is constrained to ONE dominant axis (no diagonal).")]
+    public bool useDominantAxisLock = true;
+
+    [Tooltip("Start locking when max(|dPerm|) exceeds this (meters).")]
+    public float axisLockStartMeters = 0.015f; // 1.5 cm
+
+    [Tooltip("Release lock when locked-axis |component| falls below this (meters).")]
+    public float axisLockReleaseMeters = 0.008f; // 8 mm
+
+    [Tooltip("If true, allow switching to another axis while locked when it becomes clearly dominant.")]
+    public bool axisLockAllowSwitch = true;
+
+    [Tooltip("Switch requires newDominant >= ratio * currentLocked (>=1.2).")]
+    public float axisLockSwitchRatio = 1.8f;
+
+    [Tooltip("Switch also requires newDominant >= this magnitude (meters).")]
+    public float axisLockSwitchMinMeters = 0.02f; // 2 cm
+
+    public int LockedAxisId => (int)_lockedAxis; // -1 none, 0 X, 1 Y, 2 Z
+
+    enum AxisId { None = -1, X = 0, Y = 1, Z = 2 }
+    AxisId _lockedAxis = AxisId.None;
+
     // =========================================================
     // Joystick-style remap (kept for later)
     // =========================================================
@@ -791,6 +815,12 @@ public class RemoteHandRuntime : MonoBehaviour
         if (axisPermMaxOffsetLocal.z > 0f)
             dPerm.z = Mathf.Clamp(dPerm.z, -axisPermMaxOffsetLocal.z, axisPermMaxOffsetLocal.z);
 
+        // 6.5) dominant axis lock (cardinal-only)
+        if (useDominantAxisLock)
+        {
+            dPerm = ApplyDominantAxisLock(dPerm);
+        }
+
         // 7) strong smoothing specifically for remap displacement
         if (useRemapStrongSmoothing)
         {
@@ -911,6 +941,7 @@ public class RemoteHandRuntime : MonoBehaviour
         _remapOffsetInit = false;
         _remapOffsetPrev = Vector3.zero;
         _remapOneEuro.Invalidate();
+        _lockedAxis = AxisId.None;
     }
 
     // =========================================================
@@ -1571,5 +1602,84 @@ public class RemoteHandRuntime : MonoBehaviour
     {
         _axisPermNeutralCaptured = false;
         ResetRemapSmoothingState();
+    }
+
+    AxisId DominantAxis(Vector3 v)
+    {
+        float ax = Mathf.Abs(v.x);
+        float ay = Mathf.Abs(v.y);
+        float az = Mathf.Abs(v.z);
+
+        if (ax >= ay && ax >= az) return AxisId.X;
+        if (ay >= az) return AxisId.Y;
+        return AxisId.Z;
+    }
+
+    float AbsAxis(Vector3 v, AxisId a)
+    {
+        switch (a)
+        {
+            case AxisId.X: return Mathf.Abs(v.x);
+            case AxisId.Y: return Mathf.Abs(v.y);
+            case AxisId.Z: return Mathf.Abs(v.z);
+            default: return 0f;
+        }
+    }
+
+    Vector3 KeepOnlyAxis(Vector3 v, AxisId a)
+    {
+        switch (a)
+        {
+            case AxisId.X: return new Vector3(v.x, 0f, 0f);
+            case AxisId.Y: return new Vector3(0f, v.y, 0f);
+            case AxisId.Z: return new Vector3(0f, 0f, v.z);
+            default: return v;
+        }
+    }
+
+    Vector3 ApplyDominantAxisLock(Vector3 dPerm)
+    {
+        // dPerm is in remap-frame local space (after permutation + gain + clamp)
+
+        float ax = Mathf.Abs(dPerm.x);
+        float ay = Mathf.Abs(dPerm.y);
+        float az = Mathf.Abs(dPerm.z);
+        float maxAbs = Mathf.Max(ax, Mathf.Max(ay, az));
+
+        // Not locked yet
+        if (_lockedAxis == AxisId.None)
+        {
+            if (maxAbs < Mathf.Max(0f, axisLockStartMeters))
+                return dPerm;
+
+            _lockedAxis = DominantAxis(dPerm);
+            return KeepOnlyAxis(dPerm, _lockedAxis);
+        }
+
+        // Locked
+        float lockedAbs = AbsAxis(dPerm, _lockedAxis);
+
+        // Release when near-still on the locked axis
+        if (lockedAbs < Mathf.Max(0f, axisLockReleaseMeters))
+        {
+            _lockedAxis = AxisId.None;
+            return dPerm;
+        }
+
+        // Optional switching
+        if (axisLockAllowSwitch)
+        {
+            AxisId dom = DominantAxis(dPerm);
+            if (dom != _lockedAxis)
+            {
+                float domAbs = AbsAxis(dPerm, dom);
+                float ratio = (lockedAbs > 1e-6f) ? (domAbs / lockedAbs) : 999f;
+
+                if (domAbs >= axisLockSwitchMinMeters && ratio >= Mathf.Max(1.2f, axisLockSwitchRatio))
+                    _lockedAxis = dom;
+            }
+        }
+
+        return KeepOnlyAxis(dPerm, _lockedAxis);
     }
 }
