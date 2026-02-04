@@ -815,11 +815,17 @@ public class RemoteHandRuntime : MonoBehaviour
         if (axisPermMaxOffsetLocal.z > 0f)
             dPerm.z = Mathf.Clamp(dPerm.z, -axisPermMaxOffsetLocal.z, axisPermMaxOffsetLocal.z);
 
-        // 6.5) dominant axis lock (cardinal-only)
+        // 6.5) dominant axis lock (cardinal-only) + detect axis changes
+        AxisId axisBefore = _lockedAxis;
+
         if (useDominantAxisLock)
-        {
             dPerm = ApplyDominantAxisLock(dPerm);
-        }
+
+        AxisId axisAfter = _lockedAxis;
+
+        // If the locked axis changed, reset remap filter state to avoid diagonal "tail"
+        if (axisAfter != axisBefore)
+            ResetRemapSmoothingState();
 
         // 7) strong smoothing specifically for remap displacement
         if (useRemapStrongSmoothing)
@@ -832,6 +838,10 @@ public class RemoteHandRuntime : MonoBehaviour
             ResetRemapSmoothingState();
         }
 
+        // Ensure the final output is strictly cardinal (no diagonal) even after filtering
+        if (useDominantAxisLock && _lockedAxis != AxisId.None)
+            dPerm = KeepOnlyAxis(dPerm, _lockedAxis);
+
         // 8) apply to joints by translating all joints equally
         Vector3 newWristWorld = _axisPermNeutralWristWorld + frame.TransformVector(dPerm);
         Vector3 deltaWorld = newWristWorld - wristWorld;
@@ -839,10 +849,6 @@ public class RemoteHandRuntime : MonoBehaviour
         for (int i = 0; i < 21; i++)
             joints[i] += deltaWorld;
 
-        if (Time.frameCount % 30 == 0)
-        {
-            DebugHUD.Log($"[Remap] dLocal=({dLocal.x:F3},{dLocal.y:F3},{dLocal.z:F3})  |d|={dLocal.magnitude:F3}");
-        }
     }
 
     // Soft axis gating: reduces small cross-axis components but keeps diagonals.
