@@ -808,6 +808,11 @@ public class RemoteHandRuntime : MonoBehaviour
 
         for (int i = 0; i < 21; i++)
             joints[i] += deltaWorld;
+
+        if (Time.frameCount % 30 == 0)
+        {
+            DebugHUD.Log($"[Remap] dLocal=({dLocal.x:F3},{dLocal.y:F3},{dLocal.z:F3})  |d|={dLocal.magnitude:F3}");
+        }
     }
 
     // Soft axis gating: reduces small cross-axis components but keeps diagonals.
