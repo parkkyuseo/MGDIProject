@@ -204,6 +204,17 @@ public class RemoteHandRuntime : MonoBehaviour
     [Tooltip("Max absolute workspace offset in remap-frame local space. (<=0 means no clamp for that axis)")]
     public Vector3 axisPermMaxOffsetLocal = new Vector3(0.30f, 0.30f, 0.30f);
 
+    [Header("Side-to-front remap mapping (v1 style: X, Z->Y, Y->Z)")]
+    public float remapXScale = 1.0f;
+
+    [Tooltip("Frame-local Z (forward) -> remap Y (up) scale.")]
+    public float remapYFromZScale = 0.6f;
+    public bool remapInvertYFromZ = false;
+
+    [Tooltip("Frame-local Y (up) -> remap Z (forward) scale.")]
+    public float remapZFromYScale = 0.6f;
+    public bool remapInvertZFromY = false;
+
     // =========================================================
     // Remap stabilization: soft gating + strong remap smoothing
     // =========================================================
@@ -831,7 +842,21 @@ public class RemoteHandRuntime : MonoBehaviour
         }
 
         // 4) permutation: (dz, dx, dy)
-        Vector3 dPerm = new Vector3(dLocal.z, dLocal.x, dLocal.y);
+        /* Vector3 dPerm = new Vector3(dLocal.z, dLocal.x, dLocal.y); */
+
+        // 4) v1-style mapping (NO axis rotation):
+        //    X stays X
+        //    local Z -> Y
+        //    local Y -> Z
+        float xOff = dLocal.x * remapXScale;
+
+        float yOff = dLocal.z * remapYFromZScale;
+        if (remapInvertYFromZ) yOff = -yOff;
+
+        float zOff = dLocal.y * remapZFromYScale;
+        if (remapInvertZFromY) zOff = -zOff;
+
+        Vector3 dPerm = new Vector3(xOff, yOff, zOff);
 
         // 5) gain
         dPerm *= Mathf.Max(0f, axisPermGain);
