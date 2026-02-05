@@ -103,6 +103,12 @@ public class PhonePoseReceiver : MonoBehaviour
             }
 
             Vector3 dp = (p - _p0) * positionGain;
+
+            if (Time.unscaledTime >= _nextLogTime)
+            {
+                DebugHUD.Log($"[PhonePoseReceiver] p={p} p0={_p0} dp={(p - _p0)}");
+            }
+
             Quaternion dq = q * Quaternion.Inverse(_q0);
 
             Vector3 desiredPos = _targetStartPos + dp;
@@ -134,7 +140,7 @@ public class PhonePoseReceiver : MonoBehaviour
             _nextLogTime = Time.unscaledTime + 1f;
             int c = _pktCount;
             _pktCount = 0;
-            DebugHUD.Log($"[PhonePoseReceiver] pkts/sec ~ {c}");
+            /* DebugHUD.Log($"[PhonePoseReceiver] pkts/sec ~ {c}"); */
         }
     }
 
