@@ -51,7 +51,7 @@ public class PhonePoseReceiver : MonoBehaviour
     {
         if (target == null)
         {
-            Debug.LogError("[PhonePoseReceiver] Target not assigned.");
+            DebugHUD.LogError("[PhonePoseReceiver] Target not assigned.");
             enabled = false;
             return;
         }
@@ -66,7 +66,7 @@ public class PhonePoseReceiver : MonoBehaviour
         _rxThread = new Thread(ReceiveLoop) { IsBackground = true };
         _rxThread.Start();
 
-        Debug.Log($"[PhonePoseReceiver] Listening UDP :{listenPort}");
+        DebugHUD.Log($"[PhonePoseReceiver] Listening UDP :{listenPort}");
     }
 
     void OnDestroy()
@@ -99,7 +99,7 @@ public class PhonePoseReceiver : MonoBehaviour
                 _p0 = p;
                 _q0 = q;
                 _hasOrigin = true;
-                Debug.Log("[PhonePoseReceiver] Origin captured (first packet).");
+                DebugHUD.Log("[PhonePoseReceiver] Origin captured (first packet).");
             }
 
             Vector3 dp = (p - _p0) * positionGain;
@@ -134,7 +134,7 @@ public class PhonePoseReceiver : MonoBehaviour
             _nextLogTime = Time.unscaledTime + 1f;
             int c = _pktCount;
             _pktCount = 0;
-            Debug.Log($"[PhonePoseReceiver] pkts/sec ~ {c}");
+            DebugHUD.Log($"[PhonePoseReceiver] pkts/sec ~ {c}");
         }
     }
 
@@ -170,7 +170,7 @@ public class PhonePoseReceiver : MonoBehaviour
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[PhonePoseReceiver] RX error: {e.Message}");
+                DebugHUD.LogWarning($"[PhonePoseReceiver] RX error: {e.Message}");
             }
         }
     }
