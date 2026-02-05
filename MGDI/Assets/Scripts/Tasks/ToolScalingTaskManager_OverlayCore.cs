@@ -14,6 +14,10 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
     [SerializeField] private Transform overlaysCurrentRoot;
     [SerializeField] private Transform overlaysTargetRoot;
 
+    [Header("Tools Root (optional override)")]
+    [Tooltip("If set, tool rigidbodies are searched here instead of overlaysCurrentRoot.parent/Tools_Dynamic.")]
+    [SerializeField] private Transform toolsDynamicRootOverride;
+
     [Header("Grab / Evaluate")]
     [SerializeField] private ProxyHandGrabber grabber;
 
@@ -63,6 +67,21 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
     [Tooltip("Extra smoothing on scale factor command (0=no smoothing, 1=very slow).")]
     [SerializeField] private float scaleLerp = 0.15f;
 
+    [Header("Bring overlays near active tool (like rotation task)")]
+    [SerializeField] private bool bringOverlaysNearActiveTool = true;
+
+    [Tooltip("If true, offset uses Camera frame (cam.right/up/fwd). If false, uses tool frame (tool.right/up/fwd).")]
+    [SerializeField] private bool offsetInCameraFrame = true;
+
+    [Tooltip("If true, overlay rotations are matched to the tool rotation while placed near it.")]
+    [SerializeField] private bool matchOverlayRotationToTool = true;
+
+    [Tooltip("Where to place CURRENT overlay near the tool. X=right, Y=up, Z=forward (in chosen frame).")]
+    [SerializeField] private Vector3 currentOverlayOffsetLocal = new Vector3(0.18f, 0.03f, 0.00f);
+
+    [Tooltip("Where to place TARGET overlay near the tool. Usually slightly different so they don't overlap.")]
+    [SerializeField] private Vector3 targetOverlayOffsetLocal = new Vector3(0.30f, 0.03f, 0.00f);
+
     [Header("Inter-trial behavior")]
     [SerializeField] private bool snapOnSuccess = false;
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
@@ -97,6 +116,13 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
         public Vector3 baseCurrentLocalScale;
         public Vector3 baseTargetLocalScale;
 
+        // Original placement pose (for restoring after trial)
+        public Vector3 baseCurrentPos;
+        public Quaternion baseCurrentRot;
+        public Vector3 baseTargetPos;
+        public Quaternion baseTargetRot;
+        public bool basePoseCaptured;
+
         public float targetFactor;
 
         // For holding gating (optional)
@@ -124,6 +150,9 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
 
     // Micro controller can set this true so macro does NOT overwrite scale.
     private bool _externalDriving = false;
+
+    // Cache tool bodies by id (rebuilt when scene registry rebuilt)
+    private Dictionary<string, Rigidbody> _toolBodiesById = null;
 
     public bool IsTrialRunning => trialRunning && !inTransition;
     public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - trialTimer);
@@ -271,11 +300,13 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
 
         active = items[trialIndex % items.Count];
 
+        EnsureActiveToolBody(active);
+
         // Reset macro state per trial
         active.axisAccum = 0f;
         active.haveWristPrev = false;
 
-        // Reset current overlay to baseline
+        // Reset current overlay to baseline scale
         if (active.currentOverlay != null)
             active.currentOverlay.localScale = active.baseCurrentLocalScale;
 
@@ -291,6 +322,11 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
         if (active.targetOverlay != null)
             active.targetOverlay.localScale = active.baseTargetLocalScale * active.targetFactor;
 
+        // Bring overlays near active tool (optional)
+        if (bringOverlaysNearActiveTool)
+            MoveOverlaysNearActiveTool(active);
+
+        // Show only the active overlays (both roots)
         SetOnlyActiveOverlaysVisible(active.id);
 
         trialTimer = 0f;
@@ -334,6 +370,9 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
 
         HideFeedbackUI();
 
+        // Restore overlays to their original placement pose
+        RestoreOverlayBasePose(active);
+
         if (resetScaleAfterTrial && active != null && active.currentOverlay != null)
         {
             active.currentOverlay.localScale = active.baseCurrentLocalScale;
@@ -347,10 +386,14 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
         BeginNextTrial();
     }
 
+    // ---------------- Registry ----------------
     private void RebuildItemsFromScene()
     {
         items.Clear();
         if (overlaysCurrentRoot == null || overlaysTargetRoot == null) return;
+
+        // Cache tool bodies by id
+        _toolBodiesById = BuildToolBodiesById();
 
         // current overlays: id -> ToolId transform
         var curIds = overlaysCurrentRoot.GetComponentsInChildren<ToolId>(true);
@@ -370,9 +413,6 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
             tgtMap[tid.id] = tid.transform;
         }
 
-        // map tool rigidbodies by id (sibling Tools_Dynamic under same parent)
-        var toolBodiesById = BuildToolBodiesById();
-
         foreach (var kv in curMap)
         {
             if (!tgtMap.TryGetValue(kv.Key, out var tgt)) continue;
@@ -391,11 +431,16 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
                 toolBody = null,
                 axisAccum = 0f,
                 haveWristPrev = false,
-                wristPrev = Vector3.zero
+                wristPrev = Vector3.zero,
+                basePoseCaptured = false
             };
 
-            if (toolBodiesById != null && toolBodiesById.TryGetValue(it.id, out var rb))
+            // Assign tool body if available
+            if (_toolBodiesById != null && _toolBodiesById.TryGetValue(it.id, out var rb))
                 it.toolBody = rb;
+
+            // Capture original placement pose now (so we can restore after trial)
+            CaptureOverlayBasePoseIfNeeded(it);
 
             items.Add(it);
         }
@@ -408,9 +453,14 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
 
     private Dictionary<string, Rigidbody> BuildToolBodiesById()
     {
-        if (overlaysCurrentRoot == null || overlaysCurrentRoot.parent == null) return null;
+        Transform toolsRoot = toolsDynamicRootOverride;
 
-        Transform toolsRoot = overlaysCurrentRoot.parent.Find("Tools_Dynamic");
+        if (toolsRoot == null)
+        {
+            if (overlaysCurrentRoot != null && overlaysCurrentRoot.parent != null)
+                toolsRoot = overlaysCurrentRoot.parent.Find("Tools_Dynamic");
+        }
+
         if (toolsRoot == null) return null;
 
         var map = new Dictionary<string, Rigidbody>();
@@ -426,6 +476,102 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
             map[tid.id] = rb;
         }
         return map;
+    }
+
+    private void EnsureActiveToolBody(Item it)
+    {
+        if (it == null) return;
+        if (it.toolBody != null) return;
+
+        if (_toolBodiesById == null)
+            _toolBodiesById = BuildToolBodiesById();
+
+        if (_toolBodiesById != null && _toolBodiesById.TryGetValue(it.id, out var rb))
+            it.toolBody = rb;
+    }
+
+    // ---------------- Bring overlays near tool ----------------
+    private void CaptureOverlayBasePoseIfNeeded(Item it)
+    {
+        if (it == null || it.basePoseCaptured) return;
+
+        if (it.currentOverlay != null)
+        {
+            it.baseCurrentPos = it.currentOverlay.position;
+            it.baseCurrentRot = it.currentOverlay.rotation;
+        }
+
+        if (it.targetOverlay != null)
+        {
+            it.baseTargetPos = it.targetOverlay.position;
+            it.baseTargetRot = it.targetOverlay.rotation;
+        }
+
+        it.basePoseCaptured = true;
+    }
+
+    private void RestoreOverlayBasePose(Item it)
+    {
+        if (it == null || !it.basePoseCaptured) return;
+
+        if (it.currentOverlay != null)
+        {
+            it.currentOverlay.position = it.baseCurrentPos;
+            it.currentOverlay.rotation = it.baseCurrentRot;
+        }
+
+        if (it.targetOverlay != null)
+        {
+            it.targetOverlay.position = it.baseTargetPos;
+            it.targetOverlay.rotation = it.baseTargetRot;
+        }
+    }
+
+    private void MoveOverlaysNearActiveTool(Item it)
+    {
+        if (it == null) return;
+        if (it.toolBody == null) return;
+
+        Transform tool = it.toolBody.transform;
+        Transform cam = Camera.main != null ? Camera.main.transform : null;
+
+        Vector3 right, up, fwd;
+        if (offsetInCameraFrame && cam != null)
+        {
+            right = cam.right;
+            up = cam.up;
+            fwd = cam.forward;
+        }
+        else
+        {
+            right = tool.right;
+            up = Vector3.up;
+            fwd = tool.forward;
+        }
+
+        if (it.currentOverlay != null)
+        {
+            it.currentOverlay.position =
+                tool.position +
+                right * currentOverlayOffsetLocal.x +
+                up * currentOverlayOffsetLocal.y +
+                fwd * currentOverlayOffsetLocal.z;
+
+            if (matchOverlayRotationToTool)
+                it.currentOverlay.rotation = tool.rotation;
+        }
+
+        if (it.targetOverlay != null)
+        {
+            it.targetOverlay.position =
+                tool.position +
+                right * targetOverlayOffsetLocal.x +
+                up * targetOverlayOffsetLocal.y +
+                fwd * targetOverlayOffsetLocal.z;
+
+            if (matchOverlayRotationToTool)
+                it.targetOverlay.rotation = tool.rotation;
+        }
     }
 
     // ---------------- MACRO helpers ----------------
