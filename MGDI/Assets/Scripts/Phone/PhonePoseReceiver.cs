@@ -51,7 +51,7 @@ public class PhonePoseReceiver : MonoBehaviour
     {
         if (target == null)
         {
-            DebugHUD.LogError("[PhonePoseReceiver] Target not assigned.");
+            DebugHUD.Log("[PhonePoseReceiver] Target not assigned.");
             enabled = false;
             return;
         }
@@ -170,7 +170,7 @@ public class PhonePoseReceiver : MonoBehaviour
             }
             catch (Exception e)
             {
-                DebugHUD.LogWarning($"[PhonePoseReceiver] RX error: {e.Message}");
+                DebugHUD.Log($"[PhonePoseReceiver] RX error: {e.Message}");
             }
         }
     }
