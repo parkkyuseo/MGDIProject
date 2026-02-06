@@ -27,6 +27,12 @@ public class PhonePoseReceiver : MonoBehaviour
         public double t;
         public float px, py, pz;
         public float qx, qy, qz, qw;
+
+        // Phase 1 marker
+        public bool mvis;
+        public string mname;
+        public float mx, my, mz;
+        public float mqx, mqy, mqz, mqw;
     }
 
     private UdpClient _udp;
@@ -46,6 +52,26 @@ public class PhonePoseReceiver : MonoBehaviour
 
     private int _pktCount;
     private float _nextLogTime;
+
+    private bool _hasMarker;
+    private Vector3 _mLatest;
+    private Quaternion _mqLatest;
+
+    public bool HasPhonePose => _hasPose;
+    public Pose LatestPhonePose
+    {
+        get { lock (_lock) return new Pose(_pLatest, _qLatest); }
+    }
+
+    public bool HasPhoneMarker => _hasMarker;
+    public Pose LatestPhoneMarkerPose
+    {
+        get { lock (_lock) return new Pose(_mLatest, _mqLatest); }
+    }
+    public bool LatestMarkerVisible
+    {
+        get { lock (_lock) return _hasMarker; }
+    }
 
     void Start()
     {
@@ -161,11 +187,22 @@ public class PhonePoseReceiver : MonoBehaviour
                 Vector3 p = new Vector3(pkt.px, pkt.py, pkt.pz);
                 Quaternion q = new Quaternion(pkt.qx, pkt.qy, pkt.qz, pkt.qw);
 
+                bool mvis = pkt.mvis;
+                Vector3 mp = new Vector3(pkt.mx, pkt.my, pkt.mz);
+                Quaternion mq = new Quaternion(pkt.mqx, pkt.mqy, pkt.mqz, pkt.mqw);
+
                 lock (_lock)
                 {
                     _pLatest = p;
                     _qLatest = q;
                     _hasPose = true;
+
+                    _hasMarker = mvis;
+                    if (mvis)
+                    {
+                        _mLatest = mp;
+                        _mqLatest = mq;
+                    }
                 }
 
                 _pktCount++;
