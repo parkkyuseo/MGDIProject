@@ -5,10 +5,14 @@ public class ProxyHandGrabber : MonoBehaviour
 {
     public enum HeldRotationMode
     {
-        FollowAnchor,     // Follow grabAnchor rotation (with optional smoothing)
-        LockAtGrab,       // Keep the grabbed object's world rotation fixed at grab time
-        ExternalControl   // Do not modify rotation while holding (external scripts control it)
+        FollowAnchor,
+        LockAtGrab,
+        ExternalControl
     }
+
+    [Header("Input (Phone)")]
+    [Tooltip("If assigned, grab is driven by PhonePoseStreamReceiver.LatestGrab (tap-to-toggle).")]
+    [SerializeField] private PhonePoseStreamReceiver phoneRx;
 
     [Header("Grab anchor")]
     public Transform grabAnchor;
@@ -21,9 +25,7 @@ public class ProxyHandGrabber : MonoBehaviour
     [Tooltip("Must be within this distance to actually attach (meters). Should be <= grabRadius.")]
     public float attachDistance = 0.05f;
 
-    [Header("Grip debounce")]
-    public float closeHoldSec = 0.08f;
-    public float openHoldSec = 0.12f;
+    [Header("Re-grab cooldown")]
     public float regrabCooldownSec = 0.10f;
 
     [Header("Collision")]
@@ -70,54 +72,50 @@ public class ProxyHandGrabber : MonoBehaviour
     // rotation captured at grab time (world space)
     private Quaternion _heldRotFixedWorld = Quaternion.identity;
 
-    // debounce state
-    private UdpHandReceiver.GripState _lastGripState = UdpHandReceiver.GripState.Unknown;
-    private float _stateSinceTime = -1f;
-    private float _lastReleaseTime = -999f;
-
     // held follow filter state
     private Vector3 _heldPosSm;
     private Quaternion _heldRotSm = Quaternion.identity;
     private bool _heldFollowInit = false;
 
-    private void OnEnable()
-    {
-        UdpHandReceiver.OnGripStateChanged += OnGripStateChanged;
-    }
+    // phone grab toggle state
+    private bool _lastGrabSignal = false;
 
-    private void OnDisable()
-    {
-        UdpHandReceiver.OnGripStateChanged -= OnGripStateChanged;
-    }
+    // release time
+    private float _lastReleaseTime = -999f;
 
-    private void OnGripStateChanged(UdpHandReceiver.GripState state)
+    void Start()
     {
-        if (state != _lastGripState)
-        {
-            _lastGripState = state;
-            _stateSinceTime = Time.unscaledTime;
-            if (logDebug) Debug.Log("[Grabber] GripState=" + state);
-        }
+        if (phoneRx == null)
+            phoneRx = FindFirstObjectByType<PhonePoseStreamReceiver>();
+
+        if (phoneRx != null)
+            _lastGrabSignal = phoneRx.LatestGrab;
     }
 
     private void Update()
     {
-        if (_stateSinceTime < 0f) return;
+        if (phoneRx == null) return;
 
-        float heldFor = Time.unscaledTime - _stateSinceTime;
+        bool grabSignal = phoneRx.LatestGrab;
 
-        if (_heldBody == null && _lastGripState == UdpHandReceiver.GripState.Closed)
+        if (grabSignal != _lastGrabSignal)
         {
-            if (heldFor >= closeHoldSec && (Time.unscaledTime - _lastReleaseTime) >= regrabCooldownSec)
-                TryGrab();
-            return;
+            _lastGrabSignal = grabSignal;
+            if (logDebug) Debug.Log("[Grabber] PhoneGrab=" + grabSignal);
         }
 
-        if (_heldBody != null && _lastGripState == UdpHandReceiver.GripState.Open)
+        if (_heldBody == null)
         {
-            if (heldFor >= openHoldSec)
+            if (_lastGrabSignal)
+            {
+                if ((Time.unscaledTime - _lastReleaseTime) >= regrabCooldownSec)
+                    TryGrab();
+            }
+        }
+        else
+        {
+            if (!_lastGrabSignal)
                 TryRelease();
-            return;
         }
     }
 
@@ -128,7 +126,6 @@ public class ProxyHandGrabber : MonoBehaviour
 
         Transform t = _heldBody.transform;
 
-        // Target position/rotation from anchor + initial offset (or snap to anchor)
         Vector3 targetPos;
         Quaternion targetRot;
 
@@ -143,11 +140,9 @@ public class ProxyHandGrabber : MonoBehaviour
             targetRot = grabAnchor.rotation;
         }
 
-        // Decide rotation policy
         switch (heldRotationMode)
         {
             case HeldRotationMode.FollowAnchor:
-                // targetRot already computed from anchor (+ offset)
                 break;
 
             case HeldRotationMode.LockAtGrab:
@@ -155,17 +150,14 @@ public class ProxyHandGrabber : MonoBehaviour
                 break;
 
             case HeldRotationMode.ExternalControl:
-                // Do not override rotation in grabber
                 targetRot = t.rotation;
                 break;
         }
 
-        // No filtering: apply directly
         if (!filterHeldObject)
         {
             if (heldRotationMode == HeldRotationMode.ExternalControl)
             {
-                // Position only
                 t.position = targetPos;
             }
             else
@@ -175,7 +167,6 @@ public class ProxyHandGrabber : MonoBehaviour
             return;
         }
 
-        // Initialize filter state (no jump)
         if (!_heldFollowInit)
         {
             _heldPosSm = t.position;
@@ -183,7 +174,7 @@ public class ProxyHandGrabber : MonoBehaviour
             _heldFollowInit = true;
         }
 
-        // Position filter: dead-zone + step clamp + LPF
+        // Position filter
         Vector3 dp = targetPos - _heldPosSm;
         float dz = Mathf.Max(0f, heldPosDeadZoneMeters);
 
@@ -208,14 +199,13 @@ public class ProxyHandGrabber : MonoBehaviour
         // Rotation handling
         if (heldRotationMode == HeldRotationMode.ExternalControl)
         {
-            // Keep whatever rotation external code set this frame
             _heldRotSm = t.rotation;
         }
         else if (heldRotationMode == HeldRotationMode.LockAtGrab)
         {
             _heldRotSm = _heldRotFixedWorld;
         }
-        else // FollowAnchor
+        else
         {
             if (filterHeldRotation)
             {
@@ -239,7 +229,6 @@ public class ProxyHandGrabber : MonoBehaviour
 
         if (heldRotationMode == HeldRotationMode.ExternalControl)
         {
-            // Position only (rotation already applied by external code)
             t.position = _heldPosSm;
         }
         else
@@ -298,7 +287,6 @@ public class ProxyHandGrabber : MonoBehaviour
             return;
         }
 
-        // distance gate: only attach if already close enough
         float attachD = Mathf.Max(0f, attachDistance);
         if (attachD > 0f && bestDist > attachD * attachD)
         {
@@ -312,22 +300,17 @@ public class ProxyHandGrabber : MonoBehaviour
         _heldBody = body;
         _heldOriginalParent = body.transform.parent;
 
-        // freeze physics
         _heldBody.isKinematic = true;
         _heldBody.velocity = Vector3.zero;
         _heldBody.angularVelocity = Vector3.zero;
 
-        // keep world pose (no snap) when parenting
         body.transform.SetParent(grabAnchor, true);
 
-        // capture offset relative to anchor so the object follows without snapping
         _heldLocalPosToAnchor = grabAnchor.InverseTransformPoint(body.transform.position);
         _heldLocalRotToAnchor = Quaternion.Inverse(grabAnchor.rotation) * body.transform.rotation;
 
-        // capture fixed rotation at grab-start (world rotation)
         _heldRotFixedWorld = body.transform.rotation;
 
-        // init filter state from current pose (no jump)
         _heldPosSm = body.transform.position;
         _heldRotSm = body.transform.rotation;
         _heldFollowInit = true;
@@ -378,13 +361,11 @@ public class ProxyHandGrabber : MonoBehaviour
         OnReleased?.Invoke(releasedBody);
     }
 
-    // Allows TaskManager or other controllers to force a release at any time.
     public void ForceRelease()
     {
         TryRelease();
     }
 
-    // Preferred API: set the rotation mode explicitly.
     public void SetHeldRotationMode(HeldRotationMode mode)
     {
         heldRotationMode = mode;
@@ -398,15 +379,10 @@ public class ProxyHandGrabber : MonoBehaviour
         }
         else if (heldRotationMode == HeldRotationMode.ExternalControl)
         {
-            // Do not lock; just stop overriding
             _heldRotSm = _heldBody.transform.rotation;
         }
-        // FollowAnchor: no special action needed
     }
 
-    // Backward-compatible API for existing scripts that call SetFollowHeldRotation(bool).
-    // - true  -> FollowAnchor
-    // - false -> LockAtGrab (matches previous behavior of "do not follow rotation")
     public void SetFollowHeldRotation(bool value)
     {
         SetHeldRotationMode(value ? HeldRotationMode.FollowAnchor : HeldRotationMode.LockAtGrab);

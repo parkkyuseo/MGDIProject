@@ -20,11 +20,13 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         public float px, py, pz;
         public float qx, qy, qz, qw;
 
-        // Phase 1: marker
         public bool mvis;
         public string mname;
         public float mx, my, mz;
         public float mqx, mqy, mqz, mqw;
+
+        // NEW
+        public bool grab;
     }
 
     private readonly object _lock = new object();
@@ -42,6 +44,13 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
     private int _pktCount;
     private float _nextLogTime;
+
+    private bool _grab;
+
+    public bool LatestGrab
+    {
+        get { lock (_lock) return _grab; }
+    }
 
     public bool HasPhonePose
     {
@@ -140,6 +149,8 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                         _phoneMarkerPose = markerPose;
                         _markerName = pkt.mname ?? "";
                     }
+                    // NEW
+                    _grab = pkt.grab;
                 }
 
                 _pktCount++;
