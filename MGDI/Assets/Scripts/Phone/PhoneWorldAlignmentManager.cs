@@ -55,7 +55,7 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
     {
         if (phoneRx == null || holoMarker == null)
         {
-            Debug.LogWarning("[Align] Missing refs.");
+            DebugHUD.Log("[Align] Missing refs.");
             return;
         }
 
@@ -85,28 +85,27 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
         _lockedAxis = -1;
         _lockHoldUntil = 0f;
 
-        Debug.Log("[Align] Calibrated. Using world alignment now.");
-
+        DebugHUD.Log("[Align] Calibrated. Using world alignment now.");
     }
 
     public void ClearAlignment()
     {
         _hasAlign = false;
         _lockedAxis = -1;
-        Debug.Log("[Align] Cleared.");
+        DebugHUD.Log("[Align] Cleared.");
     }
 
     public void SetDominantAxisLock(bool enabled)
     {
         dominantAxisLock = enabled;
         _lockedAxis = -1;
-        Debug.Log($"[Align] dominantAxisLock={dominantAxisLock}");
+        DebugHUD.Log($"[Align] dominantAxisLock={dominantAxisLock}");
     }
 
     public void SetYawOnlyAlignment(bool enabled)
     {
         yawOnlyAlignment = enabled;
-        Debug.Log($"[Align] yawOnlyAlignment={yawOnlyAlignment}");
+        DebugHUD.Log($"[Align] yawOnlyAlignment={yawOnlyAlignment}");
     }
 
     // ---------- helpers ----------
