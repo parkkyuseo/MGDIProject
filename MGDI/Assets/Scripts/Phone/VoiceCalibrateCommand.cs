@@ -27,7 +27,7 @@ public class VoiceCalibrateCommand : MonoBehaviour
             _actions[calibrateKeyword] = TryCalibrate;
 
         if (!string.IsNullOrWhiteSpace(recenterKeyword))
-            _actions[recenterKeyword] = TryCalibrate;
+            _actions[recenterKeyword] = TryRecenter;
 
         if (!string.IsNullOrWhiteSpace(clearKeyword))
             _actions[clearKeyword] = TryClear;
@@ -69,8 +69,17 @@ public class VoiceCalibrateCommand : MonoBehaviour
             Debug.LogWarning("[VoiceCalibrateCommand] alignManager missing.");
             return;
         }
-
         alignManager.CalibrateNow();
+    }
+
+    private void TryRecenter()
+    {
+        if (alignManager == null)
+        {
+            Debug.LogWarning("[VoiceCalibrateCommand] alignManager missing.");
+            return;
+        }
+        alignManager.RecenterNow();
     }
 
     private void TryClear()
@@ -80,7 +89,6 @@ public class VoiceCalibrateCommand : MonoBehaviour
             Debug.LogWarning("[VoiceCalibrateCommand] alignManager missing.");
             return;
         }
-
         alignManager.ClearAlignment();
     }
 }

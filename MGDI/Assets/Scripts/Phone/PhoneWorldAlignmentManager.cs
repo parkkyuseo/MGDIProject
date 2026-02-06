@@ -201,4 +201,37 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
         if (axis == 1) return new Vector3(0f, v.y, 0f);
         return new Vector3(0f, 0f, v.z);
     }
+    public void RecenterNow()
+    {
+        if (phoneRx == null || target == null)
+        {
+            DebugHUD.Log("[Recenter] Missing refs.");
+            return;
+        }
+
+        if (!phoneRx.HasPhonePose)
+        {
+            DebugHUD.Log("[Recenter] No phone pose yet.");
+            return;
+        }
+
+        Pose phonePose = phoneRx.LatestPhonePose;
+
+        // preview 기준점 재설정 (Phase0 느낌 유지)
+        _previewPhone0 = phonePose;
+        _previewTarget0 = new Pose(target.position, target.rotation);
+        _hasPreviewOrigin = true;
+
+        // 만약 이미 calibrated 모드라면, calibrated 기준점도 같이 재설정
+        if (_hasAlign)
+        {
+            _calibPhone0 = phonePose;
+            _calibTarget0 = new Pose(target.position, target.rotation);
+        }
+
+        _lockedAxis = -1;
+        _lockHoldUntil = 0f;
+
+        DebugHUD.Log("[Recenter] Baseline reset (no QR needed).");
+    }
 }
