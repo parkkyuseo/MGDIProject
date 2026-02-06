@@ -6,8 +6,7 @@ public class HoloQrMarkerPoseProvider_OpenXR : MonoBehaviour
     [SerializeField] private ARMarkerManager markerManager;
 
     public bool MarkerVisible { get; private set; }
-    public Vector3 MarkerPosition { get; private set; }
-    public Quaternion MarkerRotation { get; private set; }
+    public Pose MarkerPose { get; private set; }
 
     void OnEnable()
     {
@@ -23,12 +22,8 @@ public class HoloQrMarkerPoseProvider_OpenXR : MonoBehaviour
 
     private void OnMarkersChanged(ARMarkersChangedEventArgs args)
     {
-        // 가장 단순: tracking 중인 첫 마커를 사용(마커 1개 전제)
-        foreach (var m in args.added)
-            TryUse(m);
-
-        foreach (var m in args.updated)
-            TryUse(m);
+        foreach (var m in args.added)  TryUse(m);
+        foreach (var m in args.updated) TryUse(m);
 
         if (args.removed.Count > 0)
             MarkerVisible = false;
@@ -38,9 +33,7 @@ public class HoloQrMarkerPoseProvider_OpenXR : MonoBehaviour
     {
         if (m == null) return;
 
-        // Unity transform은 월드 좌표계 기준 포즈
         MarkerVisible = true;
-        MarkerPosition = m.transform.position;
-        MarkerRotation = m.transform.rotation;
+        MarkerPose = new Pose(m.transform.position, m.transform.rotation);
     }
 }
