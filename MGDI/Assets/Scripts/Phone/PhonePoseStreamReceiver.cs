@@ -45,6 +45,9 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     private int _pktCount;
     private float _nextLogTime;
 
+    private float _nextGrabLogTime = 0f;
+    private bool _lastGrabLog = false;
+
     private bool _grab;
 
     public bool LatestGrab
@@ -111,6 +114,18 @@ public class PhonePoseStreamReceiver : MonoBehaviour
             _pktCount = 0;
             Debug.Log($"[PhonePoseStreamReceiver] pkts/sec ~ {c}");
         }
+
+        if (Time.unscaledTime >= _nextGrabLogTime)
+        {
+            _nextGrabLogTime = Time.unscaledTime + 0.5f;
+
+            bool g = LatestGrab;
+            if (g != _lastGrabLog)
+            {
+                _lastGrabLog = g;
+                DebugHUD.Log($"[PhoneRX] grab={g}");
+            }
+}
     }
 
     private void ReceiveLoop()
