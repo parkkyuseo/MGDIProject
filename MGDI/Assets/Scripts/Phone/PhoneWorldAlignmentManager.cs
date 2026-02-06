@@ -5,50 +5,85 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
     [Header("Refs")]
     [SerializeField] private PhonePoseStreamReceiver phoneRx;
     [SerializeField] private HoloQrMarkerPoseProvider_OpenXR holoMarker;
-    [SerializeField] private Transform target; // PhoneProxyCube or proxy root
+    [SerializeField] private Transform target; // PhoneProxyCube (or proxy root)
+
+    [Header("Before Calibrate (Preview like Phase 0)")]
+    [SerializeField] private bool previewBeforeCalibrate = true;
 
     [Header("Alignment")]
     [SerializeField] private bool yawOnlyAlignment = true;
 
-    [Tooltip("If true, translation uses dominant axis to suppress diagonals.")]
-    [SerializeField] private bool dominantAxisLock = true;
-
-    [Tooltip("Minimum translation magnitude (m) before axis lock engages.")]
+    [Header("Diagonal suppression (optional)")]
+    [SerializeField] private bool dominantAxisLock = false;
     [SerializeField] private float axisLockDeadZone = 0.01f;
 
     [Header("Smoothing")]
     [SerializeField] private float posLerp = 22f;
     [SerializeField] private float rotLerp = 22f;
 
+    // Alignment state
     private bool _hasAlign;
-    private Pose _worldH_from_worldP;
+    private Quaternion _R_align = Quaternion.identity; // only rotation used (yaw-only recommended)
 
-    // axis lock state
-    private int _lockedAxis = -1; // 0=x,1=y,2=z
+    // Preview (Phase0-like) origin
+    private bool _hasPreviewOrigin;
+    private Pose _previewPhone0;
+    private Pose _previewTarget0;
+
+    // Calibrated delta origin (prevents teleport)
+    private Pose _calibPhone0;
+    private Pose _calibTarget0;
+
+    // axis lock
+    private int _lockedAxis = -1;
     private float _lockHoldUntil;
 
     void Update()
     {
-        if (!_hasAlign) return;
         if (phoneRx == null || target == null) return;
         if (!phoneRx.HasPhonePose) return;
 
-        Pose worldP_phone = phoneRx.LatestPhonePose;
-        Pose worldH_phone = Mul(_worldH_from_worldP, worldP_phone);
+        Pose phonePose = phoneRx.LatestPhonePose;
 
-        // Apply dominant axis lock on translation to suppress diagonals
-        Vector3 desiredPos = worldH_phone.position;
-        Quaternion desiredRot = worldH_phone.rotation;
+        // ---------- PREVIEW MODE (before calibrate) ----------
+        if (!_hasAlign)
+        {
+            if (!previewBeforeCalibrate) return;
+
+            if (!_hasPreviewOrigin)
+            {
+                _previewPhone0 = phonePose;
+                _previewTarget0 = new Pose(target.position, target.rotation);
+                _hasPreviewOrigin = true;
+            }
+
+            Vector3 dpP = phonePose.position - _previewPhone0.position;
+            Quaternion dqP = phonePose.rotation * Quaternion.Inverse(_previewPhone0.rotation);
+
+            Vector3 desiredPos = _previewTarget0.position + dpP;
+            Quaternion desiredRot = dqP * _previewTarget0.rotation;
+
+            ApplySmoothed(desiredPos, desiredRot);
+            return;
+        }
+
+        // ---------- CALIBRATED MODE (no teleport; delta-only in aligned frame) ----------
+        Vector3 dpP_cal = phonePose.position - _calibPhone0.position;
+        Quaternion dqP_cal = phonePose.rotation * Quaternion.Inverse(_calibPhone0.rotation);
+
+        // map translation delta to Holo world using alignment rotation
+        Vector3 dpH = _R_align * dpP_cal;
+
+        // map rotation delta into Holo basis (conjugation)
+        Quaternion dqH = _R_align * dqP_cal * Quaternion.Inverse(_R_align);
+
+        Vector3 desiredPos2 = _calibTarget0.position + dpH;
+        Quaternion desiredRot2 = dqH * _calibTarget0.rotation;
 
         if (dominantAxisLock)
-            desiredPos = ApplyAxisLock(desiredPos);
+            desiredPos2 = ApplyAxisLock(desiredPos2);
 
-        float dt = Mathf.Max(Time.deltaTime, 1e-4f);
-        float aPos = 1f - Mathf.Exp(-posLerp * dt);
-        float aRot = 1f - Mathf.Exp(-rotLerp * dt);
-
-        target.position = Vector3.Lerp(target.position, desiredPos, aPos);
-        target.rotation = Quaternion.Slerp(target.rotation, desiredRot, aRot);
+        ApplySmoothed(desiredPos2, desiredRot2);
     }
 
     public void CalibrateNow()
@@ -74,48 +109,62 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
         Pose worldH_marker = holoMarker.MarkerPose;
         Pose worldP_marker = phoneRx.LatestPhoneMarkerPose;
 
-        Pose worldH_from_worldP = Mul(worldH_marker, Inv(worldP_marker));
+        // full alignment rotation
+        Quaternion R = worldH_marker.rotation * Quaternion.Inverse(worldP_marker.rotation);
 
         if (yawOnlyAlignment)
-            worldH_from_worldP = MakeYawOnly(worldH_from_worldP);
+            R = YawOnly(R);
 
-        _worldH_from_worldP = worldH_from_worldP;
+        _R_align = R;
         _hasAlign = true;
+
+        // IMPORTANT: prevent teleport by anchoring to current target pose
+        _calibPhone0 = phoneRx.LatestPhonePose;
+        _calibTarget0 = new Pose(target.position, target.rotation);
+
+        // reset preview origin so next time (if cleared) preview restarts cleanly
+        _hasPreviewOrigin = false;
 
         _lockedAxis = -1;
         _lockHoldUntil = 0f;
 
-        DebugHUD.Log("[Align] Calibrated. Using world alignment now.");
+        DebugHUD.Log("[Align] Calibrated (no-teleport, delta-only).");
     }
 
     public void ClearAlignment()
     {
         _hasAlign = false;
+        _hasPreviewOrigin = false;
         _lockedAxis = -1;
         DebugHUD.Log("[Align] Cleared.");
     }
 
-    public void SetDominantAxisLock(bool enabled)
-    {
-        dominantAxisLock = enabled;
-        _lockedAxis = -1;
-        DebugHUD.Log($"[Align] dominantAxisLock={dominantAxisLock}");
-    }
-
-    public void SetYawOnlyAlignment(bool enabled)
-    {
-        yawOnlyAlignment = enabled;
-        DebugHUD.Log($"[Align] yawOnlyAlignment={yawOnlyAlignment}");
-    }
-
     // ---------- helpers ----------
+
+    private void ApplySmoothed(Vector3 desiredPos, Quaternion desiredRot)
+    {
+        float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+        float aPos = 1f - Mathf.Exp(-posLerp * dt);
+        float aRot = 1f - Mathf.Exp(-rotLerp * dt);
+
+        target.position = Vector3.Lerp(target.position, desiredPos, aPos);
+        target.rotation = Quaternion.Slerp(target.rotation, desiredRot, aRot);
+    }
+
+    private static Quaternion YawOnly(Quaternion q)
+    {
+        Vector3 fwd = q * Vector3.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 1e-6f) return Quaternion.identity;
+        fwd.Normalize();
+        return Quaternion.LookRotation(fwd, Vector3.up);
+    }
 
     private Vector3 ApplyAxisLock(Vector3 desiredWorldPos)
     {
-        // Lock is applied on delta from current target position (rate-like behavior)
         Vector3 delta = desiredWorldPos - target.position;
-
         float mag = delta.magnitude;
+
         if (mag < axisLockDeadZone)
         {
             _lockedAxis = -1;
@@ -124,14 +173,12 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
 
         float now = Time.unscaledTime;
 
-        // Hold the same axis briefly to prevent rapid flipping
         if (_lockedAxis >= 0 && now < _lockHoldUntil)
         {
             delta = KeepOnlyAxis(delta, _lockedAxis);
             return target.position + delta;
         }
 
-        // Select dominant axis
         float ax = Mathf.Abs(delta.x);
         float ay = Mathf.Abs(delta.y);
         float az = Mathf.Abs(delta.z);
@@ -142,7 +189,7 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
         if (az > best) { best = az; axis = 2; }
 
         _lockedAxis = axis;
-        _lockHoldUntil = now + 0.12f; // short hysteresis
+        _lockHoldUntil = now + 0.12f;
 
         delta = KeepOnlyAxis(delta, axis);
         return target.position + delta;
@@ -153,36 +200,5 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
         if (axis == 0) return new Vector3(v.x, 0f, 0f);
         if (axis == 1) return new Vector3(0f, v.y, 0f);
         return new Vector3(0f, 0f, v.z);
-    }
-
-    private static Pose MakeYawOnly(Pose p)
-    {
-        // Keep translation as-is, but clamp rotation to yaw about world up
-        Vector3 fwd = p.rotation * Vector3.forward;
-        fwd.y = 0f;
-
-        Quaternion yawRot;
-        if (fwd.sqrMagnitude < 1e-6f)
-        {
-            yawRot = Quaternion.identity;
-        }
-        else
-        {
-            fwd.Normalize();
-            yawRot = Quaternion.LookRotation(fwd, Vector3.up);
-        }
-
-        return new Pose(p.position, yawRot);
-    }
-
-    private static Pose Mul(Pose a, Pose b)
-    {
-        return new Pose(a.position + a.rotation * b.position, a.rotation * b.rotation);
-    }
-
-    private static Pose Inv(Pose p)
-    {
-        Quaternion rInv = Quaternion.Inverse(p.rotation);
-        return new Pose(rInv * (-p.position), rInv);
     }
 }
