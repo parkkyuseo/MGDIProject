@@ -42,13 +42,13 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
 
         if (!holoMarker.MarkerVisible)
         {
-            Debug.LogWarning("[Align] HoloLens marker not visible.");
+            DebugHUD.Log("[Align] HoloLens marker not visible.");
             return;
         }
 
         if (!phoneRx.HasPhoneMarker)
         {
-            Debug.LogWarning("[Align] Phone marker not visible (mvis=false).");
+            DebugHUD.Log("[Align] Phone marker not visible (mvis=false).");
             return;
         }
 
@@ -58,7 +58,7 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
         _worldH_from_worldP = Mul(worldH_marker, Inv(worldP_marker));
         _hasAlign = true;
 
-        Debug.Log("[Align] Calibrated. Using world alignment now.");
+        DebugHUD.Log("[Align] Calibrated. Using world alignment now.");
     }
 
     [ContextMenu("Clear Alignment")]
