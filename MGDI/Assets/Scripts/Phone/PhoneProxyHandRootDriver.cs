@@ -17,6 +17,9 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
     [Header("Baseline")]
     [SerializeField] private bool autoRecenterOnFirstPose = true;
 
+    [Header("Position Offset (meters)")]
+    [SerializeField] private Vector3 positionOffset = new Vector3(0f, 0f, 0.25f); // 25cm forward
+
     [Header("Rotation Offset (fix forward direction)")]
     [SerializeField] private Vector3 rotationOffsetEuler = new Vector3(0f, 180f, 0f);
 
@@ -48,7 +51,8 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         if (applyRotation)
             dq = phone.rotation * Quaternion.Inverse(_phone0.rotation);
 
-        Vector3 desiredPos = _root0.position + dp;
+        /* Vector3 desiredPos = _root0.position + dp; */
+        Vector3 desiredPos = _root0.position + dp + (_root0.rotation * positionOffset);
         Quaternion desiredRot = dq * _root0.rotation;
 
         Quaternion rotOffset = Quaternion.Euler(rotationOffsetEuler);
