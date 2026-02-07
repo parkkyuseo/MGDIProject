@@ -48,6 +48,13 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     private float _nextGrabLogTime = 0f;
     private bool _lastGrabLog = false;
 
+    [SerializeField] private bool logPhonePoseAndGrab = true;
+
+    private float _nextPoseGrabLogTime = 0f;
+    private Pose _dbgLastPose;
+    private bool _dbgLastGrab;
+    private bool _dbgInitDbg;
+
     private bool _grab;
 
     public bool LatestGrab
@@ -125,7 +132,44 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                 _lastGrabLog = g;
                 DebugHUD.Log($"[PhoneRX] grab={g}");
             }
-}
+        }
+
+        if (logPhonePoseAndGrab && Time.unscaledTime >= _nextPoseGrabLogTime)
+        {
+            _nextPoseGrabLogTime = Time.unscaledTime + 0.5f;
+
+            // lock 안에서 한번에 가져오기
+            Pose p;
+            bool g;
+            lock (_lock)
+            {
+                p = _phonePose;
+                g = _grab;
+            }
+
+            Vector3 pos = p.position;
+
+            // 너무 스팸이면 변화가 있을 때만 찍기
+            if (!_dbgInitDbg)
+            {
+                _dbgLastPose = p;
+                _dbgLastGrab = g;
+                _dbgInitDbg = true;
+                DebugHUD.Log($"[PhoneRX] pos=({pos.x:F3},{pos.y:F3},{pos.z:F3}) grab={g}");
+            }
+            else
+            {
+                float dp = Vector3.Distance(_dbgLastPose.position, pos);
+                bool changed = (dp > 0.002f) || (g != _dbgLastGrab); // 2mm 이상 or grab 변경
+
+                if (changed)
+                {
+                    _dbgLastPose = p;
+                    _dbgLastGrab = g;
+                    DebugHUD.Log($"[PhoneRX] pos=({pos.x:F3},{pos.y:F3},{pos.z:F3}) grab={g}");
+                }
+            }
+        }
     }
 
     private void ReceiveLoop()
