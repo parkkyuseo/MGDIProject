@@ -29,7 +29,7 @@ public class PhoneInputRouter : MonoBehaviour
         if (phoneRx == null)
             phoneRx = FindFirstObjectByType<PhonePoseStreamReceiver>();
 
-        mode = Mode.Macro;
+        /* mode = Mode.Macro; */
     }
 
     void Update()
