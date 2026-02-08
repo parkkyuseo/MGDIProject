@@ -12,8 +12,7 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool logPacketsPerSec = true;
-    [SerializeField] private bool logInputChanges = false;   // hold/toggle/swipe 변화 로그
-    [SerializeField] private bool logPoseOccasionally = false; // 위치/회전 가끔 로그
+    [SerializeField] private bool logInputChanges = false;     // hold/toggle/swipe/modeToggle 변화 로그
 
     [Serializable]
     private struct PosePacket
@@ -22,9 +21,10 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         public float px, py, pz;
         public float qx, qy, qz, qw;
 
-        public bool hold;    // macro
-        public bool toggle;  // micro
-        public int swipe;    // 0 none, 1 up, 2 down, 3 left, 4 right
+        public bool hold;        // macro
+        public bool toggle;      // micro (grab toggle)
+        public int swipe;        // 0 none, 1 up, 2 down, 3 left, 4 right
+        public bool modeToggle;  // micro placement plane toggle (one-shot)
     }
 
     private readonly object _lock = new object();
@@ -35,9 +35,9 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     private bool _hold;
     private bool _toggle;
     private int _swipe;
+    private bool _modeToggle;
 
-    private double _lastPacketTime; // sender timestamp (pkt.t) if needed
-    private float _lastRxRealtime;  // local realtime when received
+    private float _lastRxRealtime;
 
     private UdpClient _udp;
     private Thread _rxThread;
@@ -46,43 +46,19 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     private int _pktCount;
     private float _nextPktsLogTime;
 
-    private bool _dbgHold;
-    private bool _dbgToggle;
+    // debug change tracking
+    private bool _dbgHold, _dbgToggle, _dbgModeToggle;
     private int _dbgSwipe;
-    private float _nextPoseLogTime;
 
-    // -----------------------------
-    // Public getters
-    // -----------------------------
-    public bool HasPhonePose
-    {
-        get { lock (_lock) return _hasPhonePose; }
-    }
+    public bool HasPhonePose { get { lock (_lock) return _hasPhonePose; } }
+    public Pose LatestPhonePose { get { lock (_lock) return _phonePose; } }
 
-    public Pose LatestPhonePose
-    {
-        get { lock (_lock) return _phonePose; }
-    }
+    public bool LatestHold { get { lock (_lock) return _hold; } }
+    public bool LatestToggle { get { lock (_lock) return _toggle; } }
+    public int LatestSwipe { get { lock (_lock) return _swipe; } }
+    public bool LatestModeToggle { get { lock (_lock) return _modeToggle; } }
 
-    public bool LatestHold
-    {
-        get { lock (_lock) return _hold; }
-    }
-
-    public bool LatestToggle
-    {
-        get { lock (_lock) return _toggle; }
-    }
-
-    public int LatestSwipe
-    {
-        get { lock (_lock) return _swipe; }
-    }
-
-    public float SecondsSinceLastRx
-    {
-        get { lock (_lock) return Time.unscaledTime - _lastRxRealtime; }
-    }
+    public float SecondsSinceLastRx { get { lock (_lock) return Time.unscaledTime - _lastRxRealtime; } }
 
     void Start()
     {
@@ -109,7 +85,6 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
     void Update()
     {
-        // packets/sec log
         if (logPacketsPerSec && Time.unscaledTime >= _nextPktsLogTime)
         {
             _nextPktsLogTime = Time.unscaledTime + 1f;
@@ -118,38 +93,26 @@ public class PhonePoseStreamReceiver : MonoBehaviour
             Debug.Log($"[PhonePoseStreamReceiver] pkts/sec ~ {c}");
         }
 
-        // input changes log (main thread, safe)
         if (logInputChanges)
         {
-            bool h, t;
+            bool h, t, mt;
             int s;
             lock (_lock)
             {
                 h = _hold;
                 t = _toggle;
                 s = _swipe;
+                mt = _modeToggle;
             }
 
-            if (h != _dbgHold || t != _dbgToggle || s != _dbgSwipe)
+            if (h != _dbgHold || t != _dbgToggle || s != _dbgSwipe || mt != _dbgModeToggle)
             {
                 _dbgHold = h;
                 _dbgToggle = t;
                 _dbgSwipe = s;
-                DebugHUD.Log($"[PhoneRX] hold={h} toggle={t} swipe={s}");
+                _dbgModeToggle = mt;
+                DebugHUD.Log($"[PhoneRX] hold={h} toggle={t} swipe={s} modeToggle={mt}");
             }
-        }
-
-        // occasional pose log
-        if (logPoseOccasionally && Time.unscaledTime >= _nextPoseLogTime)
-        {
-            _nextPoseLogTime = Time.unscaledTime + 0.5f;
-
-            Pose p;
-            lock (_lock) p = _phonePose;
-
-            Vector3 pos = p.position;
-            Vector3 eul = p.rotation.eulerAngles;
-            DebugHUD.Log($"[PhoneRX] pos=({pos.x:F3},{pos.y:F3},{pos.z:F3}) rot=({eul.x:F1},{eul.y:F1},{eul.z:F1})");
         }
     }
 
@@ -180,17 +143,14 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                     _hold = pkt.hold;
                     _toggle = pkt.toggle;
                     _swipe = pkt.swipe;
+                    _modeToggle = pkt.modeToggle;
 
-                    _lastPacketTime = pkt.t;
                     _lastRxRealtime = Time.unscaledTime;
                 }
 
                 _pktCount++;
             }
-            catch (SocketException)
-            {
-                // timeout, continue
-            }
+            catch (SocketException) { }
             catch (Exception e)
             {
                 Debug.LogWarning($"[PhonePoseStreamReceiver] RX error: {e.Message}");

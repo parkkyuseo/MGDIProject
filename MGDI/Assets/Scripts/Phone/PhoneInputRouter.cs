@@ -13,12 +13,15 @@ public class PhoneInputRouter : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool logModeAndGrab = false;
 
-    // Outputs
     public Mode CurrentMode => mode;
-    public bool Grab { get; private set; }     // Macro: hold, Micro: toggle
 
-    // One-shot swipe buffer (Micro only)
-    private int _swipeBuffered = 0;            // 0 none, 1 up,2 down,3 left,4 right
+    // final outputs
+    public bool Grab { get; private set; }
+
+    // one-shot buffers (Micro only)
+    private int _swipeBuffered = 0;         // 0 none, 1 up,2 down,3 left,4 right
+    private bool _modeToggleBuffered = false;
+
     private bool _lastGrab;
 
     void Awake()
@@ -26,7 +29,6 @@ public class PhoneInputRouter : MonoBehaviour
         if (phoneRx == null)
             phoneRx = FindFirstObjectByType<PhonePoseStreamReceiver>();
 
-        // default Macro
         mode = Mode.Macro;
     }
 
@@ -37,9 +39,9 @@ public class PhoneInputRouter : MonoBehaviour
         bool hold = phoneRx.LatestHold;
         bool toggle = phoneRx.LatestToggle;
         int swipe = phoneRx.LatestSwipe;
+        bool modeToggle = phoneRx.LatestModeToggle;
 
         bool newGrab = (mode == Mode.Macro) ? hold : toggle;
-
         Grab = newGrab;
 
         if (logModeAndGrab && newGrab != _lastGrab)
@@ -48,14 +50,15 @@ public class PhoneInputRouter : MonoBehaviour
             DebugHUD.Log($"[Router] mode={mode} grab={newGrab}");
         }
 
-        // Buffer swipes only in Micro mode
-        if (mode == Mode.Micro && swipe != 0)
+        // buffer one-shot events only in Micro mode
+        if (mode == Mode.Micro)
         {
-            _swipeBuffered = swipe;
+            if (swipe != 0) _swipeBuffered = swipe;
+            if (modeToggle) _modeToggleBuffered = true;
         }
     }
 
-    // Explicit mode switch API (call from StudyFlowController later)
+    // Explicit mode switches (call from StudyFlowController later)
     public void SetModeMacro()
     {
         mode = Mode.Macro;
@@ -68,13 +71,6 @@ public class PhoneInputRouter : MonoBehaviour
         if (logModeAndGrab) DebugHUD.Log("[Router] SetMode -> Micro");
     }
 
-    public void SetMode(Mode m)
-    {
-        mode = m;
-        if (logModeAndGrab) DebugHUD.Log($"[Router] SetMode -> {mode}");
-    }
-
-    // One-shot swipe consume (Micro only)
     public bool TryConsumeSwipe(out int dir)
     {
         dir = 0;
@@ -84,6 +80,16 @@ public class PhoneInputRouter : MonoBehaviour
 
         dir = _swipeBuffered;
         _swipeBuffered = 0;
+        return true;
+    }
+
+    public bool TryConsumeModeToggle()
+    {
+        if (mode != Mode.Micro) return false;
+
+        if (!_modeToggleBuffered) return false;
+
+        _modeToggleBuffered = false;
         return true;
     }
 }
