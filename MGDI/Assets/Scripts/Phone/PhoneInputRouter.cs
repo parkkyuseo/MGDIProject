@@ -4,6 +4,7 @@ public class PhoneInputRouter : MonoBehaviour
 {
     public enum Mode { Macro = 0, Micro = 1 }
 
+
     [Header("Refs")]
     [SerializeField] private PhonePoseStreamReceiver phoneRx;
 
