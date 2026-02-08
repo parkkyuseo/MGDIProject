@@ -10,9 +10,9 @@ public class ProxyHandGrabber : MonoBehaviour
         ExternalControl
     }
 
-    [Header("Input (Phone)")]
-    [Tooltip("If assigned, grab is driven by PhonePoseStreamReceiver.LatestGrab (tap-to-toggle).")]
-    [SerializeField] private PhonePoseStreamReceiver phoneRx;
+    [Header("Input (Router)")]
+    [Tooltip("Grab signal is driven by PhoneInputRouter.Grab. Macro: hold, Micro: toggle.")]
+    [SerializeField] private PhoneInputRouter router;
 
     [Header("Grab anchor")]
     public Transform grabAnchor;
@@ -77,7 +77,7 @@ public class ProxyHandGrabber : MonoBehaviour
     private Quaternion _heldRotSm = Quaternion.identity;
     private bool _heldFollowInit = false;
 
-    // phone grab toggle state
+    // grab signal state
     private bool _lastGrabSignal = false;
 
     // release time
@@ -85,23 +85,23 @@ public class ProxyHandGrabber : MonoBehaviour
 
     void Start()
     {
-        if (phoneRx == null)
-            phoneRx = FindFirstObjectByType<PhonePoseStreamReceiver>();
+        if (router == null)
+            router = FindFirstObjectByType<PhoneInputRouter>();
 
-        if (phoneRx != null)
-            _lastGrabSignal = phoneRx.LatestGrab;
+        if (router != null)
+            _lastGrabSignal = router.Grab;
     }
 
     private void Update()
     {
-        if (phoneRx == null) return;
+        if (router == null) return;
 
-        bool grabSignal = phoneRx.LatestGrab;
+        bool grabSignal = router.Grab;
 
         if (grabSignal != _lastGrabSignal)
         {
             _lastGrabSignal = grabSignal;
-            if (logDebug) Debug.Log("[Grabber] PhoneGrab=" + grabSignal);
+            if (logDebug) Debug.Log("[Grabber] GrabSignal=" + grabSignal);
         }
 
         if (_heldBody == null)
@@ -174,7 +174,7 @@ public class ProxyHandGrabber : MonoBehaviour
             _heldFollowInit = true;
         }
 
-        // Position filter
+        // Position filter: dead-zone + step clamp + LPF
         Vector3 dp = targetPos - _heldPosSm;
         float dz = Mathf.Max(0f, heldPosDeadZoneMeters);
 
@@ -205,7 +205,7 @@ public class ProxyHandGrabber : MonoBehaviour
         {
             _heldRotSm = _heldRotFixedWorld;
         }
-        else
+        else // FollowAnchor
         {
             if (filterHeldRotation)
             {

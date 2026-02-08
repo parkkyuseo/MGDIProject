@@ -1,9 +1,9 @@
 using UnityEngine;
 
 [RequireComponent(typeof(Animator))]
-public class PhoneGripParamDriver : MonoBehaviour
+public class PhoneGripParamDriver_Router : MonoBehaviour
 {
-    [Header("Input (Router)")]
+    [Header("Input")]
     [SerializeField] private PhoneInputRouter router;
 
     [Header("Animator")]
@@ -17,9 +17,9 @@ public class PhoneGripParamDriver : MonoBehaviour
     public bool useDebugManual = false;
     [Range(0, 1)] public float debugManual = 0f;
 
-    float _target;
-    float _value;
-    float _lastRxTime;
+    private float _target; // 0..1
+    private float _value;  // 0..1
+    private float _lastRx;
 
     void Awake()
     {
@@ -32,7 +32,7 @@ public class PhoneGripParamDriver : MonoBehaviour
         if (useDebugManual)
         {
             _target = Mathf.Clamp01(debugManual);
-            _lastRxTime = Time.unscaledTime;
+            _lastRx = Time.unscaledTime;
             Apply();
             return;
         }
@@ -40,10 +40,10 @@ public class PhoneGripParamDriver : MonoBehaviour
         if (router != null)
         {
             _target = router.Grab ? 1f : 0f;
-            _lastRxTime = Time.unscaledTime;
+            _lastRx = Time.unscaledTime;
         }
 
-        if (lossTimeout > 0f && (Time.unscaledTime - _lastRxTime) > lossTimeout)
+        if (lossTimeout > 0f && (Time.unscaledTime - _lastRx) > lossTimeout)
             _target = 0f;
 
         Apply();
