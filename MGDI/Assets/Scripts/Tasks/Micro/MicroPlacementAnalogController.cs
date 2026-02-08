@@ -15,6 +15,9 @@ public class MicroPlacementAnalogController : MonoBehaviour
     [SerializeField] private bool useCameraFrame = true;
     [SerializeField] private float deadzone = 0.08f;
 
+    [SerializeField] private bool invertAxisY = true; // 위/아래 뒤집기
+    [SerializeField] private bool invertAxisX = false;
+
     void Awake()
     {
         if (router == null) router = FindFirstObjectByType<PhoneInputRouter>();
@@ -32,6 +35,9 @@ public class MicroPlacementAnalogController : MonoBehaviour
         if (!router.AxisActive) return;
 
         Vector2 a = router.Axis;
+        if (invertAxisX) a.x = -a.x;
+        if (invertAxisY) a.y = -a.y;
+
         if (a.magnitude < deadzone) return;
 
         float dt = Mathf.Max(Time.unscaledDeltaTime, 1e-4f);
