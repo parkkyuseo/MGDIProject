@@ -3,7 +3,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Diagnostics;          // Stopwatch
 using UnityEngine;
+
+using UDebug = UnityEngine.Debug;  // System.Diagnostics.Debug와 이름 충돌 방지
 
 public class PhonePoseStreamReceiver : MonoBehaviour
 {
@@ -41,7 +44,9 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     private float _ay;
     private bool _drag;
 
-    private long _lastRxTickMs;
+    // ---- thread-safe monotonic timestamp ----
+    private long _lastRxStamp; // Stopwatch ticks
+    private static readonly double _invStopwatchFreq = 1.0 / Stopwatch.Frequency;
 
     private UdpClient _udp;
     private Thread _rxThread;
@@ -68,9 +73,10 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         {
             lock (_lock)
             {
-                long dtMs = Environment.TickCount64 - _lastRxTickMs;
-                if (_lastRxTickMs == 0) return float.PositiveInfinity;
-                return Mathf.Max(0f, dtMs / 1000f);
+                if (_lastRxStamp == 0) return float.PositiveInfinity;
+                long dtTicks = Stopwatch.GetTimestamp() - _lastRxStamp;
+                double dtSec = dtTicks * _invStopwatchFreq;
+                return (float)Math.Max(0.0, dtSec);
             }
         }
     }
@@ -84,7 +90,7 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         _rxThread = new Thread(ReceiveLoop) { IsBackground = true };
         _rxThread.Start();
 
-        Debug.Log($"[PhonePoseStreamReceiver] Listening UDP :{listenPort}");
+        UDebug.Log($"[PhonePoseStreamReceiver] Listening UDP :{listenPort}");
     }
 
     void OnDestroy()
@@ -105,7 +111,7 @@ public class PhonePoseStreamReceiver : MonoBehaviour
             _nextPktsLogTime = Time.unscaledTime + 1f;
             int c = _pktCount;
             _pktCount = 0;
-            Debug.Log($"[PhonePoseStreamReceiver] pkts/sec ~ {c}");
+            UDebug.Log($"[PhonePoseStreamReceiver] pkts/sec ~ {c}");
         }
     }
 
@@ -128,6 +134,8 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                     new Quaternion(pkt.qx, pkt.qy, pkt.qz, pkt.qw)
                 );
 
+                long nowStamp = Stopwatch.GetTimestamp();
+
                 lock (_lock)
                 {
                     _phonePose = phonePose;
@@ -141,7 +149,7 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                     _ay = pkt.ay;
                     _drag = pkt.drag;
 
-                    _lastRxTickMs = Environment.TickCount64;
+                    _lastRxStamp = nowStamp;
                 }
 
                 _pktCount++;
@@ -149,7 +157,7 @@ public class PhonePoseStreamReceiver : MonoBehaviour
             catch (SocketException) { }
             catch (Exception e)
             {
-                Debug.LogWarning($"[PhonePoseStreamReceiver] RX error: {e.Message}");
+                UDebug.LogWarning($"[PhonePoseStreamReceiver] RX error: {e.Message}");
             }
         }
     }
