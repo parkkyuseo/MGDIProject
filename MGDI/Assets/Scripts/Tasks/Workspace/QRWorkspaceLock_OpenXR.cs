@@ -1,5 +1,7 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
-using Microsoft.MixedReality.OpenXR; // ARMarkerManager, ARMarker, ARMarkersChangedEventArgs
+using Microsoft.MixedReality.OpenXR;
 
 public class QRWorkspaceLock_OpenXR : MonoBehaviour
 {
@@ -10,13 +12,29 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
     [Header("Lock")]
     public bool lockOnce = true;
     public bool applyRotation = true;
-    public bool zeroOutPitchRoll = true;  // 테이블이 수평이라고 가정하면 추천
+    public bool zeroOutPitchRoll = true;  // 테이블 수평 가정이면 추천
     public Vector3 localOffset = Vector3.zero; // QR 중심에서 오프셋(미터)
+
+    [Header("Stabilize (sample & average before locking)")]
+    [Tooltip("Samples are collected for this duration, then averaged.")]
+    public float settleSeconds = 0.45f;
+
+    [Tooltip("Minimum samples required to lock.")]
+    public int minSamples = 10;
+
+    [Tooltip("If true, uses only UPDATED markers for samples (more stable than ADDED).")]
+    public bool preferUpdatedSamples = true;
 
     [Header("Optional")]
     public RemoteHandRuntime remoteHandRuntime;
 
     private bool _locked = false;
+
+    // sampling state
+    private bool _sampling = false;
+    private float _sampleEndTime = -1f;
+    private readonly List<Vector3> _posSamples = new List<Vector3>(128);
+    private readonly List<float> _yawSamplesDeg = new List<float>(128);
 
     void Awake()
     {
@@ -32,7 +50,7 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
     void OnEnable()
     {
         if (markerManager == null) markerManager = GetComponent<ARMarkerManager>();
-        markerManager.markersChanged += OnMarkersChanged;
+        if (markerManager != null) markerManager.markersChanged += OnMarkersChanged;
     }
 
     void OnDisable()
@@ -45,73 +63,132 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
         if (_locked && lockOnce) return;
         if (workshopEnvironment == null) return;
 
-        // added가 없을 수도 있어서 updated도 같이 봄
-        if (TryLockFromList(args.added)) return;
-        TryLockFromList(args.updated);
+        // Sampling flow:
+        // 1) When a marker is seen, start sampling window.
+        // 2) Keep accumulating samples from UPDATED (preferred) or ADDED+UPDATED.
+        // 3) When window ends and enough samples exist, lock once using averaged pose.
+        if (!_sampling)
+        {
+            // trigger sampling only when any marker is visible
+            if ((args.updated != null && args.updated.Count > 0) || (args.added != null && args.added.Count > 0))
+                StartSampling();
+        }
+
+        if (!_sampling) return;
+
+        // collect samples
+        if (preferUpdatedSamples)
+        {
+            TrySampleFromList(args.updated);
+        }
+        else
+        {
+            // if updated is empty early, allow added too
+            if (!TrySampleFromList(args.updated))
+                TrySampleFromList(args.added);
+        }
+
+        // finish sampling -> lock
+        if (Time.unscaledTime >= _sampleEndTime && _posSamples.Count >= minSamples)
+        {
+            ApplyAveragedWorkspacePose();
+            _locked = true;
+            _sampling = false;
+
+            Log("[Workspace] locked (averaged)");
+
+            HandleRemoteHandAfterWorkspaceJump();
+        }
     }
 
-    private bool TryLockFromList(System.Collections.Generic.IReadOnlyList<ARMarker> list)
+    private void StartSampling()
+    {
+        _sampling = true;
+        _sampleEndTime = Time.unscaledTime + Mathf.Max(0.05f, settleSeconds);
+        _posSamples.Clear();
+        _yawSamplesDeg.Clear();
+        Log("[Workspace] sampling...");
+    }
+
+    private bool TrySampleFromList(IReadOnlyList<ARMarker> list)
     {
         if (list == null || list.Count == 0) return false;
 
-        // QR이 하나만 있다는 전제: 첫 번째로 들어온 마커를 사용
+        // Single QR assumption: use the first marker in the list
         var m = list[0];
         if (m == null) return false;
 
-        ApplyWorkspacePose(m.transform);
-        _locked = true;
+        Vector3 pos = m.transform.position;
+        Quaternion rot = m.transform.rotation;
 
-        Log("[Workspace] locked (first QR)");
-
-        // ✅ RemoteHandRuntime: WorkspaceAnchor 기반 리베이스는 제거됐으므로,
-        // QR로 워크스페이스가 점프하면 "오프셋 재캡처/스무딩 리셋"으로 대응.
-        HandleRemoteHandAfterWorkspaceJump();
+        float yawDeg = ExtractYawDeg(rot);
+        _posSamples.Add(pos);
+        _yawSamplesDeg.Add(yawDeg);
 
         return true;
+    }
+
+    private float ExtractYawDeg(Quaternion rot)
+    {
+        if (!applyRotation) return workshopEnvironment != null ? workshopEnvironment.rotation.eulerAngles.y : 0f;
+
+        if (!zeroOutPitchRoll)
+        {
+            // full rotation requested; still store yaw from full rot for averaging yaw-only lock
+            Vector3 fwd = rot * Vector3.forward;
+            fwd.y = 0f;
+            if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
+            return Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+        }
+
+        // yaw-only from marker forward projected onto horizontal plane
+        Vector3 f = rot * Vector3.forward;
+        f.y = 0f;
+        if (f.sqrMagnitude < 1e-6f) f = Vector3.forward;
+        f.Normalize();
+        return Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
+    }
+
+    private void ApplyAveragedWorkspacePose()
+    {
+        // average position
+        Vector3 posAvg = Vector3.zero;
+        for (int i = 0; i < _posSamples.Count; i++) posAvg += _posSamples[i];
+        posAvg /= Mathf.Max(1, _posSamples.Count);
+
+        // circular mean yaw (handles wrap-around)
+        float sumSin = 0f, sumCos = 0f;
+        for (int i = 0; i < _yawSamplesDeg.Count; i++)
+        {
+            float rad = _yawSamplesDeg[i] * Mathf.Deg2Rad;
+            sumSin += Mathf.Sin(rad);
+            sumCos += Mathf.Cos(rad);
+        }
+
+        float meanRad = Mathf.Atan2(sumSin, sumCos);
+        float meanYawDeg = meanRad * Mathf.Rad2Deg;
+
+        Quaternion rotAvg = workshopEnvironment.rotation;
+        if (applyRotation)
+        {
+            // yaw-only lock (pitch/roll removed)
+            rotAvg = Quaternion.Euler(0f, meanYawDeg, 0f);
+        }
+
+        Vector3 worldOffset = rotAvg * localOffset;
+        workshopEnvironment.SetPositionAndRotation(posAvg + worldOffset, rotAvg);
     }
 
     private void HandleRemoteHandAfterWorkspaceJump()
     {
         if (remoteHandRuntime == null) return;
 
-        // RemoteHandRuntime이 이미 샘플을 받았고 rWrist가 있으면 즉시 오프셋 재캡처
-        // (QR lock으로 리그가 이동/회전했으니, 손 정렬을 다시 맞추기 위함)
         bool canRecaptureNow = (remoteHandRuntime.SampleId > 0) && (remoteHandRuntime.rWrist != null);
 
         if (canRecaptureNow)
-        {
             remoteHandRuntime.ContextRecaptureNow();
-        }
         else
-        {
-            // 샘플이 아직 없거나 rWrist가 없으면, 다음 샘플에서 자동 캡처되도록 리셋
             remoteHandRuntime.ContextClearAndRearm();
-        }
-    }
-
-    private void ApplyWorkspacePose(Transform markerTf)
-    {
-        Vector3 pos = markerTf.position;
-        Quaternion rot = markerTf.rotation;
-
-        if (applyRotation)
-        {
-            if (zeroOutPitchRoll)
-            {
-                // yaw만 남기기 (월드 up 기준)
-                Vector3 fwd = rot * Vector3.forward;
-                fwd.y = 0f;
-                if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
-                rot = Quaternion.LookRotation(fwd.normalized, Vector3.up);
-            }
-        }
-        else
-        {
-            rot = workshopEnvironment.rotation;
-        }
-
-        Vector3 worldOffset = rot * localOffset;
-        workshopEnvironment.SetPositionAndRotation(pos + worldOffset, rot);
     }
 
     void Log(string msg)
