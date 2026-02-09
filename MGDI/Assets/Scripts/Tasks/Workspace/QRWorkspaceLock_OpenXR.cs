@@ -93,15 +93,29 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
         }
 
         // finish sampling -> lock
-        if (Time.unscaledTime >= _sampleEndTime && _posSamples.Count >= minSamples)
+/*         if (Time.unscaledTime >= _sampleEndTime && _posSamples.Count >= minSamples)
+ *         {
+ *             ApplyAveragedWorkspacePose();
+ *             _locked = true;
+ *             _sampling = false;
+ *
+ *             Log("[Workspace] locked (averaged)");
+ *
+ *             HandleRemoteHandAfterWorkspaceJump();
+ *         } */
+        // 기존: 시간이 끝나고 + 샘플 충분할 때만 lock
+        // above
+        // 개선: 시간이 끝났거나, 샘플이 충분하면 즉시 lock
+        if ((_posSamples.Count >= minSamples) || (Time.unscaledTime >= _sampleEndTime))
         {
-            ApplyAveragedWorkspacePose();
-            _locked = true;
-            _sampling = false;
-
-            Log("[Workspace] locked (averaged)");
-
-            HandleRemoteHandAfterWorkspaceJump();
+            if (_posSamples.Count >= 1) // 최소 1개는 있어야
+            {
+                ApplyAveragedWorkspacePose();
+                _locked = true;
+                _sampling = false;
+                Log("[Workspace] locked (averaged)");
+                HandleRemoteHandAfterWorkspaceJump();
+            }
         }
     }
 
