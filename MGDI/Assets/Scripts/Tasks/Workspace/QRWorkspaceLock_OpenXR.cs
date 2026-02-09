@@ -28,6 +28,10 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
     [Header("Optional")]
     public RemoteHandRuntime remoteHandRuntime;
 
+    [Header("Yaw Override")]
+    public bool forceYawToCamera = true;     // 켜면 QR yaw 무시하고 카메라 yaw로 고정
+    public float yawOffsetDeg = 0f;          // 필요하면 몇 도 보정(±)
+
     private bool _locked = false;
 
     // sampling state
@@ -168,16 +172,59 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
         float meanRad = Mathf.Atan2(sumSin, sumCos);
         float meanYawDeg = meanRad * Mathf.Rad2Deg;
 
+        // choose yaw
+        float yawDeg = meanYawDeg;
+
+        if (applyRotation && forceYawToCamera && Camera.main != null)
+        {
+            Vector3 fwd = Camera.main.transform.forward;
+            fwd.y = 0f;
+            if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
+            fwd.Normalize();
+            yawDeg = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+        }
+
+        yawDeg += yawOffsetDeg;
+
         Quaternion rotAvg = workshopEnvironment.rotation;
         if (applyRotation)
         {
-            // yaw-only lock (pitch/roll removed)
-            rotAvg = Quaternion.Euler(0f, meanYawDeg, 0f);
+            // yaw-only (pitch/roll removed)
+            rotAvg = Quaternion.Euler(0f, yawDeg, 0f);
         }
 
         Vector3 worldOffset = rotAvg * localOffset;
         workshopEnvironment.SetPositionAndRotation(posAvg + worldOffset, rotAvg);
     }
+/*     private void ApplyAveragedWorkspacePose()
+ *     {
+ *         // average position
+ *         Vector3 posAvg = Vector3.zero;
+ *         for (int i = 0; i < _posSamples.Count; i++) posAvg += _posSamples[i];
+ *         posAvg /= Mathf.Max(1, _posSamples.Count);
+ *
+ *         // circular mean yaw (handles wrap-around)
+ *         float sumSin = 0f, sumCos = 0f;
+ *         for (int i = 0; i < _yawSamplesDeg.Count; i++)
+ *         {
+ *             float rad = _yawSamplesDeg[i] * Mathf.Deg2Rad;
+ *             sumSin += Mathf.Sin(rad);
+ *             sumCos += Mathf.Cos(rad);
+ *         }
+ *
+ *         float meanRad = Mathf.Atan2(sumSin, sumCos);
+ *         float meanYawDeg = meanRad * Mathf.Rad2Deg;
+ *
+ *         Quaternion rotAvg = workshopEnvironment.rotation;
+ *         if (applyRotation)
+ *         {
+ *             // yaw-only lock (pitch/roll removed)
+ *             rotAvg = Quaternion.Euler(0f, meanYawDeg, 0f);
+ *         }
+ *
+ *         Vector3 worldOffset = rotAvg * localOffset;
+ *         workshopEnvironment.SetPositionAndRotation(posAvg + worldOffset, rotAvg);
+ *     } */
 
     private void HandleRemoteHandAfterWorkspaceJump()
     {
