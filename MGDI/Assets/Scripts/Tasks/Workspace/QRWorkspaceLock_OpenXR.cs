@@ -191,7 +191,8 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
 
         if (applyRotation && forceYawToCamera && Camera.main != null)
         {
-            Vector3 fwd = Camera.main.transform.forward;
+            // IMPORTANT: use -camera.forward so the environment faces the user (not the same direction as the camera)
+            Vector3 fwd = -Camera.main.transform.forward;
             fwd.y = 0f;
             if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
             fwd.Normalize();
