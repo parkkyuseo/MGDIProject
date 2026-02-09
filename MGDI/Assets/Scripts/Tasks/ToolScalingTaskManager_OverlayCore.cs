@@ -163,6 +163,9 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
     public float ActiveTargetFactor => active != null ? active.targetFactor : 1f;
     public float ActiveCurrentFactor => active != null ? CurrentFactor(active) : 1f;
 
+    // Expose active tool for MicroHandAutoPlacer (grab near highlighted tool)
+    public Transform ActiveToolTransform => active != null && active.toolBody != null ? active.toolBody.transform : null;
+
     // ---------------- Public API for MICRO controllers ----------------
     public void SetExternalDriving(bool driving) => _externalDriving = driving;
 

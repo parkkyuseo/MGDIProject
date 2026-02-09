@@ -49,6 +49,8 @@ public class StudyFlowController : MonoBehaviour
     public GameObject macroControllerRoot;
     public GameObject microControllerRoot;
 
+    [SerializeField] private MicroHandAutoPlacer microHandAutoPlacer;
+
     [Header("Current State")]
     public TaskType currentTask = TaskType.Placement;
     public Technique currentTechnique = Technique.Macro;
@@ -214,6 +216,9 @@ public class StudyFlowController : MonoBehaviour
 
         if (phoneTechniqueGate == null)
             phoneTechniqueGate = FindFirstObjectByType<PhoneTechniqueGate>();
+
+        if (microHandAutoPlacer == null)
+            microHandAutoPlacer = FindFirstObjectByType<MicroHandAutoPlacer>();
     }
 
     private void ApplyPhoneInputRouting()
@@ -239,6 +244,26 @@ public class StudyFlowController : MonoBehaviour
         {
             Debug.LogWarning("[StudyFlowController] Phone integration missing (PhoneInputRouter and/or PhoneTechniqueGate not assigned/found).");
             _warnedPhoneIntegrationMissing = true;
+        }
+    }
+
+    private void TryAutoPlaceHandNearActiveTool()
+    {
+        if (currentTechnique != Technique.Micro) return;
+        if (microHandAutoPlacer == null) return;
+
+        if (currentTask == TaskType.Rotation && rotationTask != null)
+        {
+            var t = rotationTask.ActiveToolTransform;
+            if (t != null) microHandAutoPlacer.PlaceHandNear(t);
+            return;
+        }
+
+        if (currentTask == TaskType.Scaling && scalingTask != null)
+        {
+            var t = scalingTask.ActiveToolTransform; 
+            if (t != null) microHandAutoPlacer.PlaceHandNear(t);
+            return;
         }
     }
 
@@ -647,6 +672,8 @@ public class StudyFlowController : MonoBehaviour
     {
         if (taskContextHUD == null) return;
         taskContextHUD.SetTrialWithCountdown(current1Based, total, 0f);
+
+        TryAutoPlaceHandNearActiveTool(); // NEW
     }
 
     private void HookTrialChangedEvents(TaskType task)
