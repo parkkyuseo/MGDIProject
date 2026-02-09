@@ -8,11 +8,14 @@ public class MicroRotationAnalogController : MonoBehaviour
     [SerializeField] private Transform cameraTransform;
 
     [Header("Settings")]
-    [SerializeField] private float yawDegPerSec = 90f;
-    [SerializeField] private float pitchDegPerSec = 90f;
+    [SerializeField] private float yawDegPerSec = 120f;   // 좌/우
+    [SerializeField] private float rollDegPerSec = 120f;  // 위/아래
     [SerializeField] private bool useCameraFrame = true;
-    [SerializeField] private bool yawOnly = true;
     [SerializeField] private float deadzone = 0.08f;
+
+    [Header("Invert")]
+    [SerializeField] private bool invertYaw = false;
+    [SerializeField] private bool invertRoll = true; // 보통 위로 드래그=롤이 원하는 방향과 반대라 true가 자주 맞음
 
     void Awake()
     {
@@ -31,10 +34,13 @@ public class MicroRotationAnalogController : MonoBehaviour
         Vector2 a = router.Axis;
         if (a.magnitude < deadzone) return;
 
+        if (invertYaw) a.x = -a.x;
+        if (invertRoll) a.y = -a.y;
+
         float dt = Mathf.Max(Time.unscaledDeltaTime, 1e-4f);
 
         float yaw = a.x * yawDegPerSec * dt;
-        float pitch = yawOnly ? 0f : (-a.y * pitchDegPerSec * dt);
+        float roll = a.y * rollDegPerSec * dt;
 
         Rigidbody rb = grabber.HeldBody;
         if (rb == null) return;
@@ -42,17 +48,21 @@ public class MicroRotationAnalogController : MonoBehaviour
         Transform t = rb.transform;
 
         Vector3 yawAxis = Vector3.up;
-        Vector3 pitchAxis = Vector3.right;
+        Vector3 rollAxis = Vector3.forward;
 
         if (useCameraFrame && cameraTransform != null)
         {
             yawAxis = cameraTransform.up;
-            pitchAxis = cameraTransform.right;
+            rollAxis = cameraTransform.forward;
         }
 
-        Quaternion dq = Quaternion.AngleAxis(yaw, yawAxis);
-        if (!Mathf.Approximately(pitch, 0f))
-            dq = Quaternion.AngleAxis(pitch, pitchAxis) * dq;
+        Quaternion dq = Quaternion.identity;
+
+        if (!Mathf.Approximately(yaw, 0f))
+            dq = Quaternion.AngleAxis(yaw, yawAxis) * dq;
+
+        if (!Mathf.Approximately(roll, 0f))
+            dq = Quaternion.AngleAxis(roll, rollAxis) * dq;
 
         t.rotation = dq * t.rotation;
     }

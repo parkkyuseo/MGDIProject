@@ -20,12 +20,13 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         public float px, py, pz;
         public float qx, qy, qz, qw;
 
-        public bool hold;       // macro
-        public bool toggle;     // micro grab toggle
-        public bool modeToggle; // micro placement plane toggle (one-shot)
-        public float ax;        // micro analog axis x (-1..1)
-        public float ay;        // micro analog axis y (-1..1)
-        public bool drag;       // micro analog active
+        public bool hold;        // macro
+        public bool toggle;      // micro grab toggle state
+        public int modeToggleId; // micro placement plane toggle (event id)
+
+        public float ax;
+        public float ay;
+        public bool drag;
     }
 
     private readonly object _lock = new object();
@@ -35,12 +36,12 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
     private bool _hold;
     private bool _toggle;
-    private bool _modeToggle;
+    private int _modeToggleId;
     private float _ax;
     private float _ay;
     private bool _drag;
 
-    private float _lastRxRealtime;
+    private long _lastRxTickMs;
 
     private UdpClient _udp;
     private Thread _rxThread;
@@ -54,13 +55,25 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
     public bool LatestHold { get { lock (_lock) return _hold; } }
     public bool LatestToggle { get { lock (_lock) return _toggle; } }
-    public bool LatestModeToggle { get { lock (_lock) return _modeToggle; } }
+
+    public int LatestModeToggleId { get { lock (_lock) return _modeToggleId; } }
 
     public float LatestAx { get { lock (_lock) return _ax; } }
     public float LatestAy { get { lock (_lock) return _ay; } }
     public bool LatestDrag { get { lock (_lock) return _drag; } }
 
-    public float SecondsSinceLastRx { get { lock (_lock) return Time.unscaledTime - _lastRxRealtime; } }
+    public float SecondsSinceLastRx
+    {
+        get
+        {
+            lock (_lock)
+            {
+                long dtMs = Environment.TickCount64 - _lastRxTickMs;
+                if (_lastRxTickMs == 0) return float.PositiveInfinity;
+                return Mathf.Max(0f, dtMs / 1000f);
+            }
+        }
+    }
 
     void Start()
     {
@@ -122,13 +135,13 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
                     _hold = pkt.hold;
                     _toggle = pkt.toggle;
-                    _modeToggle = pkt.modeToggle;
+                    _modeToggleId = pkt.modeToggleId;
 
                     _ax = pkt.ax;
                     _ay = pkt.ay;
                     _drag = pkt.drag;
 
-                    _lastRxRealtime = Time.unscaledTime;
+                    _lastRxTickMs = Environment.TickCount64;
                 }
 
                 _pktCount++;

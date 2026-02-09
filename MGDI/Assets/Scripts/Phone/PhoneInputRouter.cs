@@ -4,7 +4,6 @@ public class PhoneInputRouter : MonoBehaviour
 {
     public enum Mode { Macro = 0, Micro = 1 }
 
-
     [Header("Refs")]
     [SerializeField] private PhonePoseStreamReceiver phoneRx;
 
@@ -22,10 +21,12 @@ public class PhoneInputRouter : MonoBehaviour
     public bool AxisActive { get; private set; }    // Micro only
 
     private bool _modeToggleBuffered = false;
+    private int _lastSeenModeToggleId = int.MinValue;
 
     void Awake()
     {
         if (phoneRx == null) phoneRx = FindFirstObjectByType<PhonePoseStreamReceiver>();
+        _lastSeenModeToggleId = int.MinValue;
     }
 
     void Update()
@@ -33,23 +34,38 @@ public class PhoneInputRouter : MonoBehaviour
         if (phoneRx == null) return;
 
         bool hold = phoneRx.LatestHold;
-        bool toggle = phoneRx.LatestToggle;
+        bool toggleState = phoneRx.LatestToggle;
 
-        Grab = (mode == Mode.Macro) ? hold : toggle;
+        Grab = (mode == Mode.Macro) ? hold : toggleState;
 
         if (mode == Mode.Micro)
         {
             Axis = new Vector2(phoneRx.LatestAx, phoneRx.LatestAy);
             AxisActive = phoneRx.LatestDrag;
 
-            if (phoneRx.LatestModeToggle)
-                _modeToggleBuffered = true;
+            if (phoneRx.HasPhonePose)
+            {
+                int id = phoneRx.LatestModeToggleId;
+
+                if (_lastSeenModeToggleId == int.MinValue)
+                {
+                    _lastSeenModeToggleId = id; // first sync, no event
+                }
+                else if (id != _lastSeenModeToggleId)
+                {
+                    _lastSeenModeToggleId = id;
+                    _modeToggleBuffered = true;
+                }
+            }
         }
         else
         {
             Axis = Vector2.zero;
             AxisActive = false;
             _modeToggleBuffered = false;
+
+            if (phoneRx.HasPhonePose && _lastSeenModeToggleId == int.MinValue)
+                _lastSeenModeToggleId = phoneRx.LatestModeToggleId;
         }
     }
 
@@ -62,6 +78,10 @@ public class PhoneInputRouter : MonoBehaviour
     public void SetModeMicro()
     {
         mode = Mode.Micro;
+
+        if (phoneRx != null && phoneRx.HasPhonePose)
+            _lastSeenModeToggleId = phoneRx.LatestModeToggleId;
+
         if (logMode) DebugHUD.Log("[Router] Micro");
     }
 
