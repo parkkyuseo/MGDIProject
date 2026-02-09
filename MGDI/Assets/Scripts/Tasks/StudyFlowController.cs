@@ -32,13 +32,6 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("RemoteHandRuntime for side-to-front remap toggle (Macro+Side).")]
     [SerializeField] private RemoteHandRuntime remoteHand;
 
-    [Header("Phone Input (Macro/Micro routing)")]
-    [Tooltip("Phone input router (Macro: hold, Micro: toggle/axis).")]
-    [SerializeField] private PhoneInputRouter phoneRouter;
-
-    [Tooltip("Gates macro pose driver vs micro controllers. Also selects which micro controller is active per task.")]
-    [SerializeField] private PhoneTechniqueGate phoneTechniqueGate;
-
     [Header("HUD (Task Context)")]
     public TaskContextHUD taskContextHUD;
 
@@ -120,16 +113,16 @@ public class StudyFlowController : MonoBehaviour
 
     // Commands
     public string cmdStartPlacement = "start placement";
-    public string cmdStartRotation = "start rotation";
-    public string cmdStartScaling = "start scaling";
+    public string cmdStartRotation  = "start rotation";
+    public string cmdStartScaling   = "start scaling";
 
     public string cmdStartMicroPlacement = "start micro placement";
-    public string cmdStartMicroRotation = "start micro rotation";
-    public string cmdStartMicroScaling = "start micro scaling";
+    public string cmdStartMicroRotation  = "start micro rotation";
+    public string cmdStartMicroScaling   = "start micro scaling";
 
     public string cmdStartMacroPlacement = "start macro placement";
-    public string cmdStartMacroRotation = "start macro rotation";
-    public string cmdStartMacroScaling = "start macro scaling";
+    public string cmdStartMacroRotation  = "start macro rotation";
+    public string cmdStartMacroScaling   = "start macro scaling";
 
     public string cmdRestart = "restart";
     public string cmdNext = "next";
@@ -153,7 +146,6 @@ public class StudyFlowController : MonoBehaviour
 
     // Optional: avoid spamming warnings
     private bool _warnedHandWorkspaceMissing = false;
-    private bool _warnedPhoneIntegrationMissing = false;
 
     private void Start()
     {
@@ -167,9 +159,6 @@ public class StudyFlowController : MonoBehaviour
 
         if (instructionHUD != null)
             instructionHUD.HideImmediate();
-
-        EnsurePhoneIntegrationRefs();
-        ApplyPhoneInputRouting(); // ensure Router/Gate reflect initial state
 
         if (!enableVoice) return;
 
@@ -205,41 +194,6 @@ public class StudyFlowController : MonoBehaviour
             if (actions.TryGetValue(k, out var a)) a.Invoke();
         };
         recognizer.Start();
-    }
-
-    private void EnsurePhoneIntegrationRefs()
-    {
-        if (phoneRouter == null)
-            phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
-
-        if (phoneTechniqueGate == null)
-            phoneTechniqueGate = FindFirstObjectByType<PhoneTechniqueGate>();
-    }
-
-    private void ApplyPhoneInputRouting()
-    {
-        EnsurePhoneIntegrationRefs();
-
-        // Router: Macro uses hold, Micro uses toggle/axis
-        if (phoneRouter != null)
-        {
-            if (currentTechnique == Technique.Micro) phoneRouter.SetModeMicro();
-            else phoneRouter.SetModeMacro();
-        }
-
-        // Gate: selects which micro controller is active per task (only matters in Micro)
-        if (phoneTechniqueGate != null)
-        {
-            if (currentTask == TaskType.Placement) phoneTechniqueGate.SetMicroTaskPlacement();
-            else if (currentTask == TaskType.Rotation) phoneTechniqueGate.SetMicroTaskRotation();
-            else if (currentTask == TaskType.Scaling) phoneTechniqueGate.SetMicroTaskScaling();
-        }
-
-        if ((phoneRouter == null || phoneTechniqueGate == null) && !_warnedPhoneIntegrationMissing)
-        {
-            Debug.LogWarning("[StudyFlowController] Phone integration missing (PhoneInputRouter and/or PhoneTechniqueGate not assigned/found).");
-            _warnedPhoneIntegrationMissing = true;
-        }
     }
 
     private void BeginMicroCalibration()
@@ -317,6 +271,7 @@ public class StudyFlowController : MonoBehaviour
 
         if (handWorkspaceController == null && !_warnedHandWorkspaceMissing)
         {
+            // Not fatal anymore (RemoteHandRuntime no longer needs it), but warn once.
             Debug.LogWarning("[StudyFlowController] handWorkspaceController is null. HAND profiles will be skipped.");
             _warnedHandWorkspaceMissing = true;
         }
@@ -325,9 +280,6 @@ public class StudyFlowController : MonoBehaviour
         ForceReleaseIfPossible();
 
         ApplyTechnique();
-
-        // Phone Router/Gate (Technique + Task)
-        ApplyPhoneInputRouting();
 
         // Apply workspace profiles (CONTENT + HAND optional)
         ApplyWorkspaceProfiles_ContentAndHand();
@@ -402,10 +354,6 @@ public class StudyFlowController : MonoBehaviour
     public void SetTechnique(Technique tech, bool restart)
     {
         currentTechnique = tech;
-
-        // Phone Router (Technique)
-        ApplyPhoneInputRouting();
-
         ApplyTechnique();
         UpdateHUDStatic();
 
@@ -557,6 +505,10 @@ public class StudyFlowController : MonoBehaviour
     }
 
     // ---------------- Side-to-front remap: Macro + Side only ----------------
+    // For neutral-based absolute remap:
+    // - toggle enable/disable using SetSideToFrontRemap(enable)
+    // - if enable stays true but location changes (Side L<->R) or task restarts,
+    //   recenter neutral using RecenterRemapNeutralNow()
     private void ApplySideToFrontRemap(WorkspaceAnchorController.HandLocation loc, bool forceRecenter)
     {
         if (remoteHand == null) return;
@@ -567,6 +519,7 @@ public class StudyFlowController : MonoBehaviour
 
         bool enable = isSide && (currentTechnique == Technique.Macro);
 
+        // 1) enable state changed => full toggle (RemoteHandRuntime will reset buffer/smoothing/neutral)
         if (enable != _lastRemapEnabled)
         {
             _lastRemapEnabled = enable;
@@ -577,6 +530,7 @@ public class StudyFlowController : MonoBehaviour
             return;
         }
 
+        // 2) enable is still true but condition changed (Side L<->R) or we want fresh baseline
         if (enable && (forceRecenter || loc != _lastRemapLoc))
         {
             remoteHand.RecenterRemapNeutralNow();
@@ -729,9 +683,6 @@ public class StudyFlowController : MonoBehaviour
 
         currentTask = TaskType.NextTaskPlaceholder;
         SetOnlyTaskActive(TaskType.NextTaskPlaceholder);
-
-        // Optional: keep phone routing consistent with "no active task"
-        ApplyPhoneInputRouting();
     }
 
     // ---------------- Hard gating: only one task can run ----------------
