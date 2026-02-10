@@ -72,14 +72,8 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
             dq = phone.rotation * Quaternion.Inverse(_phone0.rotation);
 
         /* Vector3 desiredPos = _root0.position + dp + (_root0.rotation * positionOffset); */
-        Quaternion camYaw = Quaternion.identity;
-        if (cameraTransform != null)
-            camYaw = Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f);
 
-        Vector3 offsetWorld =
-            camYaw * new Vector3(positionOffset.x, 0f, positionOffset.z) +
-            Vector3.up * positionOffset.y;
-
+        Vector3 offsetWorld = ComputeOffsetWorld();
         Vector3 desiredPos = _root0.position + dp + offsetWorld;
 
         Quaternion desiredRot = dq * _root0.rotation;
@@ -104,10 +98,14 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         if (!phoneRx.HasPhonePose) return;
 
         _phone0 = phoneRx.LatestPhonePose;
-        _root0 = new Pose(handRoot.position, handRoot.rotation);
-        _hasBaseline = true;
 
-        Debug.Log("[PhoneProxyHandRootDriver] Recenter baseline captured.");
+        Vector3 offsetWorld = ComputeOffsetWorld();
+
+        // offset을 미리 빼서 baseline 저장 → 이후 +offset을 해도 현재 위치 유지
+        _root0 = new Pose(handRoot.position - offsetWorld, handRoot.rotation);
+
+        _hasBaseline = true;
+        Debug.Log("[PhoneProxyHandRootDriver] Recenter baseline captured (offset-safe).");
     }
 
     /// <summary>
@@ -150,5 +148,14 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
 
         // back to world
         return yawRot * dpCam2;
+    }
+
+    private Vector3 ComputeOffsetWorld()
+    {
+        Quaternion camYaw = Quaternion.identity;
+        if (cameraTransform != null)
+            camYaw = Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f);
+
+        return camYaw * new Vector3(positionOffset.x, 0f, positionOffset.z) + Vector3.up * positionOffset.y;
     }
 }
