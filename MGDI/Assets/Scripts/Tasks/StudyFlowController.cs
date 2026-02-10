@@ -373,7 +373,7 @@ public class StudyFlowController : MonoBehaviour
         ApplyWorkspaceProfiles_ContentAndHand();
 
         // Side-to-front remap (Macro + Side). Force recenter at task start for clean baseline.
-        ApplySideToFrontRemap(currentHandLocation, forceRecenter: false);
+        ApplySideToFrontRemap(currentHandLocation, forceRecenter: true);
 
         // Grabber mode per task
         ApplyGrabberModeForCurrentTask();
