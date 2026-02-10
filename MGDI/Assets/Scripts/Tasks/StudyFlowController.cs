@@ -461,9 +461,6 @@ public class StudyFlowController : MonoBehaviour
 
         // Apply BOTH profiles (content + hand optional) when location changes
         ApplyWorkspaceProfiles_ContentAndHand();
-        // 여기서 폰 드라이버 baseline을 새 좌표계에 맞춰 갱신
-        if (phoneMacroPoseDriver != null && currentTechnique == Technique.Macro)
-            phoneMacroPoseDriver.Recenter();
 
         // NOTE: Location change에서도 recenter 금지 정책.
         ApplySideToFrontRemap(currentHandLocation, forceRecenter: false);
