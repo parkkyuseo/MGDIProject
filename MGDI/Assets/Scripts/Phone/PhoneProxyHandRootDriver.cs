@@ -71,7 +71,16 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         if (applyRotation)
             dq = phone.rotation * Quaternion.Inverse(_phone0.rotation);
 
-        Vector3 desiredPos = _root0.position + dp + (_root0.rotation * positionOffset);
+        /* Vector3 desiredPos = _root0.position + dp + (_root0.rotation * positionOffset); */
+        Quaternion camYaw = Quaternion.identity;
+        if (cameraTransform != null)
+            camYaw = Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f);
+
+        Vector3 offsetWorld =
+            camYaw * new Vector3(positionOffset.x, 0f, positionOffset.z) +
+            Vector3.up * positionOffset.y;
+
+        Vector3 desiredPos = _root0.position + dp + offsetWorld;
 
         Quaternion desiredRot = dq * _root0.rotation;
         Quaternion rotOffset = Quaternion.Euler(rotationOffsetEuler);
