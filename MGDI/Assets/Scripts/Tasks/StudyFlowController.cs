@@ -630,13 +630,14 @@ public class StudyFlowController : MonoBehaviour
 
         if (changed)
         {
+            // remap on/off 바뀌기 직전, 현재 손 포즈 유지한 채로 baseline 재설정
+            phoneMacroPoseDriver.RebaselineKeepWorldPose();
+
             _lastPhoneRemapEnabled = enable;
             _lastPhoneRemapInvert = invert;
             _lastRemapLoc = loc;
 
-            // NOTE: 토글 시에도 recenter 금지
-            phoneMacroPoseDriver.SetSideToFrontRemap(enable, invert, forceRecenter: false);
-            DebugHUD.Log($"[SFC] PhoneRemap toggle enable={enable} invert={invert} loc={loc} tech={currentTechnique} (NO recenter)");
+            phoneMacroPoseDriver.SetSideToFrontRemap(enable, invert, forceRecenter:false);
             return;
         }
 
