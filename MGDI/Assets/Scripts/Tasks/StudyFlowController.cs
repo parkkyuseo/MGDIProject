@@ -29,9 +29,6 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("ProxyHandGrabber instance (recommended). Used for force release and rotation-mode policy at task boundaries.")]
     public ProxyHandGrabber grabber;
 
-    [Tooltip("RemoteHandRuntime for side-to-front remap toggle (Macro+Side).")]
-    [SerializeField] private RemoteHandRuntime remoteHand;
-
     [Header("Phone Input (Macro/Micro routing)")]
     [Tooltip("Phone input router (Macro: hold, Micro: toggle/axis).")]
     [SerializeField] private PhoneInputRouter phoneRouter;
@@ -55,6 +52,20 @@ public class StudyFlowController : MonoBehaviour
     public TaskType currentTask = TaskType.Placement;
     public Technique currentTechnique = Technique.Macro;
     public WorkspaceAnchorController.HandLocation currentHandLocation = WorkspaceAnchorController.HandLocation.NearHead;
+
+    [Header("Macro Phone Pose Driver (for Side→Front remap)")]
+    [SerializeField] private PhoneProxyHandRootDriver phoneMacroPoseDriver;
+
+    [Header("Side→Front remap (Phone translation)")]
+    [SerializeField] private bool enablePhoneSideToFrontRemap = true;
+
+    // 방향이 마음에 안 들면 여기서 바꿈 (Side L/R 별로 다르게 줄 수도 있음)
+    [SerializeField] private bool invertRemapSideLeft = false;
+    [SerializeField] private bool invertRemapSideRight = false;
+
+    // remap 상태 dedupe
+    private bool _lastPhoneRemapEnabled = false;
+    private bool _lastPhoneRemapInvert = false;
 
     // =======================
     // CONTENT PROFILES
@@ -219,6 +230,9 @@ public class StudyFlowController : MonoBehaviour
 
         if (microHandAutoPlacer == null)
             microHandAutoPlacer = FindFirstObjectByType<MicroHandAutoPlacer>();
+
+        if (phoneMacroPoseDriver == null)
+            phoneMacroPoseDriver = FindFirstObjectByType<PhoneProxyHandRootDriver>();
     }
 
     private void ApplyPhoneInputRouting()
@@ -584,28 +598,38 @@ public class StudyFlowController : MonoBehaviour
     // ---------------- Side-to-front remap: Macro + Side only ----------------
     private void ApplySideToFrontRemap(WorkspaceAnchorController.HandLocation loc, bool forceRecenter)
     {
-        if (remoteHand == null) return;
+        // Phone pose driver가 없으면 아무것도 하지 않음
+        if (phoneMacroPoseDriver == null) return;
 
         bool isSide =
             (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) ||
             (loc == WorkspaceAnchorController.HandLocation.SideOfBodyRight);
 
-        bool enable = isSide && (currentTechnique == Technique.Macro);
+        bool enable = enablePhoneSideToFrontRemap && isSide && (currentTechnique == Technique.Macro);
 
-        if (enable != _lastRemapEnabled)
+        bool invert = false;
+        if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) invert = invertRemapSideLeft;
+        else if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyRight) invert = invertRemapSideRight;
+
+        // enable/invert 변화가 있으면 SetSideToFrontRemap로 토글 + (필요 시) recenter
+        bool changed = (enable != _lastPhoneRemapEnabled) || (invert != _lastPhoneRemapInvert);
+
+        if (changed)
         {
-            _lastRemapEnabled = enable;
+            _lastPhoneRemapEnabled = enable;
+            _lastPhoneRemapInvert = invert;
             _lastRemapLoc = loc;
 
-            remoteHand.SetSideToFrontRemap(enable);
-            DebugHUD.Log($"[SFC] SideToFrontRemap toggle enable={enable} loc={loc} tech={currentTechnique} frame={Time.frameCount}");
+            phoneMacroPoseDriver.SetSideToFrontRemap(enable, invert, forceRecenter: true);
+            DebugHUD.Log($"[SFC] PhoneRemap toggle enable={enable} invert={invert} loc={loc} tech={currentTechnique}");
             return;
         }
 
+        // enable 유지 중이고, 조건이 바뀌거나 강제 recenter가 필요하면 baseline 재캡처
         if (enable && (forceRecenter || loc != _lastRemapLoc))
         {
-            remoteHand.RecenterRemapNeutralNow();
-            DebugHUD.Log($"[SFC] SideToFrontRemap recenter loc={loc} tech={currentTechnique} frame={Time.frameCount}");
+            phoneMacroPoseDriver.Recenter();
+            DebugHUD.Log($"[SFC] PhoneRemap recenter loc={loc} tech={currentTechnique}");
         }
 
         _lastRemapLoc = loc;
