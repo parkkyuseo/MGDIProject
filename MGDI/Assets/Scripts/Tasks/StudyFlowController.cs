@@ -214,6 +214,7 @@ public class StudyFlowController : MonoBehaviour
         recognizer = new KeywordRecognizer(actions.Keys.ToArray());
         recognizer.OnPhraseRecognized += (args) =>
         {
+            DebugHUD.Log($"[SFC] Recognized: '{args.text}'");
             string k = args.text.ToLower();
             if (actions.TryGetValue(k, out var a)) a.Invoke();
         };
@@ -613,7 +614,7 @@ public class StudyFlowController : MonoBehaviour
 
         // enable/invert 변화가 있으면 SetSideToFrontRemap로 토글 + (필요 시) recenter
         bool changed = (enable != _lastPhoneRemapEnabled) || (invert != _lastPhoneRemapInvert);
-
+        DebugHUD.Log($"[SFC] Remap enable={enable} invert={invert} loc={loc} tech={currentTechnique} driver='{phoneMacroPoseDriver?.name}' enabled={phoneMacroPoseDriver!=null && phoneMacroPoseDriver.enabled}");
         if (changed)
         {
             _lastPhoneRemapEnabled = enable;
