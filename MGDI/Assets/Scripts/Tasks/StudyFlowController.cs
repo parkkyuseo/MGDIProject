@@ -160,8 +160,7 @@ public class StudyFlowController : MonoBehaviour
     float _nextCountdownUpdateTime = 0f;
     Coroutine _startTaskCo;
 
-    // Remap toggle dedupe + recenter logic
-    private bool _lastRemapEnabled = false;
+    // Remap toggle dedupe (NOTE: recenter 로직 제거했으므로 loc는 디버그용만 유지)
     private WorkspaceAnchorController.HandLocation _lastRemapLoc;
 
     // Optional: avoid spamming warnings
@@ -276,7 +275,7 @@ public class StudyFlowController : MonoBehaviour
 
         if (currentTask == TaskType.Scaling && scalingTask != null)
         {
-            var t = scalingTask.ActiveToolTransform; 
+            var t = scalingTask.ActiveToolTransform;
             if (t != null) microHandAutoPlacer.PlaceHandNear(t);
             return;
         }
@@ -372,8 +371,8 @@ public class StudyFlowController : MonoBehaviour
         // Apply workspace profiles (CONTENT + HAND optional)
         ApplyWorkspaceProfiles_ContentAndHand();
 
-        // Side-to-front remap (Macro + Side). Force recenter at task start for clean baseline.
-        ApplySideToFrontRemap(currentHandLocation, forceRecenter: true);
+        // Side-to-front remap (Macro + Side). NOTE: recenter 금지 정책.
+        ApplySideToFrontRemap(currentHandLocation, forceRecenter: false);
 
         // Grabber mode per task
         ApplyGrabberModeForCurrentTask();
@@ -449,7 +448,7 @@ public class StudyFlowController : MonoBehaviour
         ApplyTechnique();
         UpdateHUDStatic();
 
-        // Remap enable depends on technique; don't force recenter here (task start will recenter).
+        // Remap enable depends on technique; NOTE: recenter 금지 정책.
         ApplySideToFrontRemap(currentHandLocation, forceRecenter: false);
 
         if (restart) RestartCurrent();
@@ -463,9 +462,8 @@ public class StudyFlowController : MonoBehaviour
         // Apply BOTH profiles (content + hand optional) when location changes
         ApplyWorkspaceProfiles_ContentAndHand();
 
-        // Location change is the classic case where enable stays true (Side L<->R),
-        // so force recenter for neutral-based remap.
-        ApplySideToFrontRemap(currentHandLocation, forceRecenter: true);
+        // NOTE: Location change에서도 recenter 금지 정책.
+        ApplySideToFrontRemap(currentHandLocation, forceRecenter: false);
 
         if (restart) RestartCurrent();
         else
@@ -612,27 +610,27 @@ public class StudyFlowController : MonoBehaviour
         if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) invert = invertRemapSideLeft;
         else if (loc == WorkspaceAnchorController.HandLocation.SideOfBodyRight) invert = invertRemapSideRight;
 
-        // enable/invert 변화가 있으면 SetSideToFrontRemap로 토글 + (필요 시) recenter
+        // recenter 금지 정책: forceRecenter는 외부에서 넘어와도 무시하도록 고정
+        forceRecenter = false;
+
+        // enable/invert 변화가 있으면 SetSideToFrontRemap로 토글 (recenter 없이)
         bool changed = (enable != _lastPhoneRemapEnabled) || (invert != _lastPhoneRemapInvert);
+
         DebugHUD.Log($"[SFC] Remap enable={enable} invert={invert} loc={loc} tech={currentTechnique} driver='{phoneMacroPoseDriver?.name}' enabled={phoneMacroPoseDriver!=null && phoneMacroPoseDriver.enabled}");
+
         if (changed)
         {
             _lastPhoneRemapEnabled = enable;
             _lastPhoneRemapInvert = invert;
             _lastRemapLoc = loc;
 
-            phoneMacroPoseDriver.SetSideToFrontRemap(enable, invert, forceRecenter: true);
-            DebugHUD.Log($"[SFC] PhoneRemap toggle enable={enable} invert={invert} loc={loc} tech={currentTechnique}");
+            // NOTE: 토글 시에도 recenter 금지
+            phoneMacroPoseDriver.SetSideToFrontRemap(enable, invert, forceRecenter: false);
+            DebugHUD.Log($"[SFC] PhoneRemap toggle enable={enable} invert={invert} loc={loc} tech={currentTechnique} (NO recenter)");
             return;
         }
 
-        // enable 유지 중이고, 조건이 바뀌거나 강제 recenter가 필요하면 baseline 재캡처
-        if (enable && (forceRecenter || loc != _lastRemapLoc))
-        {
-            phoneMacroPoseDriver.Recenter();
-            DebugHUD.Log($"[SFC] PhoneRemap recenter loc={loc} tech={currentTechnique}");
-        }
-
+        // NOTE: enable 유지 중 recenter 블록은 정책상 제거 (아무것도 하지 않음)
         _lastRemapLoc = loc;
     }
 

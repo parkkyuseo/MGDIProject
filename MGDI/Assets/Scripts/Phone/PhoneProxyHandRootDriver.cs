@@ -104,7 +104,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
     /// <summary>
     /// StudyFlowController can call this when condition changes.
     /// </summary>
-    public void SetSideToFrontRemap(bool enabled, bool invert, bool forceRecenter = true)
+    public void SetSideToFrontRemap(bool enabled, bool invert, bool forceRecenter = false)
     {
         bool changed = (enableSideToFrontRemap != enabled) || (invertSideToFront != invert);
         enableSideToFrontRemap = enabled;
