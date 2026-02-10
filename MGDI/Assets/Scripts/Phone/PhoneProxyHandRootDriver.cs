@@ -162,4 +162,35 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         // back to world
         return yawRot * dpCam2;
     }
+
+    public void RebaselineKeepWorldPose()
+    {
+        if (phoneRx == null || handRoot == null) return;
+        if (!phoneRx.HasPhonePose) return;
+
+        // 현재 phone을 baseline으로
+        _phone0 = phoneRx.LatestPhonePose;
+
+        // Update()와 동일한 offsetWorld 계산
+        Quaternion camYaw = Quaternion.identity;
+        if (cameraTransform != null)
+            camYaw = Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f);
+
+        Vector3 offsetWorld =
+            camYaw * new Vector3(positionOffset.x, 0f, positionOffset.z) +
+            Vector3.up * positionOffset.y;
+
+        // Update()에서 desiredRot = dq * _root0.rotation * rotOffset 이므로
+        // dq==I일 때 desiredRot == handRoot.rotation 을 유지하려면
+        // _root0.rotation = handRoot.rotation * inv(rotOffset)
+        Quaternion rotOffset = Quaternion.Euler(rotationOffsetEuler);
+
+        _root0 = new Pose(
+            handRoot.position - offsetWorld,                        // desiredPos == current 유지
+            handRoot.rotation * Quaternion.Inverse(rotOffset)        // desiredRot == current 유지
+        );
+
+        _hasBaseline = true;
+        Debug.Log("[PhoneProxyHandRootDriver] RebaselineKeepWorldPose (no jump).");
+    }
 }
