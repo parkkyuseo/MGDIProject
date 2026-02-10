@@ -110,6 +110,17 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         Debug.Log("[PhoneProxyHandRootDriver] Recenter baseline captured.");
     }
 
+    public void RecenterInputOnly()
+    {
+        if (phoneRx == null) return;
+        if (!phoneRx.HasPhonePose) return;
+
+        _phone0 = phoneRx.LatestPhonePose;
+        _hasBaseline = true;
+
+        Debug.Log("[PhoneProxyHandRootDriver] RecenterInputOnly (dp=0).");
+    }
+
     /// <summary>
     /// StudyFlowController can call this when condition changes.
     /// </summary>

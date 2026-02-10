@@ -371,6 +371,16 @@ public class StudyFlowController : MonoBehaviour
         // Apply workspace profiles (CONTENT + HAND optional)
         ApplyWorkspaceProfiles_ContentAndHand();
 
+        bool isSide =
+            (currentHandLocation == WorkspaceAnchorController.HandLocation.SideOfBodyLeft) ||
+            (currentHandLocation == WorkspaceAnchorController.HandLocation.SideOfBodyRight);
+
+        if (phoneMacroPoseDriver != null && currentTechnique == Technique.Macro &&
+            enablePhoneSideToFrontRemap && isSide)
+        {
+            phoneMacroPoseDriver.RecenterInputOnly();
+        }
+
         // Side-to-front remap (Macro + Side). NOTE: recenter 금지 정책.
         ApplySideToFrontRemap(currentHandLocation, forceRecenter: false);
 
