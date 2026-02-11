@@ -101,7 +101,7 @@ public class ProxyHandGrabber : MonoBehaviour
         if (grabSignal != _lastGrabSignal)
         {
             _lastGrabSignal = grabSignal;
-            if (logDebug) DebugHUD.Log("[Grabber] GrabSignal=" + grabSignal);
+            if (logDebug) Debug.Log("[Grabber] GrabSignal=" + grabSignal);
         }
 
         if (_heldBody == null)
@@ -241,7 +241,7 @@ public class ProxyHandGrabber : MonoBehaviour
     {
         if (grabAnchor == null)
         {
-            if (logDebug) DebugHUD.Log("[Grabber] No grabAnchor.");
+            if (logDebug) Debug.Log("[Grabber] No grabAnchor.");
             return;
         }
 
@@ -255,7 +255,7 @@ public class ProxyHandGrabber : MonoBehaviour
 
         if (count <= 0)
         {
-            if (logDebug) DebugHUD.Log("[Grabber] No candidate in range.");
+            if (logDebug) Debug.Log("[Grabber] No candidate in range.");
             return;
         }
 
@@ -283,14 +283,14 @@ public class ProxyHandGrabber : MonoBehaviour
 
         if (bestCol == null)
         {
-            if (logDebug) DebugHUD.Log("[Grabber] No valid rigidbody candidate.");
+            if (logDebug) Debug.Log("[Grabber] No valid rigidbody candidate.");
             return;
         }
 
         float attachD = Mathf.Max(0f, attachDistance);
         if (attachD > 0f && bestDist > attachD * attachD)
         {
-            if (logDebug) DebugHUD.Log("[Grabber] Candidate too far for attach.");
+            if (logDebug) Debug.Log("[Grabber] Candidate too far for attach.");
             return;
         }
 
@@ -325,7 +325,7 @@ public class ProxyHandGrabber : MonoBehaviour
             }
         }
 
-        if (logDebug) DebugHUD.Log("[Grabber] Grabbed " + body.name);
+        if (logDebug) Debug.Log("[Grabber] Grabbed " + body.name);
         OnGrabbed?.Invoke(_heldBody);
     }
 
@@ -335,7 +335,7 @@ public class ProxyHandGrabber : MonoBehaviour
 
         var releasedBody = _heldBody;
 
-        if (logDebug) DebugHUD.Log("[Grabber] Released " + _heldBody.name);
+        if (logDebug) Debug.Log("[Grabber] Released " + _heldBody.name);
 
         if (disableHeldColliders && _heldColliders != null)
         {

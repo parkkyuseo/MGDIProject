@@ -165,6 +165,6 @@ public class WorkflowProgressionController : MonoBehaviour
             ? tools[CurrentToolIndex].name
             : "(none)";
 
-        Debug.Log($"[Workflow] {prefix} | Mode={mode} | Phase={CurrentPhase} | ToolIndex={CurrentToolIndex} | Tool={toolName}");
+        DebugHUD.Log($"[Workflow] {prefix} | Mode={mode} | Phase={CurrentPhase} | ToolIndex={CurrentToolIndex} | Tool={toolName}");
     }
 }
