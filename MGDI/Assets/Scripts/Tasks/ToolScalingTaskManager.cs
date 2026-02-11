@@ -309,7 +309,7 @@ public class ToolScalingTaskManager: MonoBehaviour
         OnTrialChanged?.Invoke(shownIndex, shownTotal);
 
         if (logDebug)
-            Debug.Log($"[ToolScaleTM] Trial {shownIndex}/{shownTotal} id={active.id} targetFactor={active.targetFactor:F2} forced={(string.IsNullOrEmpty(_forcedActiveId) ? "NO" : "YES")}");
+            DebugHUD.Log($"[ToolScaleTM] Trial {shownIndex}/{shownTotal} id={active.id} targetFactor={active.targetFactor:F2} forced={(string.IsNullOrEmpty(_forcedActiveId) ? "NO" : "YES")}");
     }
 
     private IEnumerator EndTrialRoutine(bool success, bool timedOut)
