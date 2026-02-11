@@ -284,17 +284,17 @@ public class ToolScalingTaskManager_Overlay : MonoBehaviour
         }
 
         // Active tool cycles through available ids
-        active = null;
+        _active = null;
 
         if (!string.IsNullOrEmpty(_forcedActiveId))
         {
-            active = items.Find(it => it != null && it.id == _forcedActiveId);
-            if (active == null && logDebug)
+            _active = _items.Find(it => it != null && it.id == _forcedActiveId);
+            if (_active == null && logDebug)
                 Debug.LogWarning($"[ScaleCore] ForcedActiveId '{_forcedActiveId}' not found. Falling back.");
         }
 
-        if (active == null)
-            active = items[trialIndex % items.Count];
+        if (_active == null)
+            _active = _items[trialIndex % _items.Count];
 
         // Reset state
         _active.axisAccum = 0f;
