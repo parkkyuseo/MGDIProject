@@ -148,8 +148,6 @@ public class WorkflowProgressionController : MonoBehaviour
         OnStepChanged?.Invoke(CurrentPhase, CurrentToolIndex, CurrentTool);
     }
 
-    public event Action OnAllCompleted;
-
     public void RestartFromBeginning()
     {
         // reset state and re-apply first step
