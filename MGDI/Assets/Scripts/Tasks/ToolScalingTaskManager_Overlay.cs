@@ -99,6 +99,13 @@ public class ToolScalingTaskManager_Overlay : MonoBehaviour
     [Header("Trial Count")]
     [SerializeField] private int totalTrials = 20;
 
+    // ---- Forced active (Workflow integration) ----
+    [SerializeField] private bool finishBlockAfterOneSuccessWhenForced = true;
+    private string _forcedActiveId = null;
+
+    public void SetForcedActiveId(string id) => _forcedActiveId = string.IsNullOrEmpty(id) ? null : id;
+    public void ClearForcedActiveId() => _forcedActiveId = null;
+
     [Header("Feedback (Audio / UI)")]
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private AudioClip snapClip;
@@ -277,7 +284,17 @@ public class ToolScalingTaskManager_Overlay : MonoBehaviour
         }
 
         // Active tool cycles through available ids
-        _active = _items[_trialIndex % _items.Count];
+        active = null;
+
+        if (!string.IsNullOrEmpty(_forcedActiveId))
+        {
+            active = items.Find(it => it != null && it.id == _forcedActiveId);
+            if (active == null && logDebug)
+                Debug.LogWarning($"[ScaleCore] ForcedActiveId '{_forcedActiveId}' not found. Falling back.");
+        }
+
+        if (active == null)
+            active = items[trialIndex % items.Count];
 
         // Reset state
         _active.axisAccum = 0f;
@@ -350,6 +367,12 @@ public class ToolScalingTaskManager_Overlay : MonoBehaviour
 
         if (forceReleaseAfterTrial) ForceReleaseIfPossible();
 
+        if (success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced)
+        {
+            FinishBlock();
+            yield break;
+        }
+        
         _trialIndex++;
         _inTransition = false;
         BeginNextTrial();

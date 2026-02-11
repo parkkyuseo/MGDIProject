@@ -97,6 +97,13 @@ public class ToolRotationTaskManager : MonoBehaviour
     [Tooltip("If true, offset uses Camera frame (cam.right/up/fwd). If false, uses tool frame (tool.right/up/fwd).")]
     [SerializeField] private bool offsetInCameraFrame = true;
 
+    // ---- Forced active (Workflow integration) ----
+    [SerializeField] private bool finishBlockAfterOneSuccessWhenForced = true;
+    private string _forcedActiveId = null;
+
+    public void SetForcedActiveId(string id) => _forcedActiveId = string.IsNullOrEmpty(id) ? null : id;
+    public void ClearForcedActiveId() => _forcedActiveId = null;
+
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
 
@@ -256,8 +263,17 @@ public class ToolRotationTaskManager : MonoBehaviour
             }
         }
 
-        // Active tool = round-robin through matched ids
-        _active = _items[_trialIndex % _items.Count];
+        _active = null;
+
+        if (!string.IsNullOrEmpty(_forcedActiveId))
+        {
+            _active = _items.FirstOrDefault(it => it != null && it.id == _forcedActiveId);
+            if (_active == null && logDebug)
+                Debug.LogWarning($"[ToolRotationTM] ForcedActiveId '{_forcedActiveId}' not found. Falling back.");
+        }
+
+        if (_active == null)
+            _active = _items[_trialIndex % _items.Count];
 
         EnsureActiveBody();
 
@@ -335,6 +351,12 @@ public class ToolRotationTaskManager : MonoBehaviour
         {
             ForceReleaseIfPossible();
             ResetActiveToolToStartPose();
+        }
+
+        if (success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced)
+        {
+            FinishBlock();
+            yield break;
         }
 
         _trialIndex++;

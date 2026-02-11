@@ -62,6 +62,25 @@ public class ToolPlacementTaskManager : MonoBehaviour
     [SerializeField] private GameObject xUI;
     [SerializeField] private float feedbackShowSeconds = 0.50f;
 
+    // ---- Forced active (Workflow integration) ----
+    [SerializeField] private bool workflowSingleActiveMode = true; // workflow에서는 true 권장
+    [SerializeField] private bool finishBlockAfterOneSuccessWhenForced = true;
+
+    private string _forcedActiveId = null;
+    private Item _active = null;
+
+    public string ForcedActiveId => _forcedActiveId;
+
+    public void SetForcedActiveId(string id)
+    {
+        _forcedActiveId = string.IsNullOrEmpty(id) ? null : id;
+    }
+
+    public void ClearForcedActiveId()
+    {
+        _forcedActiveId = null;
+    }
+
     [Header("Progress UI (optional)")]
     [Tooltip("Optional UnityEngine.UI.Text or TMP wrapper you already use elsewhere. If null, only Debug.Log/DebugHUD is used.")]
     [SerializeField] private UnityEngine.UI.Text progressText;
