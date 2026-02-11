@@ -294,7 +294,7 @@ public class ToolScalingTaskManager_Overlay : MonoBehaviour
         }
 
         if (_active == null)
-            _active = _items[trialIndex % _items.Count];
+            _active = _items[_trialIndex % _items.Count];
 
         // Reset state
         _active.axisAccum = 0f;
