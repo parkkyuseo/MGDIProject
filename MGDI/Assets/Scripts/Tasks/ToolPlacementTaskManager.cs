@@ -257,7 +257,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         {
             if (totalTrials > 0 && trialIndex >= totalTrials)
             {
-                if (logDebug) Debug.Log("[ToolPlacementTaskManager] Block finished.");
+                if (logDebug) DebugHUD.Log("[ToolPlacementTaskManager] Block finished.");
                 FinishBlock();
                 return;
             }
@@ -308,7 +308,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
             if (_active == null)
             {
-                Debug.LogWarning($"[ToolPlacementTM] ForcedActiveId '{_forcedActiveId}' not found in registry. Falling back to first item.");
+                DebugHUD.Log($"[ToolPlacementTM] ForcedActiveId '{_forcedActiveId}' not found in registry. Falling back to first item.");
             }
         }
 
@@ -317,7 +317,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         if (_active == null)
         {
-            Debug.LogError("[ToolPlacementTM] Active item selection failed (registry empty?).");
+            DebugHUD.Log("[ToolPlacementTM] Active item selection failed (registry empty?).");
             FinishBlock();
             return;
         }
@@ -341,7 +341,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         if (logDebug)
         {
-            Debug.Log($"[ToolPlacementTM] Trial {shownIndex}/{shownTotal} active={_active.id} tol={_active.tolerance:F3}m timeout={trialTimeoutSeconds:F0}s dwell={dwellSeconds:F2}s forced={(string.IsNullOrEmpty(_forcedActiveId) ? "NO" : "YES")}");
+            DebugHUD.Log($"[ToolPlacementTM] Trial {shownIndex}/{shownTotal} active={_active.id} tol={_active.tolerance:F3}m timeout={trialTimeoutSeconds:F0}s dwell={dwellSeconds:F2}s forced={(string.IsNullOrEmpty(_forcedActiveId) ? "NO" : "YES")}");
         }
     }
 
@@ -450,7 +450,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         items.Sort((a, b) => string.CompareOrdinal(a.id, b.id));
 
         if (logDebug)
-            Debug.Log($"[ToolPlacementTM] Registry rebuilt: tools={toolMap.Count}, targets={targetMap.Count}, matched={items.Count}");
+            DebugHUD.Log($"[ToolPlacementTM] Registry rebuilt: tools={toolMap.Count}, targets={targetMap.Count}, matched={items.Count}");
     }
 
     private void ResetAllToolsToStartPose()
@@ -628,7 +628,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         keywordRecognizer.Start();
 
         if (logDebug)
-            Debug.Log($"[ToolPlacementTM] Voice enabled: '{startKeyword}', '{restartKeyword}'");
+            DebugHUD.Log($"[ToolPlacementTM] Voice enabled: '{startKeyword}', '{restartKeyword}'");
     }
 
     private void FinishBlock()
