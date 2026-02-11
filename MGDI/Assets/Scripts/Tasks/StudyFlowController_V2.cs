@@ -9,7 +9,7 @@ public class StudyFlowController_V2 : MonoBehaviour
     [Header("Tasks")]
     [SerializeField] private ToolPlacementTaskManager placementTask;
     [SerializeField] private ToolRotationTaskManager rotationTask;
-    [SerializeField] private ToolScalingTaskManager_OverlayCore scalingTask;
+    [SerializeField] private ToolScalingTaskManager scalingTask;
 
     [Header("Grabber (optional)")]
     [SerializeField] private ProxyHandGrabber grabber;
