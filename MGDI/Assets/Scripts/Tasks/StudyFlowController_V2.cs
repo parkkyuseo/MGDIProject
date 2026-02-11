@@ -22,6 +22,9 @@ public class StudyFlowController_V2 : MonoBehaviour
     [SerializeField] private PhoneTechniqueGate phoneTechniqueGate;
     [SerializeField] private PhoneInputRouter phoneRouter;
 
+    [SerializeField] private TaskContextHUD taskContextHUD;
+    [SerializeField] private InstructionHUD instructionHUD;
+
     private Action _onPlacementFinished;
     private Action _onRotationFinished;
     private Action _onScalingFinished;
@@ -69,6 +72,11 @@ public class StudyFlowController_V2 : MonoBehaviour
             Debug.LogError("[SFC_V2] WorkflowProgressionController not found.");
             return;
         }
+
+        if (taskContextHUD == null) taskContextHUD = FindFirstObjectByType<TaskContextHUD>();
+        if (instructionHUD == null) instructionHUD = FindFirstObjectByType<InstructionHUD>();
+        if (taskContextHUD != null) { taskContextHUD.SetVisible(true); taskContextHUD.Clear(); }
+        if (instructionHUD != null) instructionHUD.HideImmediate();
 
         workflow.OnStepChanged += OnWorkflowStepChanged;
 
@@ -142,6 +150,9 @@ public class StudyFlowController_V2 : MonoBehaviour
                 if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null)
                     phoneTechniqueGate.SetMicroTaskPlacement();
 
+                if (taskContextHUD != null) taskContextHUD.SetTaskLabel("Placement");
+                if (instructionHUD != null) instructionHUD.Show("Place the highlighted tool onto its ghost slot. Release to evaluate.");
+
                 ApplyGrabberMode(placementGrabberMode);
                 ApplyForcedIdToTasks(id);
                 StartPlacement();
@@ -152,6 +163,8 @@ public class StudyFlowController_V2 : MonoBehaviour
                 if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null)
                     phoneTechniqueGate.SetMicroTaskRotation();
 
+                if (taskContextHUD != null) taskContextHUD.SetTaskLabel("Rotation");
+                if (instructionHUD != null) instructionHUD.Show("Rotate the highlighted tool to match the target orientation. Stop input to evaluate.");
                 ApplyGrabberMode(rotationGrabberMode);
                 ApplyForcedIdToTasks(id);
                 StartRotation();
@@ -161,6 +174,9 @@ public class StudyFlowController_V2 : MonoBehaviour
                 // Micro: select micro controller for scaling
                 if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null)
                     phoneTechniqueGate.SetMicroTaskScaling();
+
+                if (taskContextHUD != null) taskContextHUD.SetTaskLabel("Scaling");
+                if (instructionHUD != null) instructionHUD.Show("Scale the highlighted tool to match the target size. Release to evaluate.");
 
                 ApplyGrabberMode(scalingGrabberMode);
 

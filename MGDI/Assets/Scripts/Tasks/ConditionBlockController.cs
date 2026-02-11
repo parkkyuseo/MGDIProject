@@ -30,6 +30,8 @@ public class ConditionBlockController : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
 
+    [SerializeField] private TaskContextHUD taskContextHUD;
+
     private int _condIndex = 0;
 
     void Start()
@@ -38,6 +40,7 @@ public class ConditionBlockController : MonoBehaviour
         if (phoneRouter == null) phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
         if (phoneTechniqueGate == null) phoneTechniqueGate = FindFirstObjectByType<PhoneTechniqueGate>();
         if (phoneMacroPoseDriver == null) phoneMacroPoseDriver = FindFirstObjectByType<PhoneProxyHandRootDriver>();
+        if (taskContextHUD == null) taskContextHUD = FindFirstObjectByType<TaskContextHUD>();
 
         if (workflow == null)
         {
@@ -100,6 +103,13 @@ public class ConditionBlockController : MonoBehaviour
             // Avoid jumps when toggling remap
             phoneMacroPoseDriver.RebaselineKeepWorldPose();
             phoneMacroPoseDriver.SetSideToFrontRemap(remapOn, c.invertSideToFront, forceRecenter: false);
+        }
+
+        if (taskContextHUD != null)
+        {
+            taskContextHUD.SetVisible(true);
+            taskContextHUD.SetCondition($"{c.technique} · {(c.handLocation == HandLocation.Side ? "Side" : "Near")}" +
+                                         $"{((c.technique == Technique.Macro && c.handLocation == HandLocation.Side) ? (c.invertSideToFront ? " · Remap(Invert)" : " · Remap") : "")}");
         }
 
         if (logDebug)
