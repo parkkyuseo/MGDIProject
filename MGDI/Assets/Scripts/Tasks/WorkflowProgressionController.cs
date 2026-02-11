@@ -147,4 +147,15 @@ public class WorkflowProgressionController : MonoBehaviour
 
         OnStepChanged?.Invoke(CurrentPhase, CurrentToolIndex, CurrentTool);
     }
+
+    public event Action OnAllCompleted;
+
+    public void RestartFromBeginning()
+    {
+        // reset state and re-apply first step
+        CurrentToolIndex = 0;
+        CurrentPhase = Phase.Placement;
+        ApplyActiveTool();
+        EmitStepChanged("RestartFromBeginning");
+    }
 }

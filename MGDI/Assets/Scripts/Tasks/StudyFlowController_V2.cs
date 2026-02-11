@@ -19,6 +19,9 @@ public class StudyFlowController_V2 : MonoBehaviour
     [SerializeField] private ProxyHandGrabber.HeldRotationMode rotationGrabberMode  = ProxyHandGrabber.HeldRotationMode.ExternalControl;
     [SerializeField] private ProxyHandGrabber.HeldRotationMode scalingGrabberMode   = ProxyHandGrabber.HeldRotationMode.LockAtGrab;
 
+    [SerializeField] private PhoneTechniqueGate phoneTechniqueGate;
+    [SerializeField] private PhoneInputRouter phoneRouter;
+
     private Action _onPlacementFinished;
     private Action _onRotationFinished;
     private Action _onScalingFinished;
@@ -135,22 +138,36 @@ public class StudyFlowController_V2 : MonoBehaviour
         switch (phase)
         {
             case WorkflowProgressionController.Phase.Placement:
+                // Micro: select micro controller for placement
+                if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null)
+                    phoneTechniqueGate.SetMicroTaskPlacement();
+
                 ApplyGrabberMode(placementGrabberMode);
                 ApplyForcedIdToTasks(id);
                 StartPlacement();
                 break;
 
             case WorkflowProgressionController.Phase.Rotation:
+                // Micro: select micro controller for rotation
+                if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null)
+                    phoneTechniqueGate.SetMicroTaskRotation();
+
                 ApplyGrabberMode(rotationGrabberMode);
                 ApplyForcedIdToTasks(id);
                 StartRotation();
                 break;
 
             case WorkflowProgressionController.Phase.Scaling:
+                // Micro: select micro controller for scaling
+                if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null)
+                    phoneTechniqueGate.SetMicroTaskScaling();
+
                 ApplyGrabberMode(scalingGrabberMode);
+
                 // Freeze position+rotation during scaling; allow scale changes (freezeScale=false)
                 if (grabber != null)
                     grabber.SetFreezeHeld(true, true, false);
+
                 ApplyForcedIdToTasks(id);
                 StartScaling();
                 break;
