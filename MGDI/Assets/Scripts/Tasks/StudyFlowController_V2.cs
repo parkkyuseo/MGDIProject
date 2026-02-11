@@ -125,6 +125,10 @@ public class StudyFlowController_V2 : MonoBehaviour
         if (grabber != null)
             grabber.ForceRelease();
 
+        // Default: do not freeze held object (applies to Placement/Rotation)
+        if (grabber != null)
+            grabber.SetFreezeHeld(false, false, false);
+
         // Select exactly one task
         DisableAllTasks();
 
@@ -144,6 +148,9 @@ public class StudyFlowController_V2 : MonoBehaviour
 
             case WorkflowProgressionController.Phase.Scaling:
                 ApplyGrabberMode(scalingGrabberMode);
+                // Freeze position+rotation during scaling; allow scale changes (freezeScale=false)
+                if (grabber != null)
+                    grabber.SetFreezeHeld(true, true, false);
                 ApplyForcedIdToTasks(id);
                 StartScaling();
                 break;

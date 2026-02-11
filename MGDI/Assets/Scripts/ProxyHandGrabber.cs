@@ -50,6 +50,16 @@ public class ProxyHandGrabber : MonoBehaviour
     [Tooltip("If true, keep the initial relative pose between hand and object (no snap).")]
     public bool keepInitialOffset = true;
 
+    [Header("Freeze (optional constraints)")]
+    [Tooltip("If true, held object position is frozen at the grab moment (world).")]
+    public bool freezeHeldPosition = false;
+
+    [Tooltip("If true, held object rotation is frozen at the grab moment (world).")]
+    public bool freezeHeldRotation = false;
+
+    [Tooltip("If true, held object localScale is frozen at the grab moment.")]
+    public bool freezeHeldScale = false;
+
     [Header("Debug")]
     public bool logDebug = true;
 
@@ -71,6 +81,11 @@ public class ProxyHandGrabber : MonoBehaviour
 
     // rotation captured at grab time (world space)
     private Quaternion _heldRotFixedWorld = Quaternion.identity;
+
+    // freeze snapshots (world/world/local)
+    private Vector3 _heldPosFixedWorld = Vector3.zero;
+    private Quaternion _heldRotFixedWorld2 = Quaternion.identity;
+    private Vector3 _heldScaleFixedLocal = Vector3.one;
 
     // held follow filter state
     private Vector3 _heldPosSm;
@@ -140,6 +155,7 @@ public class ProxyHandGrabber : MonoBehaviour
             targetRot = grabAnchor.rotation;
         }
 
+        // Rotation mode policy (applies before freeze override)
         switch (heldRotationMode)
         {
             case HeldRotationMode.FollowAnchor:
@@ -154,9 +170,16 @@ public class ProxyHandGrabber : MonoBehaviour
                 break;
         }
 
+        // Freeze overrides (final authority)
+        if (freezeHeldPosition)
+            targetPos = _heldPosFixedWorld;
+
+        if (freezeHeldRotation)
+            targetRot = _heldRotFixedWorld2;
+
         if (!filterHeldObject)
         {
-            if (heldRotationMode == HeldRotationMode.ExternalControl)
+            if (heldRotationMode == HeldRotationMode.ExternalControl && !freezeHeldRotation)
             {
                 t.position = targetPos;
             }
@@ -164,6 +187,10 @@ public class ProxyHandGrabber : MonoBehaviour
             {
                 t.SetPositionAndRotation(targetPos, targetRot);
             }
+
+            if (freezeHeldScale)
+                t.localScale = _heldScaleFixedLocal;
+
             return;
         }
 
@@ -197,7 +224,11 @@ public class ProxyHandGrabber : MonoBehaviour
         }
 
         // Rotation handling
-        if (heldRotationMode == HeldRotationMode.ExternalControl)
+        if (freezeHeldRotation)
+        {
+            _heldRotSm = _heldRotFixedWorld2;
+        }
+        else if (heldRotationMode == HeldRotationMode.ExternalControl)
         {
             _heldRotSm = t.rotation;
         }
@@ -227,7 +258,10 @@ public class ProxyHandGrabber : MonoBehaviour
             }
         }
 
-        if (heldRotationMode == HeldRotationMode.ExternalControl)
+        if (freezeHeldPosition)
+            _heldPosSm = _heldPosFixedWorld;
+
+        if (heldRotationMode == HeldRotationMode.ExternalControl && !freezeHeldRotation)
         {
             t.position = _heldPosSm;
         }
@@ -235,6 +269,9 @@ public class ProxyHandGrabber : MonoBehaviour
         {
             t.SetPositionAndRotation(_heldPosSm, _heldRotSm);
         }
+
+        if (freezeHeldScale)
+            t.localScale = _heldScaleFixedLocal;
     }
 
     private void TryGrab()
@@ -311,6 +348,11 @@ public class ProxyHandGrabber : MonoBehaviour
 
         _heldRotFixedWorld = body.transform.rotation;
 
+        // Freeze snapshots captured at grab moment
+        _heldPosFixedWorld = body.transform.position;
+        _heldRotFixedWorld2 = body.transform.rotation;
+        _heldScaleFixedLocal = body.transform.localScale;
+
         _heldPosSm = body.transform.position;
         _heldRotSm = body.transform.rotation;
         _heldFollowInit = true;
@@ -386,6 +428,21 @@ public class ProxyHandGrabber : MonoBehaviour
     public void SetFollowHeldRotation(bool value)
     {
         SetHeldRotationMode(value ? HeldRotationMode.FollowAnchor : HeldRotationMode.LockAtGrab);
+    }
+
+    public void SetFreezeHeld(bool freezePos, bool freezeRot, bool freezeScaleValue)
+    {
+        freezeHeldPosition = freezePos;
+        freezeHeldRotation = freezeRot;
+        freezeHeldScale = freezeScaleValue;
+
+        // If currently holding, refresh snapshots immediately
+        if (_heldBody != null)
+        {
+            _heldPosFixedWorld = _heldBody.transform.position;
+            _heldRotFixedWorld2 = _heldBody.transform.rotation;
+            _heldScaleFixedLocal = _heldBody.transform.localScale;
+        }
     }
 
     private void OnDrawGizmosSelected()
