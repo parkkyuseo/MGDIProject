@@ -156,7 +156,8 @@ public class StudyFlowController_V2 : MonoBehaviour
 
     private void StartPlacement()
     {
-        if (placementTask == null) return;
+        if (placementTask == null) { Debug.LogError("[SFC_V2] placementTask is NULL"); return; }
+        Debug.Log($"[SFC_V2] StartPlacement calling StartBlock() enabled={placementTask.enabled} activeInHierarchy={placementTask.gameObject.activeInHierarchy}");
         placementTask.enabled = true;
         placementTask.StartBlock();
     }
