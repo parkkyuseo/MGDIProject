@@ -280,8 +280,15 @@ public class ToolPlacementTaskManager : MonoBehaviour
             SetGrabberRotationMode(placementGrabberMode);
 
         // Reset tools to their captured start poses
+        /* if (resetToolsToStartAfterTrial)
+         *     ResetAllToolsToStartPose(); */
         if (resetToolsToStartAfterTrial)
-            ResetAllToolsToStartPose();
+        {
+            if (workflowSingleActiveMode && _active != null)
+                ResetToolToStartPose(_active);
+            else
+                ResetAllToolsToStartPose();
+        }
 
         // Refresh cached renderers each trial (safe)
         for (int i = 0; i < items.Count; i++)
@@ -380,7 +387,10 @@ public class ToolPlacementTaskManager : MonoBehaviour
         if (resetToolsToStartAfterTrial)
         {
             ForceReleaseIfPossible();
-            ResetAllToolsToStartPose();
+            if (workflowSingleActiveMode && _active != null)
+                ResetToolToStartPose(_active);
+            else
+                ResetAllToolsToStartPose();
         }
 
         // ---- If forced active id is set, finish after one successful trial (workflow step) ----
@@ -538,8 +548,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
                 /* sb.Length = 0;
                  * sb.Append($"[Progress] {placed}/{items.Count}");
                  * DebugHUD.Log(sb.ToString()); */
-                if (_active != null)
-                    DebugHUD.Log($"PLACE id={_active.id} err={_active.lastErr:F3} tol={_active.tolerance:F3} holding={(grabber!=null && grabber.IsHolding)}");
+                /* if (_active != null)
+                 *     DebugHUD.Log($"PLACE id={_active.id} err={_active.lastErr:F3} tol={_active.tolerance:F3} holding={(grabber!=null && grabber.IsHolding)}"); */
             }
             catch { }
             return;
@@ -654,5 +664,13 @@ public class ToolPlacementTaskManager : MonoBehaviour
             keywordRecognizer.Dispose();
             keywordRecognizer = null;
         }
+    }
+
+    private void ResetToolToStartPose(Item it)
+    {
+        if (it == null || it.tool == null) return;
+        if (it.startParent != null)
+            it.tool.SetParent(it.startParent, true);
+        it.tool.SetPositionAndRotation(it.startPos, it.startRot);
     }
 }
