@@ -27,6 +27,8 @@ public class StudyFlowController_V2 : MonoBehaviour
     [SerializeField] private float hudUpdateHz = 10f; // 초당 10번
     private float _nextHudTime = 0f;
 
+    void Awake() => Debug.Log("[SFC_V2] Awake");
+
     void Update()
     {
         if (!showDebugHUD) return;
@@ -59,14 +61,23 @@ public class StudyFlowController_V2 : MonoBehaviour
         if (workflow == null)
             workflow = FindFirstObjectByType<WorkflowProgressionController>();
 
-        if (workflow != null)
-            workflow.OnStepChanged += OnWorkflowStepChanged;
+        if (workflow == null)
+        {
+            Debug.LogError("[SFC_V2] WorkflowProgressionController not found.");
+            return;
+        }
 
-        _onPlacementFinished = () => workflow?.Advance();
-        _onRotationFinished  = () => workflow?.Advance();
-        _onScalingFinished   = () => workflow?.Advance();
+        workflow.OnStepChanged += OnWorkflowStepChanged;
+
+        _onPlacementFinished = () => workflow.Advance();
+        _onRotationFinished  = () => workflow.Advance();
+        _onScalingFinished   = () => workflow.Advance();
 
         HookTaskFinishedEvents();
+
+        // IMPORTANT: apply current workflow state once (fix missed initial event)
+        OnWorkflowStepChanged(workflow.CurrentPhase, workflow.CurrentToolIndex, workflow.CurrentTool);
+        Debug.Log("[SFC_V2] Bound to workflow and applied current step.");
     }
 
     private void OnDestroy()
