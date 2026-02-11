@@ -23,6 +23,37 @@ public class StudyFlowController_V2 : MonoBehaviour
     private Action _onRotationFinished;
     private Action _onScalingFinished;
 
+    [SerializeField] private bool showDebugHUD = true;
+    [SerializeField] private float hudUpdateHz = 10f; // 초당 10번
+    private float _nextHudTime = 0f;
+
+    void Update()
+    {
+        if (!showDebugHUD) return;
+        if (Time.unscaledTime < _nextHudTime) return;
+        _nextHudTime = Time.unscaledTime + (1f / Mathf.Max(1f, hudUpdateHz));
+
+        string phase = workflow != null ? workflow.CurrentPhase.ToString() : "N/A";
+        int idx = workflow != null ? workflow.CurrentToolIndex : -1;
+
+        GameObject tool = workflow != null ? workflow.CurrentTool : null;
+        string id = "N/A";
+        if (tool != null)
+        {
+            var tid = tool.GetComponent<ToolId>();
+            if (tid != null && !string.IsNullOrEmpty(tid.id)) id = tid.id;
+        }
+
+        bool holding = grabber != null && grabber.IsHolding;
+        string heldName = (grabber != null && grabber.HeldBody != null) ? grabber.HeldBody.name : "none";
+
+        DebugHUD.Log($"WF   phase={phase} toolIndex={idx} id={id}");
+        DebugHUD.Log($"GRAB holding={holding} held={heldName}");
+
+        // task running flags (있으면 더 좋음)
+        DebugHUD.Log($"TASK place={(placementTask!=null && placementTask.IsTrialRunning)} rot={(rotationTask!=null && rotationTask.IsTrialRunning)} scale={(scalingTask!=null && scalingTask.IsTrialRunning)}");
+    }
+
     void Start()
     {
         if (workflow == null)

@@ -535,9 +535,11 @@ public class ToolPlacementTaskManager : MonoBehaviour
             // Still allow DebugHUD if available
             try
             {
-                sb.Length = 0;
-                sb.Append($"[Progress] {placed}/{items.Count}");
-                DebugHUD.Log(sb.ToString());
+                /* sb.Length = 0;
+                 * sb.Append($"[Progress] {placed}/{items.Count}");
+                 * DebugHUD.Log(sb.ToString()); */
+                if (_active != null)
+                    DebugHUD.Log($"PLACE id={_active.id} err={_active.lastErr:F3} tol={_active.tolerance:F3} holding={(grabber!=null && grabber.IsHolding)}");
             }
             catch { }
             return;
