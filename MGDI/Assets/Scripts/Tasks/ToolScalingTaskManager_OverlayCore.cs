@@ -98,6 +98,13 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
     [SerializeField] private GameObject xUI;
     [SerializeField] private float feedbackShowSeconds = 0.50f;
 
+    // ---- Forced active (Workflow integration) ----
+    [SerializeField] private bool finishBlockAfterOneSuccessWhenForced = true;
+    private string _forcedActiveId = null;
+
+    public void SetForcedActiveId(string id) => _forcedActiveId = string.IsNullOrEmpty(id) ? null : id;
+    public void ClearForcedActiveId() => _forcedActiveId = null;
+
     [Header("Progress UI (optional)")]
     [SerializeField] private UnityEngine.UI.Text progressText;
 
@@ -301,7 +308,17 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
             }
         }
 
-        active = items[trialIndex % items.Count];
+        active = null;
+
+        if (!string.IsNullOrEmpty(_forcedActiveId))
+        {
+            active = items.Find(it => it != null && it.id == _forcedActiveId);
+            if (active == null && logDebug)
+                Debug.LogWarning($"[ScaleCore] ForcedActiveId '{_forcedActiveId}' not found. Falling back.");
+        }
+
+        if (active == null)
+            active = items[trialIndex % items.Count];
 
         EnsureActiveToolBody(active);
 
@@ -380,6 +397,12 @@ public class ToolScalingTaskManager_OverlayCore : MonoBehaviour
         {
             active.currentOverlay.localScale = active.baseCurrentLocalScale;
             active.scaleFactorCmd = 1f;
+        }
+
+        if (success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced)
+        {
+            FinishBlock();
+            yield break;
         }
 
         if (forceReleaseAfterTrial) ForceReleaseIfPossible();
