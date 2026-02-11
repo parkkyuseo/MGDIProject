@@ -189,6 +189,33 @@ public class ToolPlacementTaskManager : MonoBehaviour
             return;
         }
 
+        // ---- Workflow single-active evaluation ----
+        if (workflowSingleActiveMode && _active != null)
+        {
+            float err = ComputeErrorMeters(_active);
+            _active.lastErr = err;
+
+            bool pass = (err <= _active.tolerance);
+            _active.placed = pass;
+
+            OnProgressChanged?.Invoke(pass ? 1 : 0, 1);
+            UpdateProgressUI();
+
+            if (pass)
+            {
+                dwellTimer += Time.deltaTime;
+                if (dwellTimer >= dwellSeconds)
+                    StartCoroutine(EndTrialRoutine(true, false));
+            }
+            else
+            {
+                dwellTimer = 0f;
+            }
+
+            return;
+        }
+
+        // ---- Fallback: original "all tools" behavior (kept for compatibility) ----
         int placedCount = 0;
         for (int i = 0; i < items.Count; i++)
         {
@@ -224,11 +251,16 @@ public class ToolPlacementTaskManager : MonoBehaviour
             return;
         }
 
-        if (totalTrials > 0 && trialIndex >= totalTrials)
+        // If forced mode is used, we generally want a single successful trial then finish.
+        // Still keep the totalTrials guard for safety when not forced.
+        if (string.IsNullOrEmpty(_forcedActiveId))
         {
-            if (logDebug) Debug.Log("[ToolPlacementTaskManager] Block finished.");
-            FinishBlock();
-            return;
+            if (totalTrials > 0 && trialIndex >= totalTrials)
+            {
+                if (logDebug) Debug.Log("[ToolPlacementTaskManager] Block finished.");
+                FinishBlock();
+                return;
+            }
         }
 
         // Ensure items exist
@@ -260,25 +292,56 @@ public class ToolPlacementTaskManager : MonoBehaviour
             items[i].lastErr = float.MaxValue;
         }
 
-        // Compute per-tool tolerances from current start distances
-        for (int i = 0; i < items.Count; i++)
+        // ---- Select ACTIVE item (forced id preferred) ----
+        _active = null;
+
+        if (!string.IsNullOrEmpty(_forcedActiveId))
         {
-            float d0 = ComputeErrorMeters(items[i]);
-            items[i].tolerance = Mathf.Max(0.05f * d0, minTolMeters);
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (items[i] != null && items[i].id == _forcedActiveId)
+                {
+                    _active = items[i];
+                    break;
+                }
+            }
+
+            if (_active == null)
+            {
+                Debug.LogWarning($"[ToolPlacementTM] ForcedActiveId '{_forcedActiveId}' not found in registry. Falling back to first item.");
+            }
         }
+
+        if (_active == null && items.Count > 0)
+            _active = items[0];
+
+        if (_active == null)
+        {
+            Debug.LogError("[ToolPlacementTM] Active item selection failed (registry empty?).");
+            FinishBlock();
+            return;
+        }
+
+        // Compute tolerance for the ACTIVE item only (based on current start distance)
+        float d0 = ComputeErrorMeters(_active);
+        _active.tolerance = Mathf.Max(0.05f * d0, minTolMeters);
 
         trialTimer = 0f;
         dwellTimer = 0f;
         trialRunning = true;
         inTransition = false;
 
-        OnTrialChanged?.Invoke(trialIndex + 1, totalTrials);
-        OnProgressChanged?.Invoke(0, items.Count);
+        // For workflow, trial count UI isn't meaningful; still send something stable.
+        int shownTotal = string.IsNullOrEmpty(_forcedActiveId) ? totalTrials : 1;
+        int shownIndex = string.IsNullOrEmpty(_forcedActiveId) ? (trialIndex + 1) : 1;
+
+        OnTrialChanged?.Invoke(shownIndex, shownTotal);
+        OnProgressChanged?.Invoke(0, 1);
         UpdateProgressUI();
 
         if (logDebug)
         {
-            Debug.Log($"[ToolPlacementTM] Trial {trialIndex + 1}/{totalTrials} tools={items.Count} timeout={trialTimeoutSeconds:F0}s dwell={dwellSeconds:F2}s");
+            Debug.Log($"[ToolPlacementTM] Trial {shownIndex}/{shownTotal} active={_active.id} tol={_active.tolerance:F3}m timeout={trialTimeoutSeconds:F0}s dwell={dwellSeconds:F2}s forced={(string.IsNullOrEmpty(_forcedActiveId) ? "NO" : "YES")}");
         }
     }
 
@@ -295,7 +358,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
             ForceReleaseIfPossible();
 
             if (snapOnSuccess)
-                SnapAllToolsToTargets();
+                SnapAllToolsToTargets(); // NOTE: in single-active mode, this snaps all tools; keep snapOnSuccess=false for workflow
 
             PlaySnapSound();
             ShowStar();
@@ -320,7 +383,17 @@ public class ToolPlacementTaskManager : MonoBehaviour
             ResetAllToolsToStartPose();
         }
 
+        // ---- If forced active id is set, finish after one successful trial (workflow step) ----
+        if (success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced)
+        {
+            inTransition = false;
+            FinishBlock();
+            yield break;
+        }
+
         trialIndex++;
+        inTransition = false;
+
         BeginNextTrial();
     }
 
