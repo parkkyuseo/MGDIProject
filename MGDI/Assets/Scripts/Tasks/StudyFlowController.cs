@@ -17,6 +17,9 @@ public class StudyFlowController : MonoBehaviour
     [Tooltip("Workspace controller for HAND (optional). Keeps your existing hand profiles system, but NOT injected to RemoteHandRuntime anymore.")]
     public WorkspaceAnchorController handWorkspaceController;
 
+    [Header("Workflow")]
+    [SerializeField] private WorkflowProgressionController workflow;
+
     [Tooltip("Placement task (tools).")]
     public ToolPlacementTaskManager placementTask;
 
@@ -169,55 +172,79 @@ public class StudyFlowController : MonoBehaviour
 
     private void Start()
     {
-        _lastRemapLoc = currentHandLocation;
+/*         _lastRemapLoc = currentHandLocation;
+ *
+ *         if (taskContextHUD != null)
+ *         {
+ *             taskContextHUD.Clear();
+ *             taskContextHUD.SetVisible(Application.isEditor && showHUDInEditor);
+ *         }
+ *
+ *         if (instructionHUD != null)
+ *             instructionHUD.HideImmediate();
+ *
+ *         EnsurePhoneIntegrationRefs();
+ *         ApplyPhoneInputRouting(); // ensure Router/Gate reflect initial state
+ *
+ *         if (!enableVoice) return;
+ *
+ *         actions = new Dictionary<string, Action>
+ *         {
+ *             { cmdStartPlacement.ToLower(), () => StartTask(TaskType.Placement) },
+ *             { cmdStartRotation.ToLower(),  () => StartTask(TaskType.Rotation) },
+ *             { cmdStartScaling.ToLower(),   () => StartTask(TaskType.Scaling) },
+ *
+ *             { cmdStartMicroPlacement.ToLower(), () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Placement); } },
+ *             { cmdStartMicroRotation.ToLower(),  () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Rotation); } },
+ *             { cmdStartMicroScaling.ToLower(),   () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Scaling); } },
+ *
+ *             { cmdStartMacroPlacement.ToLower(), () => StartTechniqueAndTask(Technique.Macro, TaskType.Placement) },
+ *             { cmdStartMacroRotation.ToLower(),  () => StartTechniqueAndTask(Technique.Macro, TaskType.Rotation) },
+ *             { cmdStartMacroScaling.ToLower(),   () => StartTechniqueAndTask(Technique.Macro, TaskType.Scaling) },
+ *
+ *             { cmdRestart.ToLower(), RestartCurrent },
+ *             { cmdNext.ToLower(),    NextConditionAndRestart },
+ *
+ *             { cmdMacro.ToLower(), () => SetTechnique(Technique.Macro, restart:true) },
+ *             { cmdMicro.ToLower(), () => { BeginMicroCalibration(); SetTechnique(Technique.Micro, restart:true); } },
+ *
+ *             { cmdNear.ToLower(),      () => SetHandLocation(WorkspaceAnchorController.HandLocation.NearHead, restart:false) },
+ *             { cmdSideLeft.ToLower(),  () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyLeft, restart:false) },
+ *             { cmdSideRight.ToLower(), () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyRight, restart:false) },
+ *         };
+ *
+ *         recognizer = new KeywordRecognizer(actions.Keys.ToArray());
+ *         recognizer.OnPhraseRecognized += (args) =>
+ *         {
+ *             DebugHUD.Log($"[SFC] Recognized: '{args.text}'");
+ *             string k = args.text.ToLower();
+ *             if (actions.TryGetValue(k, out var a)) a.Invoke();
+ *         };
+ *         recognizer.Start(); */
 
-        if (taskContextHUD != null)
-        {
-            taskContextHUD.Clear();
-            taskContextHUD.SetVisible(Application.isEditor && showHUDInEditor);
-        }
+        if (workflow == null)
+            workflow = FindFirstObjectByType<WorkflowProgressionController>();
 
-        if (instructionHUD != null)
-            instructionHUD.HideImmediate();
+        if (workflow != null)
+            workflow.OnStepChanged += HandleStepChanged;
+    }
 
-        EnsurePhoneIntegrationRefs();
-        ApplyPhoneInputRouting(); // ensure Router/Gate reflect initial state
+    private void OnDestroy()
+    {
+        if (workflow != null)
+            workflow.OnStepChanged -= HandleStepChanged;
+    }
+    
+    private void HandleStepChanged(WorkflowProgressionController.Phase phase, int toolIndex, GameObject tool)
+    {
+        // 1) TaskManager enable/disable
+        if (placementTask != null) placementTask.enabled = (phase == WorkflowProgressionController.Phase.Placement);
+        if (rotationTask != null)  rotationTask.enabled  = (phase == WorkflowProgressionController.Phase.Rotation);
+        if (scalingTask != null)   scalingTask.enabled   = (phase == WorkflowProgressionController.Phase.Scaling);
 
-        if (!enableVoice) return;
-
-        actions = new Dictionary<string, Action>
-        {
-            { cmdStartPlacement.ToLower(), () => StartTask(TaskType.Placement) },
-            { cmdStartRotation.ToLower(),  () => StartTask(TaskType.Rotation) },
-            { cmdStartScaling.ToLower(),   () => StartTask(TaskType.Scaling) },
-
-            { cmdStartMicroPlacement.ToLower(), () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Placement); } },
-            { cmdStartMicroRotation.ToLower(),  () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Rotation); } },
-            { cmdStartMicroScaling.ToLower(),   () => { BeginMicroCalibration(); StartTechniqueAndTask(Technique.Micro, TaskType.Scaling); } },
-
-            { cmdStartMacroPlacement.ToLower(), () => StartTechniqueAndTask(Technique.Macro, TaskType.Placement) },
-            { cmdStartMacroRotation.ToLower(),  () => StartTechniqueAndTask(Technique.Macro, TaskType.Rotation) },
-            { cmdStartMacroScaling.ToLower(),   () => StartTechniqueAndTask(Technique.Macro, TaskType.Scaling) },
-
-            { cmdRestart.ToLower(), RestartCurrent },
-            { cmdNext.ToLower(),    NextConditionAndRestart },
-
-            { cmdMacro.ToLower(), () => SetTechnique(Technique.Macro, restart:true) },
-            { cmdMicro.ToLower(), () => { BeginMicroCalibration(); SetTechnique(Technique.Micro, restart:true); } },
-
-            { cmdNear.ToLower(),      () => SetHandLocation(WorkspaceAnchorController.HandLocation.NearHead, restart:false) },
-            { cmdSideLeft.ToLower(),  () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyLeft, restart:false) },
-            { cmdSideRight.ToLower(), () => SetHandLocation(WorkspaceAnchorController.HandLocation.SideOfBodyRight, restart:false) },
-        };
-
-        recognizer = new KeywordRecognizer(actions.Keys.ToArray());
-        recognizer.OnPhraseRecognized += (args) =>
-        {
-            DebugHUD.Log($"[SFC] Recognized: '{args.text}'");
-            string k = args.text.ToLower();
-            if (actions.TryGetValue(k, out var a)) a.Invoke();
-        };
-        recognizer.Start();
+        // 2) TODO: 여기에 HUD 텍스트/고스트 on/off를 붙이면 됨
+        // 예: instructionHUD.SetText(...)
+        // 예: ghostSystem.ShowFootprint(toolIndex) ...
     }
 
     private void EnsurePhoneIntegrationRefs()

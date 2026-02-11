@@ -1,20 +1,11 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class WorkflowProgressionController : MonoBehaviour
 {
-    public enum ProgressionMode
-    {
-        ToolByTool,   // A: Tool1 P->R->S, Tool2 P->R->S ...
-        PhaseByPhase  // B: All tools P, then all tools R, then all tools S
-    }
-
-    public enum Phase
-    {
-        Placement = 0,
-        Rotation = 1,
-        Scaling = 2
-    }
+    public enum ProgressionMode { ToolByTool, PhaseByPhase }
+    public enum Phase { Placement = 0, Rotation = 1, Scaling = 2 }
 
     [Header("Mode")]
     [SerializeField] private ProgressionMode mode = ProgressionMode.ToolByTool;
@@ -33,9 +24,12 @@ public class WorkflowProgressionController : MonoBehaviour
     [SerializeField] private bool debugLog = true;
     [SerializeField] private bool autoStart = true;
 
-    // Current state
     public int CurrentToolIndex { get; private set; } = -1;
     public Phase CurrentPhase { get; private set; } = Phase.Placement;
+    public GameObject CurrentTool => (CurrentToolIndex >= 0 && CurrentToolIndex < tools.Count) ? tools[CurrentToolIndex] : null;
+
+    public event Action<Phase, int, GameObject> OnStepChanged;
+    public event Action OnAllCompleted;
 
     private int _activeLayer;
     private int _inactiveLayer;
@@ -48,23 +42,17 @@ public class WorkflowProgressionController : MonoBehaviour
 
     void Start()
     {
-        // Start with everything inactive
-        for (int i = 0; i < tools.Count; i++)
-            SetToolActive(tools[i], false);
+        DeactivateAll();
 
-        if (autoStart)
+        if (autoStart && tools.Count > 0)
         {
-            // Initialize to first step depending on mode
             CurrentPhase = Phase.Placement;
             CurrentToolIndex = 0;
             ApplyActiveTool();
-            LogState("Start");
+            EmitStepChanged("Start");
         }
     }
 
-    /// <summary>
-    /// Call this when the current step is completed (e.g., placement success, rotation success, scaling success).
-    /// </summary>
     public void Advance()
     {
         if (tools == null || tools.Count == 0) return;
@@ -72,58 +60,49 @@ public class WorkflowProgressionController : MonoBehaviour
 
         if (mode == ProgressionMode.ToolByTool)
         {
-            // Tool1 P->R->S then next tool
             if (CurrentPhase != Phase.Scaling)
             {
                 CurrentPhase = (Phase)((int)CurrentPhase + 1);
             }
             else
             {
-                // move to next tool, reset phase
                 CurrentToolIndex++;
                 CurrentPhase = Phase.Placement;
             }
         }
         else // PhaseByPhase
         {
-            // All tools in Placement, then all in Rotation, then all in Scaling
             CurrentToolIndex++;
             if (CurrentToolIndex >= tools.Count)
             {
                 CurrentToolIndex = 0;
                 if (CurrentPhase != Phase.Scaling)
                     CurrentPhase = (Phase)((int)CurrentPhase + 1);
-                else
-                    CurrentPhase = Phase.Scaling; // end reached (could set a Completed flag)
             }
         }
 
         // End condition
         if (mode == ProgressionMode.ToolByTool && CurrentToolIndex >= tools.Count)
         {
-            // Completed all tools
             DeactivateAll();
-            LogState("Completed");
+            if (debugLog) Debug.Log("[Workflow] Completed all tools.");
+            OnAllCompleted?.Invoke();
             return;
         }
 
         ApplyActiveTool();
-        LogState("Advance");
+        EmitStepChanged("Advance");
     }
 
     public void SetMode(ProgressionMode newMode)
     {
         mode = newMode;
-
-        // Re-apply current active tool after mode change
-        if (CurrentToolIndex < 0) CurrentToolIndex = 0;
         ApplyActiveTool();
-        LogState("ModeChanged");
+        EmitStepChanged("ModeChanged");
     }
 
     private void ApplyActiveTool()
     {
-        // Deactivate all, then activate only current
         DeactivateAll();
 
         int idx = Mathf.Clamp(CurrentToolIndex, 0, tools.Count - 1);
@@ -145,7 +124,7 @@ public class WorkflowProgressionController : MonoBehaviour
 
         if (toggleColliders)
         {
-            var cols = tool.GetComponentsInChildren<Collider>(true);
+            Collider[] cols = tool.GetComponentsInChildren<Collider>(true);
             for (int i = 0; i < cols.Length; i++)
                 cols[i].enabled = active;
         }
@@ -158,13 +137,14 @@ public class WorkflowProgressionController : MonoBehaviour
             SetLayerRecursively(child.gameObject, layer);
     }
 
-    private void LogState(string prefix)
+    private void EmitStepChanged(string prefix)
     {
-        if (!debugLog) return;
-        string toolName = (CurrentToolIndex >= 0 && CurrentToolIndex < tools.Count && tools[CurrentToolIndex] != null)
-            ? tools[CurrentToolIndex].name
-            : "(none)";
+        if (debugLog)
+        {
+            string toolName = CurrentTool != null ? CurrentTool.name : "(none)";
+            Debug.Log($"[Workflow] {prefix} | Mode={mode} | Phase={CurrentPhase} | ToolIndex={CurrentToolIndex} | Tool={toolName}");
+        }
 
-        DebugHUD.Log($"[Workflow] {prefix} | Mode={mode} | Phase={CurrentPhase} | ToolIndex={CurrentToolIndex} | Tool={toolName}");
+        OnStepChanged?.Invoke(CurrentPhase, CurrentToolIndex, CurrentTool);
     }
 }
