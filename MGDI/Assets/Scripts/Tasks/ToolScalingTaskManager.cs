@@ -14,6 +14,11 @@ public class ToolScalingTaskManager : MonoBehaviour
     [Header("Tools Root (auto-discovered via ToolId)")]
     [SerializeField] private Transform toolsDynamicRoot;
 
+    [Header("Target Ghost (optional visual)")]
+    [Tooltip("Targets/ghost root. Example: ContentRoot/Slots_Targets")]
+    [SerializeField] private Transform slotsTargetsRoot; // ContentRoot/Slots_Targets
+    [SerializeField] private bool showTargetGhostScale = true;
+
     [Header("Grab / Evaluate")]
     [SerializeField] private ProxyHandGrabber grabber;
 
@@ -40,6 +45,15 @@ public class ToolScalingTaskManager : MonoBehaviour
     [Header("Target Factor Sampling")]
     [SerializeField] private float targetFactorMin = 0.70f;
     [SerializeField] private float targetFactorMax = 1.60f;
+
+    [Tooltip("Avoid sampling in (1-avoidNearOne, 1+avoidNearOne) when possible.")]
+    [SerializeField] private float avoidNearOne = 0.30f;
+
+    [Tooltip("If range spans both below and above 1, ensure each side has at least this width by reducing avoidNearOne if needed.")]
+    [SerializeField] private float minSideBandWidth = 0.05f;
+
+    [Tooltip("If both smaller and larger bands exist, sample from each side ~50/50.")]
+    [SerializeField] private bool balanceSmallerVsLarger = true;
 
     [Header("Scale factor clamp")]
     [SerializeField] private float minScaleFactor = 0.60f;
@@ -118,6 +132,11 @@ public class ToolScalingTaskManager : MonoBehaviour
     // Micro controller can set this true so macro does NOT overwrite scale.
     private bool _externalDriving = false;
 
+    // --- Ghost runtime ---
+    private readonly Dictionary<string, Transform> _ghostById = new Dictionary<string, Transform>();
+    private Transform _activeGhost;
+    private Vector3 _activeGhostBaseScale;
+
     public bool IsTrialRunning => trialRunning && !inTransition;
     public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - trialTimer);
     public int TotalTrials => totalTrials;
@@ -125,7 +144,7 @@ public class ToolScalingTaskManager : MonoBehaviour
 
     public string ActiveId => active != null ? active.id : null;
     public float ActiveTargetFactor => active != null ? active.targetFactor : 1f;
-    public float ActiveCurrentFactor => active != null ? active.scaleFactorCmd : 1f;
+    public float ActiveCurrentFactor => GetActualScaleFactor(active);
 
     public Transform ActiveToolTransform => active != null ? active.tool : null;
 
@@ -174,7 +193,12 @@ public class ToolScalingTaskManager : MonoBehaviour
         trialIndex = 0;
         _externalDriving = false;
 
+        // Safety: in case previous run ended unexpectedly
+        RestoreTargetGhostScale();
+
         RebuildItemsFromScene();
+        RebuildGhostMap();
+
         BeginNextTrial();
     }
 
@@ -207,7 +231,8 @@ public class ToolScalingTaskManager : MonoBehaviour
         if (requireNotHolding && grabber != null && grabber.IsHolding)
             evalAllowed = false;
 
-        float curFactor = active.scaleFactorCmd;
+        // ✅ SAFE: evaluate using actual tool scale (not only cmd)
+        float curFactor = GetActualScaleFactor(active);
         float err = Mathf.Abs(curFactor - active.targetFactor);
 
         if (err <= scaleFactorTolerance)
@@ -259,6 +284,9 @@ public class ToolScalingTaskManager : MonoBehaviour
             }
         }
 
+        // Safety: ensure previous ghost is restored before picking a new one
+        RestoreTargetGhostScale();
+
         // Select active
         active = null;
 
@@ -285,19 +313,12 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         _externalDriving = false;
 
-        // Sample target factor (avoid near-1.0 so it is visibly different)
-        float tf;
-        float avoid = 0.30f; // 1.0±0.30 구간은 피함 (원하면 0.35~0.45로 더 키우기)
-        int guard = 0;
-
-        do
-        {
-            tf = Random.Range(Mathf.Min(targetFactorMin, targetFactorMax), Mathf.Max(targetFactorMin, targetFactorMax));
-            tf = Mathf.Clamp(tf, minScaleFactor, maxScaleFactor);
-            guard++;
-        } while (Mathf.Abs(tf - 1f) < avoid && guard < 32);
-
+        // ✅ Improved target factor sampling (balanced smaller/larger when possible)
+        float tf = SampleTargetFactorBalanced();
         active.targetFactor = tf;
+
+        // ✅ Apply target ghost visual scale (optional)
+        ApplyTargetGhostScale(active.id, active.targetFactor);
 
         trialTimer = 0f;
         dwellTimer = 0f;
@@ -343,6 +364,9 @@ public class ToolScalingTaskManager : MonoBehaviour
         }
 
         if (forceReleaseAfterTrial) ForceReleaseIfPossible();
+
+        // ✅ Restore ghost scale at trial end
+        RestoreTargetGhostScale();
 
         // Forced: finish after one success
         if (success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced)
@@ -409,6 +433,141 @@ public class ToolScalingTaskManager : MonoBehaviour
         var rb = it.tool.GetComponent<Rigidbody>();
         if (rb == null) rb = it.tool.GetComponentInChildren<Rigidbody>(true);
         it.toolBody = rb;
+    }
+
+    // ---------------- Ghost map ----------------
+    private void RebuildGhostMap()
+    {
+        _ghostById.Clear();
+        if (slotsTargetsRoot == null) return;
+
+        var ids = slotsTargetsRoot.GetComponentsInChildren<ToolId>(true);
+        for (int i = 0; i < ids.Length; i++)
+        {
+            if (ids[i] == null || string.IsNullOrEmpty(ids[i].id)) continue;
+            _ghostById[ids[i].id] = ids[i].transform;
+        }
+    }
+
+    private void ApplyTargetGhostScale(string id, float targetFactor)
+    {
+        if (!showTargetGhostScale) return;
+        if (slotsTargetsRoot == null) return;
+        if (string.IsNullOrEmpty(id)) return;
+
+        if (_ghostById.Count == 0) RebuildGhostMap();
+
+        Transform ghost = null;
+        if (!_ghostById.TryGetValue(id, out ghost) || ghost == null)
+        {
+            // fallback scan (in case hierarchy changed after cache)
+            var ids = slotsTargetsRoot.GetComponentsInChildren<ToolId>(true);
+            for (int i = 0; i < ids.Length; i++)
+            {
+                if (ids[i] != null && ids[i].id == id)
+                {
+                    ghost = ids[i].transform;
+                    break;
+                }
+            }
+            if (ghost == null) return;
+        }
+
+        _activeGhost = ghost;
+        _activeGhostBaseScale = ghost.localScale;
+
+        ghost.localScale = _activeGhostBaseScale * targetFactor;
+    }
+
+    private void RestoreTargetGhostScale()
+    {
+        if (_activeGhost == null) return;
+
+        _activeGhost.localScale = _activeGhostBaseScale;
+        _activeGhost = null;
+    }
+
+    // ---------------- Target sampling (improved) ----------------
+    private float SampleTargetFactorBalanced()
+    {
+        // Normalize range and clamp to scale clamp
+        float minF = Mathf.Min(targetFactorMin, targetFactorMax);
+        float maxF = Mathf.Max(targetFactorMin, targetFactorMax);
+
+        minF = Mathf.Clamp(minF, minScaleFactor, maxScaleFactor);
+        maxF = Mathf.Clamp(maxF, minScaleFactor, maxScaleFactor);
+
+        if (maxF < minF)
+        {
+            float t = minF;
+            minF = maxF;
+            maxF = t;
+        }
+
+        // If degenerate range
+        if (Mathf.Abs(maxF - minF) < 1e-6f)
+            return Mathf.Clamp(minF, minScaleFactor, maxScaleFactor);
+
+        float avoid = Mathf.Max(0f, avoidNearOne);
+        float minBand = Mathf.Max(0f, minSideBandWidth);
+
+        bool spansOne = (minF < 1f) && (maxF > 1f);
+
+        // When it spans 1.0, try to create both bands (smaller & larger) with minimum width.
+        if (spansOne)
+        {
+            // We want:
+            // low band:  [minF, 1-avoidEff] has width >= minBand
+            // high band: [1+avoidEff, maxF] has width >= minBand
+            // => avoidEff <= 1 - minF - minBand
+            // => avoidEff <= maxF - 1 - minBand
+            float allowedLow = (1f - minF - minBand);
+            float allowedHigh = (maxF - 1f - minBand);
+
+            if (allowedLow > 0f && allowedHigh > 0f)
+            {
+                float avoidEff = Mathf.Min(avoid, allowedLow, allowedHigh);
+                avoidEff = Mathf.Max(0f, avoidEff);
+
+                float lowMax = 1f - avoidEff;
+                float highMin = 1f + avoidEff;
+
+                // Safety clamp
+                lowMax = Mathf.Clamp(lowMax, minF, maxF);
+                highMin = Mathf.Clamp(highMin, minF, maxF);
+
+                bool hasLow = lowMax > minF + 1e-6f;
+                bool hasHigh = maxF > highMin + 1e-6f;
+
+                if (hasLow && hasHigh)
+                {
+                    bool pickLow = balanceSmallerVsLarger ? (Random.value < 0.5f) : (Random.value < (lowMax - minF) / ((lowMax - minF) + (maxF - highMin)));
+                    float tf = pickLow ? Random.Range(minF, lowMax) : Random.Range(highMin, maxF);
+                    return Mathf.Clamp(tf, minScaleFactor, maxScaleFactor);
+                }
+
+                // If one side collapses due to numeric issues, fall through to fallback below.
+            }
+        }
+
+        // Fallback:
+        // sample in full range; if it lands in avoid zone and there is room outside, retry a bit.
+        int guard = 0;
+        float outTf = 1f;
+
+        bool hasOutside =
+            (minF < (1f - avoid)) || (maxF > (1f + avoid));
+
+        do
+        {
+            outTf = Random.Range(minF, maxF);
+            guard++;
+            if (guard >= 32) break;
+
+            if (!hasOutside) break;
+        } while (Mathf.Abs(outTf - 1f) < avoid);
+
+        return Mathf.Clamp(outTf, minScaleFactor, maxScaleFactor);
     }
 
     // ---------------- MACRO helpers ----------------
@@ -481,6 +640,28 @@ public class ToolScalingTaskManager : MonoBehaviour
         ApplyScaleFactor(next);
     }
 
+    // ---------------- Scale factor measurement (SAFE) ----------------
+    private float GetActualScaleFactor(Item it)
+    {
+        if (it == null || it.tool == null) return 1f;
+
+        Vector3 baseS = it.startLocalScale;
+        Vector3 curS = it.tool.localScale;
+
+        float sum = 0f;
+        int n = 0;
+
+        if (Mathf.Abs(baseS.x) > 1e-6f) { sum += curS.x / baseS.x; n++; }
+        if (Mathf.Abs(baseS.y) > 1e-6f) { sum += curS.y / baseS.y; n++; }
+        if (Mathf.Abs(baseS.z) > 1e-6f) { sum += curS.z / baseS.z; n++; }
+
+        if (n == 0) return 1f;
+
+        float f = sum / n;
+        // Keep it sane
+        return Mathf.Clamp(f, minScaleFactor, maxScaleFactor);
+    }
+
     // ---------------- Shared helpers ----------------
     private void ForceReleaseIfPossible()
     {
@@ -491,6 +672,10 @@ public class ToolScalingTaskManager : MonoBehaviour
     {
         trialRunning = false;
         inTransition = false;
+
+        // Safety: ensure ghost gets restored when block finishes
+        RestoreTargetGhostScale();
+
         try { OnBlockFinished?.Invoke(); } catch { }
     }
 }
