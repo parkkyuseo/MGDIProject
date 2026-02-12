@@ -4,8 +4,8 @@ public class MicroScalingController : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private MicroInputThumbDpadToggle input;
-    [SerializeField] private LegoScalingTaskManager scalingTask;
-    [SerializeField] private Transform blockRoot;
+    [SerializeField] private ToolScalingTaskManager scalingTask;
+    [SerializeField] private PhoneInputRouter phoneRouter;
 
     [Header("Mapping")]
     [Tooltip("Scale rate (factor per second) in exponential form. Higher = more sensitive.")]
@@ -15,61 +15,60 @@ public class MicroScalingController : MonoBehaviour
     [SerializeField] private float minFactor = 0.60f;
     [SerializeField] private float maxFactor = 1.80f;
 
-    Vector3 _baseWorldScale = Vector3.one;
-    float _factor = 1f;
-    bool _hasBaseline = false;
-    bool _prevEngaged = false;
+    private float _factor = 1f;
+    private bool _prevEngaged = false;
+
+    void Awake()
+    {
+        if (phoneRouter == null) phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
+    }
 
     void Update()
     {
-        if (input == null || scalingTask == null || blockRoot == null) return;
-        if (!scalingTask.IsTrialRunning) { _hasBaseline = false; _prevEngaged = false; return; }
+        if (input == null || scalingTask == null) return;
 
-        // detect engage rising edge
-        if (input.IsEngaged && !_prevEngaged)
+        // ✅ Micro only gate
+        if (phoneRouter != null && phoneRouter.CurrentMode != PhoneInputRouter.Mode.Micro)
         {
-            _baseWorldScale = blockRoot.lossyScale;
+            scalingTask.SetExternalDriving(false);
+            _prevEngaged = false;
             _factor = 1f;
-            _hasBaseline = true;
+            return;
         }
-        else if (!input.IsEngaged)
+
+        if (!scalingTask.IsTrialRunning)
         {
-            _hasBaseline = false;
+            scalingTask.SetExternalDriving(false);
+            _prevEngaged = false;
+            _factor = 1f;
+            return;
         }
 
-        _prevEngaged = input.IsEngaged;
+        bool engaged = input.IsEngaged;
 
-        if (!input.IsEngaged) return;
-        if (!_hasBaseline) return;
+        // driving flag for eval gating (macro in task should not overwrite when micro is driving)
+        scalingTask.SetExternalDriving(engaged);
+
+        // rising edge: reset factor to 1
+        if (engaged && !_prevEngaged)
+        {
+            _factor = 1f;
+            // start from baseline
+            scalingTask.ApplyScaleFactor(_factor);
+        }
+
+        _prevEngaged = engaged;
+
+        if (!engaged) return;
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
         float y = input.Dpad.y;
-
         if (Mathf.Abs(y) < 1e-6f) return;
 
         // Exponential integration: factor *= exp(gain * y * dt)
         _factor *= Mathf.Exp(scaleGainPerSec * y * dt);
         _factor = Mathf.Clamp(_factor, minFactor, maxFactor);
 
-        SetWorldScale(blockRoot, _baseWorldScale * _factor);
-    }
-
-    static void SetWorldScale(Transform t, Vector3 desiredWorldScale)
-    {
-        if (t == null) return;
-
-        Vector3 parentLossy = Vector3.one;
-        if (t.parent != null)
-            parentLossy = t.parent.lossyScale;
-
-        float px = Mathf.Abs(parentLossy.x) < 1e-6f ? 1e-6f : parentLossy.x;
-        float py = Mathf.Abs(parentLossy.y) < 1e-6f ? 1e-6f : parentLossy.y;
-        float pz = Mathf.Abs(parentLossy.z) < 1e-6f ? 1e-6f : parentLossy.z;
-
-        t.localScale = new Vector3(
-            desiredWorldScale.x / px,
-            desiredWorldScale.y / py,
-            desiredWorldScale.z / pz
-        );
+        scalingTask.ApplyScaleFactor(_factor);
     }
 }
