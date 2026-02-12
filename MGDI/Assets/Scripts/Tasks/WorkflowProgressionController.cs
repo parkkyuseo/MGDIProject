@@ -92,6 +92,10 @@ public class WorkflowProgressionController : MonoBehaviour
         // End condition (block complete)
         if (mode == ProgressionMode.ToolByTool && CurrentToolIndex >= blockToolCount)
         {
+
+            CurrentToolIndex = 0;
+            CurrentPhase = Phase.Placement;
+
             DeactivateAll();
             if (debugLog) Debug.Log($"[Workflow] Block completed (toolsPerBlock={toolsPerBlock}, blockToolCount={blockToolCount}).");
             OnAllCompleted?.Invoke();

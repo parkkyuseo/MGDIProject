@@ -147,7 +147,8 @@ public class StudyFlowController_V2 : MonoBehaviour
         {
             case WorkflowProgressionController.Phase.Placement:
                 // Micro: select micro controller for placement
-                if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null)
+                /* if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null) */
+                if (phoneTechniqueGate != null) phoneTechniqueGate.SetMicroTaskPlacement();
                     phoneTechniqueGate.SetMicroTaskPlacement();
 
                 if (taskContextHUD != null) taskContextHUD.SetTaskLabel("Placement");
@@ -160,7 +161,8 @@ public class StudyFlowController_V2 : MonoBehaviour
 
             case WorkflowProgressionController.Phase.Rotation:
                 // Micro: select micro controller for rotation
-                if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null)
+                /* if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null) */
+                if (phoneTechniqueGate != null) phoneTechniqueGate.SetMicroTaskRotation();
                     phoneTechniqueGate.SetMicroTaskRotation();
 
                 if (taskContextHUD != null) taskContextHUD.SetTaskLabel("Rotation");
@@ -172,7 +174,8 @@ public class StudyFlowController_V2 : MonoBehaviour
 
             case WorkflowProgressionController.Phase.Scaling:
                 // Micro: select micro controller for scaling
-                if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null)
+                /* if (phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro && phoneTechniqueGate != null) */
+                if (phoneTechniqueGate != null) phoneTechniqueGate.SetMicroTaskScaling();
                     phoneTechniqueGate.SetMicroTaskScaling();
 
                 if (taskContextHUD != null) taskContextHUD.SetTaskLabel("Scaling");

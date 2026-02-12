@@ -285,9 +285,18 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         _externalDriving = false;
 
-        // Sample target factor
-        float tf = Random.Range(Mathf.Min(targetFactorMin, targetFactorMax), Mathf.Max(targetFactorMin, targetFactorMax));
-        tf = Mathf.Clamp(tf, minScaleFactor, maxScaleFactor);
+        // Sample target factor (avoid near-1.0 so it is visibly different)
+        float tf;
+        float avoid = 0.30f; // 1.0±0.30 구간은 피함 (원하면 0.35~0.45로 더 키우기)
+        int guard = 0;
+
+        do
+        {
+            tf = Random.Range(Mathf.Min(targetFactorMin, targetFactorMax), Mathf.Max(targetFactorMin, targetFactorMax));
+            tf = Mathf.Clamp(tf, minScaleFactor, maxScaleFactor);
+            guard++;
+        } while (Mathf.Abs(tf - 1f) < avoid && guard < 32);
+
         active.targetFactor = tf;
 
         trialTimer = 0f;
