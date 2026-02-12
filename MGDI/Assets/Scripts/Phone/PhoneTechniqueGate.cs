@@ -98,10 +98,27 @@ public class PhoneTechniqueGate : MonoBehaviour
         if (b != null) b.enabled = on;
     }
 
-    // ---- API for later wiring (StudyFlowController) ----
-    public void SetMicroTaskPlacement() => microTask = MicroTask.Placement;
-    public void SetMicroTaskRotation()  => microTask = MicroTask.Rotation;
-    public void SetMicroTaskScaling()   => microTask = MicroTask.Scaling;
+    public void SetMicroTaskPlacement()
+    {
+        microTask = MicroTask.Placement;
+        ApplyMode(_lastMode, force: true);
+    }
 
-    public void SetMicroTask(MicroTask t) => microTask = t;
+    public void SetMicroTaskRotation()
+    {
+        microTask = MicroTask.Rotation;
+        ApplyMode(_lastMode, force: true);
+    }
+
+    public void SetMicroTaskScaling()
+    {
+        microTask = MicroTask.Scaling;
+        ApplyMode(_lastMode, force: true);
+    }
+
+    public void SetMicroTask(MicroTask t)
+    {
+        microTask = t;
+        ApplyMode(_lastMode, force: true);
+    }
 }
