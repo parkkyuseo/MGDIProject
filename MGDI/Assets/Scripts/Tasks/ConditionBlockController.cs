@@ -32,6 +32,8 @@ public class ConditionBlockController : MonoBehaviour
 
     [SerializeField] private TaskContextHUD taskContextHUD;
 
+    [SerializeField] private BasketToolResetter basketResetter;
+
     private int _condIndex = 0;
 
     void Start()
@@ -119,6 +121,12 @@ public class ConditionBlockController : MonoBehaviour
 
         // 4) Restart workflow from Tool_01 + Placement
         if (workflow != null)
+        {
+            if (basketResetter != null)
+                basketResetter.ResetAllToolsToBasket();
+
             workflow.RestartFromBeginning();
+        }
+
     }
 }
