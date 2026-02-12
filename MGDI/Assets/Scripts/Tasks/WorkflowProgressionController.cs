@@ -37,8 +37,6 @@ public class WorkflowProgressionController : MonoBehaviour
     private int _activeLayer;
     private int _inactiveLayer;
 
-    public int toolsPerBlock = 1;
-
     void Awake()
     {
         _activeLayer = LayerMask.NameToLayer(activeLayerName);
