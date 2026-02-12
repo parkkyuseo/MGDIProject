@@ -82,6 +82,13 @@ public class ToolRotationTaskManager : MonoBehaviour
     [Header("Trial Count")]
     [SerializeField] private int totalTrials = 20;
 
+    [Header("Micro: allow rotation without holding")]
+    [SerializeField] private bool allowMicroRotateWithoutHolding = true;
+
+
+    public Rigidbody ActiveToolBody => _active != null ? _active.toolBody : null;
+    public bool AllowMicroRotateWithoutHolding => allowMicroRotateWithoutHolding;
+
     [Header("Voice Start (HoloLens)")]
     [SerializeField] private bool enableVoiceStart = false;
     [SerializeField] private string startKeyword = "start rotation";
@@ -611,5 +618,22 @@ public class ToolRotationTaskManager : MonoBehaviour
             _keywordRecognizer.Dispose();
             _keywordRecognizer = null;
         }
+    }
+
+    /// <summary>
+    /// Returns what should be rotated by micro controller.
+    /// If holding exists, prefer HeldBody; otherwise (optional) rotate active tool directly.
+    /// </summary>
+    public Transform GetMicroRotationTargetTransform()
+    {
+        if (_active == null) return null;
+
+        if (grabber != null && grabber.IsHolding && grabber.HeldBody != null)
+            return grabber.HeldBody.transform;
+
+        if (allowMicroRotateWithoutHolding)
+            return _active.tool;
+
+        return null;
     }
 }
