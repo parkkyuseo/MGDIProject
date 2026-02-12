@@ -20,6 +20,9 @@ public class WorkflowProgressionController : MonoBehaviour
     [Header("Activation")]
     [SerializeField] private bool toggleColliders = true;
 
+    [Header("Demo / Block control")]
+    [SerializeField] private int toolsPerBlock = 1; // 0 = use all tools
+
     [Header("Debug")]
     [SerializeField] private bool debugLog = true;
     [SerializeField] private bool autoStart = true;
@@ -33,6 +36,8 @@ public class WorkflowProgressionController : MonoBehaviour
 
     private int _activeLayer;
     private int _inactiveLayer;
+
+    public int toolsPerBlock = 1;
 
     void Awake()
     {
@@ -81,11 +86,16 @@ public class WorkflowProgressionController : MonoBehaviour
             }
         }
 
-        // End condition
-        if (mode == ProgressionMode.ToolByTool && CurrentToolIndex >= tools.Count)
+        // --- Demo/block end condition ---
+        int blockToolCount = tools.Count;
+        if (toolsPerBlock > 0)
+            blockToolCount = Mathf.Clamp(toolsPerBlock, 1, tools.Count);
+
+        // End condition (block complete)
+        if (mode == ProgressionMode.ToolByTool && CurrentToolIndex >= blockToolCount)
         {
             DeactivateAll();
-            if (debugLog) Debug.Log("[Workflow] Completed all tools.");
+            if (debugLog) Debug.Log($"[Workflow] Block completed (toolsPerBlock={toolsPerBlock}, blockToolCount={blockToolCount}).");
             OnAllCompleted?.Invoke();
             return;
         }
