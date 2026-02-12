@@ -6,7 +6,7 @@ using System.Text;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-public class ToolScalingTaskManager: MonoBehaviour
+public class ToolScalingTaskManager : MonoBehaviour
 {
     public event Action OnBlockFinished;
     public event Action<int, int> OnTrialChanged; // (current1Based, total)
@@ -90,11 +90,9 @@ public class ToolScalingTaskManager: MonoBehaviour
         public Transform tool;
         public Rigidbody toolBody;
 
-        public Transform startParent;
-        public Vector3 startPos;
-        public Quaternion startRot;
+        // "True baseline" captured once from scene registry
+        public Vector3 startLocalScale;
 
-        public Vector3 baseLocalScale; // baseline localScale at trial start
         public float targetFactor;
 
         // Current command
@@ -129,7 +127,6 @@ public class ToolScalingTaskManager: MonoBehaviour
     public float ActiveTargetFactor => active != null ? active.targetFactor : 1f;
     public float ActiveCurrentFactor => active != null ? active.scaleFactorCmd : 1f;
 
-    // For optional UX (hand placer, etc.)
     public Transform ActiveToolTransform => active != null ? active.tool : null;
 
     // ---------------- Public API for MICRO controllers ----------------
@@ -162,8 +159,8 @@ public class ToolScalingTaskManager: MonoBehaviour
         float f = Mathf.Clamp(factor, minScaleFactor, maxScaleFactor);
         active.scaleFactorCmd = f;
 
-        // Uniform factor applied to baseline localScale
-        active.tool.localScale = active.baseLocalScale * f;
+        // ✅ IMPORTANT: Always scale relative to "true baseline"
+        active.tool.localScale = active.startLocalScale * f;
     }
 
     public float GetScaleFactorCmd() => active != null ? active.scaleFactorCmd : 1f;
@@ -212,11 +209,6 @@ public class ToolScalingTaskManager: MonoBehaviour
 
         float curFactor = active.scaleFactorCmd;
         float err = Mathf.Abs(curFactor - active.targetFactor);
-
-        if (logDebug)
-        {
-            // DebugHUD.Log can be used if desired; keep console quiet by default
-        }
 
         if (err <= scaleFactorTolerance)
         {
@@ -286,10 +278,10 @@ public class ToolScalingTaskManager: MonoBehaviour
         active.axisAccum = 0f;
         active.haveWristPrev = false;
 
-        // Capture baseline scale at trial start
-        active.baseLocalScale = active.tool != null ? active.tool.localScale : Vector3.one;
+        // ✅ IMPORTANT: reset tool scale to true baseline each trial start
         active.scaleFactorCmd = 1f;
-        ApplyScaleFactor(1f);
+        if (active.tool != null)
+            active.tool.localScale = active.startLocalScale;
 
         _externalDriving = false;
 
@@ -336,8 +328,8 @@ public class ToolScalingTaskManager: MonoBehaviour
 
         if (resetScaleAfterTrial && active != null && active.tool != null)
         {
-            // Restore baseline scale
-            active.tool.localScale = active.baseLocalScale;
+            // ✅ IMPORTANT: restore true baseline
+            active.tool.localScale = active.startLocalScale;
             active.scaleFactorCmd = 1f;
         }
 
@@ -380,10 +372,10 @@ public class ToolScalingTaskManager: MonoBehaviour
                 id = kv.Key,
                 tool = toolTf,
                 toolBody = null,
-                startParent = toolTf.parent,
-                startPos = toolTf.position,
-                startRot = toolTf.rotation,
-                baseLocalScale = toolTf.localScale,
+
+                // ✅ IMPORTANT: capture baseline ONCE here
+                startLocalScale = toolTf.localScale,
+
                 targetFactor = 1f,
                 scaleFactorCmd = 1f,
                 axisAccum = 0f,
