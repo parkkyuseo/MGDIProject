@@ -256,6 +256,6 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
     void Log(string msg)
     {
         Debug.Log("[QRWorkspace] " + msg);
-        try { DebugHUD.Log("[QRWorkspace] " + msg); } catch { }
+        try { Debug.Log("[QRWorkspace] " + msg); } catch { }
     }
 }
