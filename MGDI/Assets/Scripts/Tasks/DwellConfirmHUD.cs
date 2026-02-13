@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
 /// Minimal HUD for dwell-confirm progress.
@@ -18,7 +19,7 @@ public class DwellConfirmHUD : MonoBehaviour
     [SerializeField] private GameObject root;
 
     [Tooltip("Optional: text for status (requires UnityEngine.UI.Text).")]
-    [SerializeField] private Text statusText;
+    [SerializeField] private TMP_Text statusText;
 
     [Header("Behavior")]
     [Tooltip("If true, the bar is visible only when eligible.")]
