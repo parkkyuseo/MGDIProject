@@ -1,3 +1,4 @@
+#if false
 using UnityEngine;
 
 public class MicroPlacementSwipeController : MonoBehaviour
@@ -77,3 +78,4 @@ public class MicroPlacementSwipeController : MonoBehaviour
         target.position += delta;
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if false
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -41,3 +42,4 @@ public class VoiceCalibrateSimple : MonoBehaviour
         }
     }
 }
+#endif

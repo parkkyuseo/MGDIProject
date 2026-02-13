@@ -1,3 +1,5 @@
+
+#if false
 using UnityEngine;
 
 public class MicroRotationSwipeController : MonoBehaviour
@@ -65,3 +67,4 @@ public class MicroRotationSwipeController : MonoBehaviour
         t.rotation = dq * t.rotation;
     }
 }
+#endif

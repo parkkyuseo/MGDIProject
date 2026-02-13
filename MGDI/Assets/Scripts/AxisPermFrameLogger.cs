@@ -21,6 +21,6 @@ public class AxisPermFrameLogger : MonoBehaviour
         float yaw   = Wrap180(e.y);
         float roll  = Wrap180(e.z);
 
-        Debug.Log($"[AxisPermFrame] pitch={pitch:F2} yaw={yaw:F2} roll={roll:F2}");
+        DebugHUD.Log($"[AxisPermFrame] pitch={pitch:F2} yaw={yaw:F2} roll={roll:F2}");
     }
 }

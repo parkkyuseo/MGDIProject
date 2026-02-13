@@ -347,13 +347,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
             }
         }
 
-        // If forced id is not used, active selection is not required for fallback(all-tools) mode.
-        // Keep _active null here to avoid accidental single-item behavior.
-        if (!string.IsNullOrEmpty(_forcedActiveId))
-        {
-            if (_active == null && items.Count > 0)
-                _active = items[0];
-        }
+        if (_active == null && items.Count > 0)
+            _active = items[0];
 
         if (_active == null)
         {

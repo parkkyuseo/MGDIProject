@@ -1,3 +1,4 @@
+#if false
 using UnityEngine;
 
 public class PhoneWorldAlignmentManager : MonoBehaviour
@@ -235,3 +236,4 @@ public class PhoneWorldAlignmentManager : MonoBehaviour
         DebugHUD.Log("[Recenter] Baseline reset (no QR needed).");
     }
 }
+#endif

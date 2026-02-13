@@ -1,3 +1,4 @@
+#if false
 using UnityEngine;
 
 public class MicroScalingSwipeController : MonoBehaviour
@@ -46,3 +47,4 @@ public class MicroScalingSwipeController : MonoBehaviour
         t.localScale = s;
     }
 }
+#endif
