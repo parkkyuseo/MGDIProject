@@ -2,36 +2,44 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-/// <summary>
-/// Minimal HUD for dwell-confirm progress.
-/// Subscribes to ToolPlacementTaskManager.OnConfirmProgress and updates a fill bar.
-/// </summary>
 public class DwellConfirmHUD : MonoBehaviour
 {
-    [Header("Source")]
+    [Header("Sources (assign what you use)")]
     [SerializeField] private ToolPlacementTaskManager placementTask;
+    [SerializeField] private ToolRotationTaskManager rotationTask;   // optional
+    [SerializeField] private ToolScalingTaskManager scalingTask;     // optional
 
     [Header("UI")]
-    [Tooltip("An Image whose Type is Filled.")]
     [SerializeField] private Image fillImage;
-
-    [Tooltip("Optional: background or container that is shown/hidden.")]
-    [SerializeField] private GameObject root;
-
-    [Tooltip("Optional: text for status (requires UnityEngine.UI.Text).")]
     [SerializeField] private TMP_Text statusText;
+    [SerializeField] private CanvasGroup canvasGroup;
 
     [Header("Behavior")]
-    [Tooltip("If true, the bar is visible only when eligible.")]
-    [SerializeField] private bool showOnlyWhenEligible = false;
+    [Tooltip("If true, show only when eligible. If false, show whenever a task is running and emitting progress.")]
+    [SerializeField] private bool showOnlyWhenEligible = true;
 
-    [Tooltip("If true, the fill shows remaining (1-t) instead of progress (t).")]
-    [SerializeField] private bool showRemainingInsteadOfProgress = false;
+    [Tooltip("If true, hide the HUD when no progress event has arrived recently.")]
+    [SerializeField] private bool hideIfNoRecentEvents = true;
+
+    [SerializeField] private float noEventHideSeconds = 0.35f;
+
+    private float _lastEventTime = -999f;
+    private bool _lastEligible = false;
+    private float _lastT01 = 0f;
+
+    private void Awake()
+    {
+        if (canvasGroup == null)
+            canvasGroup = GetComponentInChildren<CanvasGroup>(true);
+    }
 
     private void OnEnable()
     {
-        if (placementTask != null)
-            placementTask.OnConfirmProgress += HandleProgress;
+        if (placementTask != null) placementTask.OnConfirmProgress += HandlePlacementProgress;
+
+        // Optional: later when you add confirm for rotation/scaling, subscribe here too.
+        // if (rotationTask != null) rotationTask.OnConfirmProgress += HandleRotationProgress;
+        // if (scalingTask != null) scalingTask.OnConfirmProgress += HandleScalingProgress;
 
         SetVisible(false);
         SetFill(0f);
@@ -40,31 +48,44 @@ public class DwellConfirmHUD : MonoBehaviour
 
     private void OnDisable()
     {
-        if (placementTask != null)
-            placementTask.OnConfirmProgress -= HandleProgress;
+        if (placementTask != null) placementTask.OnConfirmProgress -= HandlePlacementProgress;
+        // if (rotationTask != null) rotationTask.OnConfirmProgress -= HandleRotationProgress;
+        // if (scalingTask != null) scalingTask.OnConfirmProgress -= HandleScalingProgress;
     }
 
-    private void HandleProgress(float t01, bool eligible)
+    private void Update()
     {
-        float v = Mathf.Clamp01(t01);
-        if (showRemainingInsteadOfProgress)
-            v = 1f - v;
+        if (!hideIfNoRecentEvents) return;
 
-        if (showOnlyWhenEligible)
-            SetVisible(eligible);
+        // If no events recently, hide. This naturally hides when moving to Rotation/Scaling.
+        if (Time.time - _lastEventTime > noEventHideSeconds)
+        {
+            SetVisible(false);
+        }
         else
-            SetVisible(true);
+        {
+            bool show = showOnlyWhenEligible ? _lastEligible : true;
+            SetVisible(show);
+            SetFill(_lastT01);
+        }
+    }
 
-        SetFill(v);
+    private void HandlePlacementProgress(float t01, bool eligible)
+    {
+        _lastEventTime = Time.time;
+        _lastEligible = eligible;
+        _lastT01 = Mathf.Clamp01(t01);
 
         if (statusText != null)
-            statusText.text = eligible ? "Hold to confirm..." : "Adjust to match target...";
+            statusText.text = eligible ? "Confirming..." : "Align to target...";
     }
 
     private void SetVisible(bool on)
     {
-        if (root != null) root.SetActive(on);
-        else gameObject.SetActive(on);
+        if (canvasGroup == null) return;
+        canvasGroup.alpha = on ? 1f : 0f;
+        canvasGroup.interactable = on;
+        canvasGroup.blocksRaycasts = on;
     }
 
     private void SetFill(float v01)
