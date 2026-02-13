@@ -52,9 +52,9 @@ public class ToolPlacementTaskManager : MonoBehaviour
     [SerializeField] private float trialTimeoutSeconds = 35f;
     [SerializeField] private float dwellSeconds = 0.20f;
     [SerializeField] private float confirmDwellSeconds = 3.0f;
-    [SerializeField] private float stablePosSpeedMetersPerSec = 0.005f;
-    [SerializeField] private float stableRotSpeedDegPerSec = 2.0f;
-    [SerializeField] private float stableWarmupSeconds = 0.15f;
+    [SerializeField] private float stablePosSpeedMetersPerSec = 0.02f;
+    [SerializeField] private float stableRotSpeedDegPerSec = 8.0f;
+    [SerializeField] private float stableWarmupSeconds = 0.25f;
 
     [Header("Snap / Reset (snap kept but default off)")]
     [SerializeField] private bool snapOnSuccess = false;
@@ -119,6 +119,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
     private bool trialRunning = false;
     private bool inTransition = false;
+
+    bool useSingleActiveEval = workflowSingleActiveMode && !string.IsNullOrEmpty(_forcedActiveId);
 
     // Voice
     private KeywordRecognizer keywordRecognizer;
@@ -196,8 +198,10 @@ public class ToolPlacementTaskManager : MonoBehaviour
             return;
         }
 
-        // ---- Workflow single-active evaluation ----
-        if (workflowSingleActiveMode && _active != null)
+        // ---- Workflow single-active evaluation (forced id only) ----
+        bool useSingleActiveEval = workflowSingleActiveMode && !string.IsNullOrEmpty(_forcedActiveId);
+
+        if (useSingleActiveEval && _active != null)
         {
             float err = ComputeErrorMeters(_active);
             _active.lastErr = err;
@@ -237,6 +241,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         if (requireNotHolding && grabber != null && grabber.IsHolding)
         {
             dwellTimer = 0f;
+            OnConfirmProgress?.Invoke(0f, false);
             UpdateProgressUI();
             return;
         }
@@ -258,7 +263,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         {
             dwellTimer += dt;
             if (dwellTimer >= dwellSeconds)
-                EndTrialSuccess(_active);
+                EndTrialSuccess(null);
         }
         else
         {
@@ -344,8 +349,13 @@ public class ToolPlacementTaskManager : MonoBehaviour
             }
         }
 
-        if (_active == null && items.Count > 0)
-            _active = items[0];
+        // If forced id is not used, active selection is not required for fallback(all-tools) mode.
+        // Keep _active null here to avoid accidental single-item behavior.
+        if (!string.IsNullOrEmpty(_forcedActiveId))
+        {
+            if (_active == null && items.Count > 0)
+                _active = items[0];
+        }
 
         if (_active == null)
         {
