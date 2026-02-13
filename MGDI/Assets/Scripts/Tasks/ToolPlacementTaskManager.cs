@@ -12,6 +12,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
     public event Action OnBlockFinished;
     public event Action<int, int> OnTrialChanged;               // (current1Based, total)
     public event Action<int, int> OnProgressChanged;            // (placedCount, totalCount)
+    public event Action<float, bool> OnConfirmProgress;         // (t01, eligible)
+    public event Action OnConfirmDwellCompleted;
 
     [Header("Roots (auto-discovered via ToolId)")]
     [Tooltip("Root that contains the movable tool instances (Tools_Dynamic).")]
@@ -49,6 +51,10 @@ public class ToolPlacementTaskManager : MonoBehaviour
     [Header("Trial Timing")]
     [SerializeField] private float trialTimeoutSeconds = 35f;
     [SerializeField] private float dwellSeconds = 0.20f;
+    [SerializeField] private float confirmDwellSeconds = 3.0f;
+    [SerializeField] private float stablePosSpeedMetersPerSec = 0.005f;
+    [SerializeField] private float stableRotSpeedDegPerSec = 2.0f;
+    [SerializeField] private float stableWarmupSeconds = 0.15f;
 
     [Header("Snap / Reset (snap kept but default off)")]
     [SerializeField] private bool snapOnSuccess = false;
@@ -104,6 +110,12 @@ public class ToolPlacementTaskManager : MonoBehaviour
     private int trialIndex = 0;
     private float trialTimer = 0f;
     private float dwellTimer = 0f;
+    private float confirmDwellTimer = 0f;
+    private float stableWarmupTimer = 0f;
+    private bool confirmLatched = false;
+    private Vector3 confirmPrevPos = Vector3.zero;
+    private Quaternion confirmPrevRot = Quaternion.identity;
+    private bool confirmPrevPoseValid = false;
 
     private bool trialRunning = false;
     private bool inTransition = false;
@@ -173,19 +185,14 @@ public class ToolPlacementTaskManager : MonoBehaviour
     {
         if (!trialRunning || inTransition) return;
 
-        trialTimer += Time.deltaTime;
+        float dt = Time.deltaTime;
+        trialTimer += dt;
 
         if (trialTimer >= trialTimeoutSeconds)
         {
+            OnConfirmProgress?.Invoke(0f, false);
+            ResetConfirmState();
             StartCoroutine(EndTrialRoutine(false, true));
-            return;
-        }
-
-        // Optional: only evaluate success when the hand is not holding any tool.
-        if (requireNotHolding && grabber != null && grabber.IsHolding)
-        {
-            dwellTimer = 0f;
-            UpdateProgressUI();
             return;
         }
 
@@ -201,21 +208,39 @@ public class ToolPlacementTaskManager : MonoBehaviour
             OnProgressChanged?.Invoke(pass ? 1 : 0, 1);
             UpdateProgressUI();
 
-            if (pass)
-            {
-                dwellTimer += Time.deltaTime;
-                if (dwellTimer >= dwellSeconds)
-                    StartCoroutine(EndTrialRoutine(true, false));
-            }
+            bool stable = ComputeActiveStability(dt);
+            bool eligible = IsConfirmEligible(_active, err, stable);
+
+            if (eligible && !confirmLatched)
+                confirmDwellTimer += dt;
             else
+                confirmDwellTimer = 0f;
+
+            float confirmDuration = Mathf.Max(0.0001f, confirmDwellSeconds);
+            float t01 = Mathf.Clamp01(confirmDwellTimer / confirmDuration);
+            OnConfirmProgress?.Invoke(t01, eligible);
+
+            if (!confirmLatched && confirmDwellTimer >= confirmDuration)
             {
-                dwellTimer = 0f;
+                confirmLatched = true;
+                confirmDwellTimer = 0f;
+                OnConfirmDwellCompleted?.Invoke();
+                EndTrialSuccess(_active);
             }
 
             return;
         }
 
+        OnConfirmProgress?.Invoke(0f, false);
+
         // ---- Fallback: original "all tools" behavior (kept for compatibility) ----
+        if (requireNotHolding && grabber != null && grabber.IsHolding)
+        {
+            dwellTimer = 0f;
+            UpdateProgressUI();
+            return;
+        }
+
         int placedCount = 0;
         for (int i = 0; i < items.Count; i++)
         {
@@ -231,9 +256,9 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         if (items.Count > 0 && placedCount == items.Count)
         {
-            dwellTimer += Time.deltaTime;
+            dwellTimer += dt;
             if (dwellTimer >= dwellSeconds)
-                StartCoroutine(EndTrialRoutine(true, false));
+                EndTrialSuccess(_active);
         }
         else
         {
@@ -335,6 +360,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         trialTimer = 0f;
         dwellTimer = 0f;
+        ResetConfirmState();
+        InitializeConfirmPoseFromActive();
         trialRunning = true;
         inTransition = false;
 
@@ -348,7 +375,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         if (logDebug)
         {
-            Debug.Log($"[ToolPlacementTM] Trial {shownIndex}/{shownTotal} active={_active.id} tol={_active.tolerance:F3}m timeout={trialTimeoutSeconds:F0}s dwell={dwellSeconds:F2}s forced={(string.IsNullOrEmpty(_forcedActiveId) ? "NO" : "YES")}");
+            Debug.Log($"[ToolPlacementTM] Trial {shownIndex}/{shownTotal} active={_active.id} tol={_active.tolerance:F3}m timeout={trialTimeoutSeconds:F0}s confirmDwell={confirmDwellSeconds:F2}s forced={(string.IsNullOrEmpty(_forcedActiveId) ? "NO" : "YES")}");
         }
     }
 
@@ -357,6 +384,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         if (inTransition) yield break;
         inTransition = true;
         trialRunning = false;
+        ResetConfirmState();
 
         HideFeedbackUI();
 
@@ -496,6 +524,80 @@ public class ToolPlacementTaskManager : MonoBehaviour
             return Vector3.Distance(it.tool.position, it.target.position);
 
         return Vector3.Distance(it.toolR.bounds.center, it.targetR.bounds.center);
+    }
+
+    private bool ComputeActiveStability(float dt)
+    {
+        if (_active == null || _active.tool == null || dt <= 0f)
+            return false;
+
+        Vector3 currentPos = _active.tool.position;
+        Quaternion currentRot = _active.tool.rotation;
+
+        bool stable = false;
+        if (stableWarmupTimer < stableWarmupSeconds)
+        {
+            stableWarmupTimer += dt;
+            stable = false;
+        }
+        else if (confirmPrevPoseValid)
+        {
+            float posSpeed = Vector3.Distance(currentPos, confirmPrevPos) / dt;
+            float rotSpeedDeg = Quaternion.Angle(currentRot, confirmPrevRot) / dt;
+            stable = posSpeed <= stablePosSpeedMetersPerSec && rotSpeedDeg <= stableRotSpeedDegPerSec;
+        }
+
+        confirmPrevPos = currentPos;
+        confirmPrevRot = currentRot;
+        confirmPrevPoseValid = true;
+        return stable;
+    }
+
+    private bool IsConfirmEligible(Item it, float errorMeters, bool stable)
+    {
+        if (!IsTrialRunning) return false;
+        if (it == null || it.tool == null) return false;
+        if (errorMeters > it.tolerance) return false;
+        if (!stable) return false;
+        if (!IsNotHolding()) return false;
+        return true;
+    }
+
+    private bool IsNotHolding()
+    {
+        if (!requireNotHolding) return true;
+        if (grabber == null)
+        {
+            // TODO: Integrate a hold-state check if a different grabber API is used.
+            return true;
+        }
+
+        return !grabber.IsHolding;
+    }
+
+    private void ResetConfirmState()
+    {
+        confirmDwellTimer = 0f;
+        stableWarmupTimer = 0f;
+        confirmLatched = false;
+        confirmPrevPoseValid = false;
+        confirmPrevPos = Vector3.zero;
+        confirmPrevRot = Quaternion.identity;
+    }
+
+    private void InitializeConfirmPoseFromActive()
+    {
+        if (_active == null || _active.tool == null) return;
+        confirmPrevPos = _active.tool.position;
+        confirmPrevRot = _active.tool.rotation;
+        confirmPrevPoseValid = true;
+    }
+
+    private void EndTrialSuccess(Item it)
+    {
+        _ = it;
+        if (inTransition || !trialRunning) return;
+        StartCoroutine(EndTrialRoutine(true, false));
     }
 
     // ---------------- Optional snap (kept) ----------------
@@ -647,6 +749,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
     {
         trialRunning = false;
         inTransition = false;
+        ResetConfirmState();
         HideFeedbackUI();
 
         try { OnBlockFinished?.Invoke(); } catch { }
