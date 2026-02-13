@@ -120,8 +120,6 @@ public class ToolPlacementTaskManager : MonoBehaviour
     private bool trialRunning = false;
     private bool inTransition = false;
 
-    bool useSingleActiveEval = workflowSingleActiveMode && !string.IsNullOrEmpty(_forcedActiveId);
-
     // Voice
     private KeywordRecognizer keywordRecognizer;
     private Dictionary<string, Action> keywordActions;
