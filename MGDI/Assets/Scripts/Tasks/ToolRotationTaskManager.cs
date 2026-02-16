@@ -11,6 +11,9 @@ public class ToolRotationTaskManager : MonoBehaviour
 {
     public event Action OnBlockFinished;
     public event Action<int, int> OnTrialChanged; // (current1Based, total)
+    public event Action<float, bool> OnConfirmProgress; // (t01, eligible)
+    public event Action OnConfirmDwellCompleted;
+    public event Action<string> OnConfirmStatus;
 
     [Header("Roots (auto-discovered via ToolId)")]
     [SerializeField] private Transform toolsDynamicRoot;
@@ -38,6 +41,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     [Header("Feedback (Audio / UI)")]
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private AudioClip snapClip;
+    [SerializeField] private AudioClip confirmClip;
     [SerializeField] private GameObject starUI;
     [SerializeField] private GameObject xUI;
     [SerializeField] private float feedbackShowSeconds = 0.50f;
@@ -48,6 +52,10 @@ public class ToolRotationTaskManager : MonoBehaviour
     [Header("Trial Timing")]
     [SerializeField] private float trialTimeoutSeconds = 12f;
     [SerializeField] private float dwellSeconds = 0.20f;
+    [SerializeField] private float confirmDwellSeconds = 3.0f;
+    [SerializeField] private float stablePosSpeedMetersPerSec = 0.02f;
+    [SerializeField] private float stableRotSpeedDegPerSec = 8.0f;
+    [SerializeField] private float stableWarmupSeconds = 0.25f;
 
     [Header("Full 3D Success Threshold")]
     [SerializeField] private float rotationToleranceDeg = 12f;
@@ -58,6 +66,9 @@ public class ToolRotationTaskManager : MonoBehaviour
 
     [Tooltip("If true, macro evaluation requires releasing the object (simple 'stop input to evaluate' proxy).")]
     [SerializeField] private bool requireReleaseForEvaluationInMacro = true;
+
+    [Tooltip("If true, confirm dwell accumulates only when not holding any object.")]
+    [SerializeField] private bool requireNotHolding = true;
 
     [Header("Target rotation sampling (Full 3D)")]
     [Tooltip("Yaw random range in degrees (around world up in start-base frame).")]
@@ -145,6 +156,12 @@ public class ToolRotationTaskManager : MonoBehaviour
 
     private float _trialTimer = 0f;
     private float _dwellTimer = 0f;
+    private float _confirmDwellTimer = 0f;
+    private float _stableWarmupTimer = 0f;
+    private bool _confirmLatched = false;
+    private Vector3 _confirmPrevPos = Vector3.zero;
+    private Quaternion _confirmPrevRot = Quaternion.identity;
+    private bool _confirmPrevPoseValid = false;
 
     private bool _trialRunning = false;
     private bool _inTransition = false;
@@ -173,6 +190,9 @@ public class ToolRotationTaskManager : MonoBehaviour
         _trialIndex = 0;
 
         _externalDriving = false;
+        OnConfirmStatus?.Invoke("");
+        OnConfirmProgress?.Invoke(0f, false);
+        ResetConfirmState();
         HideFeedbackUI();
 
         RebuildItemsFromScene();
@@ -192,14 +212,28 @@ public class ToolRotationTaskManager : MonoBehaviour
 
     private void Update()
     {
-        if (!_trialRunning || _inTransition) return;
-        if (_active == null || _active.tool == null || _active.target == null) return;
+        if (!_trialRunning || _inTransition)
+        {
+            OnConfirmStatus?.Invoke("");
+            return;
+        }
 
-        _trialTimer += Time.deltaTime;
+        float dt = Time.deltaTime;
+        _trialTimer += dt;
 
         if (_trialTimer >= trialTimeoutSeconds)
         {
+            OnConfirmProgress?.Invoke(0f, false);
+            OnConfirmStatus?.Invoke("");
+            ResetConfirmState();
             StartCoroutine(EndTrialRoutine(success: false, timedOut: true));
+            return;
+        }
+
+        if (_active == null || _active.tool == null || _active.target == null)
+        {
+            OnConfirmProgress?.Invoke(0f, false);
+            OnConfirmStatus?.Invoke("");
             return;
         }
 
@@ -219,26 +253,36 @@ public class ToolRotationTaskManager : MonoBehaviour
         }
 
         float errDeg = ComputeRotationErrorDeg();
+        EmitRotationConfirmStatus(errDeg, rotationToleranceDeg);
 
         if (progressText != null)
             UpdateProgressText(errDeg, evalAllowed);
 
-        if (errDeg <= rotationToleranceDeg)
-        {
-            if (evalAllowed)
-            {
-                _dwellTimer += Time.deltaTime;
-                if (_dwellTimer >= dwellSeconds)
-                    StartCoroutine(EndTrialRoutine(success: true, timedOut: false));
-            }
-            else
-            {
-                _dwellTimer = 0f;
-            }
-        }
+        bool stable = ComputeActiveStability(dt);
+        bool eligible =
+            IsTrialRunning &&
+            ActiveToolTransform != null &&
+            errDeg <= rotationToleranceDeg &&
+            stable &&
+            IsNotHolding() &&
+            evalAllowed;
+
+        if (eligible && !_confirmLatched)
+            _confirmDwellTimer += dt;
         else
+            _confirmDwellTimer = 0f;
+
+        float confirmDuration = Mathf.Max(0.0001f, confirmDwellSeconds);
+        float t01 = Mathf.Clamp01(_confirmDwellTimer / confirmDuration);
+        OnConfirmProgress?.Invoke(t01, eligible);
+
+        if (!_confirmLatched && _confirmDwellTimer >= confirmDuration)
         {
-            _dwellTimer = 0f;
+            _confirmLatched = true;
+            _confirmDwellTimer = 0f;
+            OnConfirmDwellCompleted?.Invoke();
+            PlayConfirmSound();
+            EndTrialSuccess();
         }
     }
 
@@ -314,8 +358,12 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         _trialTimer = 0f;
         _dwellTimer = 0f;
+        ResetConfirmState();
+        InitializeConfirmPoseFromActive();
         _trialRunning = true;
         _inTransition = false;
+        OnConfirmProgress?.Invoke(0f, false);
+        OnConfirmStatus?.Invoke("");
 
         OnTrialChanged?.Invoke(_trialIndex + 1, totalTrials);
 
@@ -331,6 +379,9 @@ public class ToolRotationTaskManager : MonoBehaviour
         if (_inTransition) yield break;
         _inTransition = true;
         _trialRunning = false;
+        OnConfirmProgress?.Invoke(0f, false);
+        OnConfirmStatus?.Invoke("");
+        ResetConfirmState();
 
         HideFeedbackUI();
 
@@ -495,6 +546,87 @@ public class ToolRotationTaskManager : MonoBehaviour
         return Quaternion.Angle(_active.tool.rotation, _active.target.rotation);
     }
 
+    private void EmitRotationConfirmStatus(float errorDeg, float toleranceDeg)
+    {
+        bool holding = requireNotHolding && grabber != null && grabber.IsHolding;
+        bool withinTol = errorDeg <= toleranceDeg;
+
+        string msg;
+        if (holding)
+            msg = "Release to confirm";
+        else if (!withinTol)
+            msg = "Align rotation";
+        else
+            msg = "Confirming...";
+
+        OnConfirmStatus?.Invoke(msg);
+    }
+
+    private bool ComputeActiveStability(float dt)
+    {
+        Transform tf = ActiveToolTransform;
+        if (tf == null || dt <= 0f)
+            return false;
+
+        Vector3 currentPos = tf.position;
+        Quaternion currentRot = tf.rotation;
+
+        bool stable = false;
+        if (_stableWarmupTimer < stableWarmupSeconds)
+        {
+            _stableWarmupTimer += dt;
+            stable = false;
+        }
+        else if (_confirmPrevPoseValid)
+        {
+            float posSpeed = Vector3.Distance(currentPos, _confirmPrevPos) / dt;
+            float rotSpeedDeg = Quaternion.Angle(currentRot, _confirmPrevRot) / dt;
+            stable = posSpeed <= stablePosSpeedMetersPerSec && rotSpeedDeg <= stableRotSpeedDegPerSec;
+        }
+
+        _confirmPrevPos = currentPos;
+        _confirmPrevRot = currentRot;
+        _confirmPrevPoseValid = true;
+        return stable;
+    }
+
+    private bool IsNotHolding()
+    {
+        if (!requireNotHolding) return true;
+        if (grabber == null)
+        {
+            // TODO: Integrate a hold-state check if a different grabber API is used.
+            return true;
+        }
+
+        return !grabber.IsHolding;
+    }
+
+    private void ResetConfirmState()
+    {
+        _confirmDwellTimer = 0f;
+        _stableWarmupTimer = 0f;
+        _confirmLatched = false;
+        _confirmPrevPos = Vector3.zero;
+        _confirmPrevRot = Quaternion.identity;
+        _confirmPrevPoseValid = false;
+    }
+
+    private void InitializeConfirmPoseFromActive()
+    {
+        Transform tf = ActiveToolTransform;
+        if (tf == null) return;
+        _confirmPrevPos = tf.position;
+        _confirmPrevRot = tf.rotation;
+        _confirmPrevPoseValid = true;
+    }
+
+    private void EndTrialSuccess()
+    {
+        if (_inTransition || !_trialRunning) return;
+        StartCoroutine(EndTrialRoutine(success: true, timedOut: false));
+    }
+
     private void SnapRotationToTarget()
     {
         if (_active == null || _active.tool == null || _active.target == null) return;
@@ -553,6 +685,12 @@ public class ToolRotationTaskManager : MonoBehaviour
             audioSource.PlayOneShot(snapClip);
     }
 
+    private void PlayConfirmSound()
+    {
+        if (audioSource != null && confirmClip != null)
+            audioSource.PlayOneShot(confirmClip);
+    }
+
     private void ShowStar()
     {
         if (starUI != null) starUI.SetActive(true);
@@ -603,12 +741,19 @@ public class ToolRotationTaskManager : MonoBehaviour
     {
         _trialRunning = false;
         _inTransition = false;
+        OnConfirmProgress?.Invoke(0f, false);
+        OnConfirmStatus?.Invoke("");
+        ResetConfirmState();
         HideFeedbackUI();
         try { OnBlockFinished?.Invoke(); } catch { }
     }
 
     private void OnDisable()
     {
+        OnConfirmProgress?.Invoke(0f, false);
+        OnConfirmStatus?.Invoke("");
+        ResetConfirmState();
+
         if (grabber != null)
             grabber.SetHeldRotationMode(restoreGrabberModeOnDisable);
 

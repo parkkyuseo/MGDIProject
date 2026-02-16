@@ -17,15 +17,13 @@ public class DwellConfirmHUD : MonoBehaviour
     [Header("Behavior")]
     [Tooltip("If true, show only when eligible. If false, show whenever a task is running and emitting progress.")]
     [SerializeField] private bool showOnlyWhenEligible = true;
-
-    [Tooltip("If true, hide the HUD when no progress event has arrived recently.")]
-    [SerializeField] private bool hideIfNoRecentEvents = true;
-
     [SerializeField] private float noEventHideSeconds = 0.35f;
+    [SerializeField] private bool showRemainingInsteadOfProgress = false;
 
     private float _lastEventTime = -999f;
     private bool _lastEligible = false;
     private float _lastT01 = 0f;
+    private string _lastStatus = "";
 
     private void Awake()
     {
@@ -36,48 +34,90 @@ public class DwellConfirmHUD : MonoBehaviour
     private void OnEnable()
     {
         if (placementTask != null) placementTask.OnConfirmProgress += HandlePlacementProgress;
-
-        // Optional: later when you add confirm for rotation/scaling, subscribe here too.
-        // if (rotationTask != null) rotationTask.OnConfirmProgress += HandleRotationProgress;
-        // if (scalingTask != null) scalingTask.OnConfirmProgress += HandleScalingProgress;
+        if (placementTask != null) placementTask.OnConfirmStatus += HandlePlacementStatus;
+        if (rotationTask != null) rotationTask.OnConfirmProgress += HandleRotationProgress;
+        if (rotationTask != null) rotationTask.OnConfirmStatus += HandleRotationStatus;
+        if (scalingTask != null) scalingTask.OnConfirmProgress += HandleScalingProgress;
+        if (scalingTask != null) scalingTask.OnConfirmStatus += HandleScalingStatus;
 
         SetVisible(false);
         SetFill(0f);
         SetStatus("");
+        _lastStatus = "";
     }
 
     private void OnDisable()
     {
         if (placementTask != null) placementTask.OnConfirmProgress -= HandlePlacementProgress;
-        // if (rotationTask != null) rotationTask.OnConfirmProgress -= HandleRotationProgress;
-        // if (scalingTask != null) scalingTask.OnConfirmProgress -= HandleScalingProgress;
+        if (placementTask != null) placementTask.OnConfirmStatus -= HandlePlacementStatus;
+        if (rotationTask != null) rotationTask.OnConfirmProgress -= HandleRotationProgress;
+        if (rotationTask != null) rotationTask.OnConfirmStatus -= HandleRotationStatus;
+        if (scalingTask != null) scalingTask.OnConfirmProgress -= HandleScalingProgress;
+        if (scalingTask != null) scalingTask.OnConfirmStatus -= HandleScalingStatus;
     }
 
     private void Update()
     {
-        if (!hideIfNoRecentEvents) return;
-
-        // If no events recently, hide. This naturally hides when moving to Rotation/Scaling.
         if (Time.time - _lastEventTime > noEventHideSeconds)
         {
             SetVisible(false);
+            return;
         }
-        else
-        {
-            bool show = showOnlyWhenEligible ? _lastEligible : true;
-            SetVisible(show);
-            SetFill(_lastT01);
-        }
+
+        bool show = showOnlyWhenEligible ? _lastEligible : true;
+        SetVisible(show);
+
+        float fill = showRemainingInsteadOfProgress ? (1f - _lastT01) : _lastT01;
+        SetFill(fill);
     }
 
     private void HandlePlacementProgress(float t01, bool eligible)
+    {
+        HandleProgressCommon(t01, eligible);
+    }
+
+    private void HandleRotationProgress(float t01, bool eligible)
+    {
+        HandleProgressCommon(t01, eligible);
+    }
+
+    private void HandleScalingProgress(float t01, bool eligible)
+    {
+        HandleProgressCommon(t01, eligible);
+    }
+
+    private void HandlePlacementStatus(string status)
+    {
+        HandleStatusCommon(status);
+    }
+
+    private void HandleRotationStatus(string status)
+    {
+        HandleStatusCommon(status);
+    }
+
+    private void HandleScalingStatus(string status)
+    {
+        HandleStatusCommon(status);
+    }
+
+    private void HandleProgressCommon(float t01, bool eligible)
     {
         _lastEventTime = Time.time;
         _lastEligible = eligible;
         _lastT01 = Mathf.Clamp01(t01);
 
-        if (statusText != null)
-            statusText.text = eligible ? "Confirming..." : "Align to target...";
+        float fill = showRemainingInsteadOfProgress ? (1f - _lastT01) : _lastT01;
+        SetFill(fill);
+
+        bool show = showOnlyWhenEligible ? eligible : true;
+        SetVisible(show);
+    }
+
+    private void HandleStatusCommon(string status)
+    {
+        _lastStatus = status ?? "";
+        SetStatus(_lastStatus);
     }
 
     private void SetVisible(bool on)

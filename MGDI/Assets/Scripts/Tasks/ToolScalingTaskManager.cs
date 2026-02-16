@@ -10,6 +10,9 @@ public class ToolScalingTaskManager : MonoBehaviour
 {
     public event Action OnBlockFinished;
     public event Action<int, int> OnTrialChanged; // (current1Based, total)
+    public event Action<float, bool> OnConfirmProgress; // (t01, eligible)
+    public event Action OnConfirmDwellCompleted;
+    public event Action<string> OnConfirmStatus;
 
     [Header("Tools Root (auto-discovered via ToolId)")]
     [SerializeField] private Transform toolsDynamicRoot;
@@ -37,6 +40,10 @@ public class ToolScalingTaskManager : MonoBehaviour
     [Header("Trial Timing")]
     [SerializeField] private float trialTimeoutSeconds = 12f;
     [SerializeField] private float dwellSeconds = 0.20f;
+    [SerializeField] private float confirmDwellSeconds = 3.0f;
+    [SerializeField] private float stablePosSpeedMetersPerSec = 0.02f;
+    [SerializeField] private float stableRotSpeedDegPerSec = 8.0f;
+    [SerializeField] private float stableWarmupSeconds = 0.25f;
 
     [Header("Success Threshold (FACTOR)")]
     [Tooltip("Success if abs(currentFactor - targetFactor) <= tolerance.")]
@@ -83,6 +90,10 @@ public class ToolScalingTaskManager : MonoBehaviour
     [SerializeField] private bool resetScaleAfterTrial = true;
     [SerializeField] private bool forceReleaseAfterTrial = true;
 
+    [Header("Feedback (Audio)")]
+    [SerializeField] private AudioSource audioSource;
+    [SerializeField] private AudioClip confirmClip;
+
     [Header("Trial Count")]
     [SerializeField] private int totalTrials = 20;
 
@@ -124,6 +135,12 @@ public class ToolScalingTaskManager : MonoBehaviour
     private int trialIndex = 0;
     private float trialTimer = 0f;
     private float dwellTimer = 0f;
+    private float confirmDwellTimer = 0f;
+    private float stableWarmupTimer = 0f;
+    private bool confirmLatched = false;
+    private Vector3 confirmPrevPos = Vector3.zero;
+    private Quaternion confirmPrevRot = Quaternion.identity;
+    private bool confirmPrevPoseValid = false;
     private bool trialRunning = false;
     private bool inTransition = false;
 
@@ -192,6 +209,9 @@ public class ToolScalingTaskManager : MonoBehaviour
         trialRunning = false;
         trialIndex = 0;
         _externalDriving = false;
+        OnConfirmProgress?.Invoke(0f, false);
+        OnConfirmStatus?.Invoke("");
+        ResetConfirmState();
 
         // Safety: in case previous run ended unexpectedly
         RestoreTargetGhostScale();
@@ -204,12 +224,26 @@ public class ToolScalingTaskManager : MonoBehaviour
 
     void Update()
     {
-        if (!trialRunning || inTransition || active == null) return;
+        if (!trialRunning || inTransition)
+        {
+            OnConfirmStatus?.Invoke("");
+            return;
+        }
+        if (active == null || active.tool == null)
+        {
+            OnConfirmProgress?.Invoke(0f, false);
+            OnConfirmStatus?.Invoke("");
+            return;
+        }
 
-        trialTimer += Time.deltaTime;
+        float dt = Time.deltaTime;
+        trialTimer += dt;
 
         if (trialTimer >= trialTimeoutSeconds)
         {
+            OnConfirmProgress?.Invoke(0f, false);
+            OnConfirmStatus?.Invoke("");
+            ResetConfirmState();
             StartCoroutine(EndTrialRoutine(success: false, timedOut: true));
             return;
         }
@@ -231,26 +265,36 @@ public class ToolScalingTaskManager : MonoBehaviour
         if (requireNotHolding && grabber != null && grabber.IsHolding)
             evalAllowed = false;
 
-        // ✅ SAFE: evaluate using actual tool scale (not only cmd)
         float curFactor = GetActualScaleFactor(active);
         float err = Mathf.Abs(curFactor - active.targetFactor);
+        float statusCurFactor = active.scaleFactorCmd;
+        float statusErr = Mathf.Abs(statusCurFactor - active.targetFactor);
+        EmitScaleConfirmStatus(statusErr, scaleFactorTolerance);
+        bool stable = ComputeActiveStability(dt);
+        bool eligible =
+            IsTrialRunning &&
+            ActiveToolTransform != null &&
+            err <= scaleFactorTolerance &&
+            stable &&
+            IsNotHolding() &&
+            evalAllowed;
 
-        if (err <= scaleFactorTolerance)
-        {
-            if (evalAllowed)
-            {
-                dwellTimer += Time.deltaTime;
-                if (dwellTimer >= dwellSeconds)
-                    StartCoroutine(EndTrialRoutine(success: true, timedOut: false));
-            }
-            else
-            {
-                dwellTimer = 0f;
-            }
-        }
+        if (eligible && !confirmLatched)
+            confirmDwellTimer += dt;
         else
+            confirmDwellTimer = 0f;
+
+        float confirmDuration = Mathf.Max(0.0001f, confirmDwellSeconds);
+        float t01 = Mathf.Clamp01(confirmDwellTimer / confirmDuration);
+        OnConfirmProgress?.Invoke(t01, eligible);
+
+        if (!confirmLatched && confirmDwellTimer >= confirmDuration)
         {
-            dwellTimer = 0f;
+            confirmLatched = true;
+            confirmDwellTimer = 0f;
+            OnConfirmDwellCompleted?.Invoke();
+            PlayConfirmSound();
+            EndTrialSuccess();
         }
     }
 
@@ -322,8 +366,12 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         trialTimer = 0f;
         dwellTimer = 0f;
+        ResetConfirmState();
+        InitializeConfirmPoseFromActive();
         trialRunning = true;
         inTransition = false;
+        OnConfirmProgress?.Invoke(0f, false);
+        OnConfirmStatus?.Invoke("");
 
         int shownTotal = string.IsNullOrEmpty(_forcedActiveId) ? totalTrials : 1;
         int shownIndex = string.IsNullOrEmpty(_forcedActiveId) ? (trialIndex + 1) : 1;
@@ -339,6 +387,9 @@ public class ToolScalingTaskManager : MonoBehaviour
         if (inTransition) yield break;
         inTransition = true;
         trialRunning = false;
+        OnConfirmProgress?.Invoke(0f, false);
+        OnConfirmStatus?.Invoke("");
+        ResetConfirmState();
 
         if (success)
         {
@@ -662,7 +713,94 @@ public class ToolScalingTaskManager : MonoBehaviour
         return Mathf.Clamp(f, minScaleFactor, maxScaleFactor);
     }
 
+    private void EmitScaleConfirmStatus(float errorFactor, float toleranceFactor)
+    {
+        bool holding = requireNotHolding && grabber != null && grabber.IsHolding;
+        bool withinTol = errorFactor <= toleranceFactor;
+
+        string msg;
+        if (holding)
+            msg = "Release to confirm";
+        else if (!withinTol)
+            msg = "Align size";
+        else
+            msg = "Confirming...";
+
+        OnConfirmStatus?.Invoke(msg);
+    }
+
+    private bool ComputeActiveStability(float dt)
+    {
+        Transform tf = ActiveToolTransform;
+        if (tf == null || dt <= 0f)
+            return false;
+
+        Vector3 currentPos = tf.position;
+        Quaternion currentRot = tf.rotation;
+
+        bool stable = false;
+        if (stableWarmupTimer < stableWarmupSeconds)
+        {
+            stableWarmupTimer += dt;
+            stable = false;
+        }
+        else if (confirmPrevPoseValid)
+        {
+            float posSpeed = Vector3.Distance(currentPos, confirmPrevPos) / dt;
+            float rotSpeedDeg = Quaternion.Angle(currentRot, confirmPrevRot) / dt;
+            stable = posSpeed <= stablePosSpeedMetersPerSec && rotSpeedDeg <= stableRotSpeedDegPerSec;
+        }
+
+        confirmPrevPos = currentPos;
+        confirmPrevRot = currentRot;
+        confirmPrevPoseValid = true;
+        return stable;
+    }
+
+    private bool IsNotHolding()
+    {
+        if (!requireNotHolding) return true;
+        if (grabber == null)
+        {
+            // TODO: Integrate a hold-state check if a different grabber API is used.
+            return true;
+        }
+
+        return !grabber.IsHolding;
+    }
+
+    private void ResetConfirmState()
+    {
+        confirmDwellTimer = 0f;
+        stableWarmupTimer = 0f;
+        confirmLatched = false;
+        confirmPrevPos = Vector3.zero;
+        confirmPrevRot = Quaternion.identity;
+        confirmPrevPoseValid = false;
+    }
+
+    private void InitializeConfirmPoseFromActive()
+    {
+        Transform tf = ActiveToolTransform;
+        if (tf == null) return;
+        confirmPrevPos = tf.position;
+        confirmPrevRot = tf.rotation;
+        confirmPrevPoseValid = true;
+    }
+
+    private void EndTrialSuccess()
+    {
+        if (inTransition || !trialRunning) return;
+        StartCoroutine(EndTrialRoutine(success: true, timedOut: false));
+    }
+
     // ---------------- Shared helpers ----------------
+    private void PlayConfirmSound()
+    {
+        if (audioSource != null && confirmClip != null)
+            audioSource.PlayOneShot(confirmClip);
+    }
+
     private void ForceReleaseIfPossible()
     {
         if (grabber != null) grabber.ForceRelease();
@@ -672,10 +810,21 @@ public class ToolScalingTaskManager : MonoBehaviour
     {
         trialRunning = false;
         inTransition = false;
+        OnConfirmProgress?.Invoke(0f, false);
+        OnConfirmStatus?.Invoke("");
+        ResetConfirmState();
 
         // Safety: ensure ghost gets restored when block finishes
         RestoreTargetGhostScale();
 
         try { OnBlockFinished?.Invoke(); } catch { }
     }
+
+    private void OnDisable()
+    {
+        OnConfirmProgress?.Invoke(0f, false);
+        OnConfirmStatus?.Invoke("");
+        ResetConfirmState();
+    }
 }
+

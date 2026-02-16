@@ -5,7 +5,7 @@ public class MicroScalingAnalogController : MonoBehaviour
     [Header("Refs")]
     [SerializeField] private PhoneInputRouter router;
     [SerializeField] private ProxyHandGrabber grabber;
-    [SerializeField] private ToolScalingTaskManager scalingTask; // NEW: drive task manager, not transform scale
+    [SerializeField] private ToolScalingTaskManager scalingTask; // Drive task manager, not transform scale
 
     [Header("Settings")]
     [SerializeField] private float scaleRatePerSec = 1.0f; // factor *= exp(rate * axisY * dt)
@@ -16,11 +16,20 @@ public class MicroScalingAnalogController : MonoBehaviour
     [SerializeField] private float maxFactor = 1.80f;
 
     [Header("Micro only policy")]
-    [Tooltip("If false, scaling will require holding (Micro mode only). If true, controller can scale without holding, but TaskManager gating may still block depending on its settings.")]
+    [Tooltip("If false, scaling requires holding in Micro mode. If true, scaling can run without holding, while task-manager gating still applies.")]
     [SerializeField] private bool allowWithoutHoldingInMicro = true;
+
+    [Header("Adaptive Gain (Micro analog)")]
+    [SerializeField] private bool useAdaptiveGain = true;
+    [SerializeField] private float minGain = 0.35f;
+    [SerializeField] private float maxGain = 2.0f;
+    [SerializeField] private float gainGamma = 1.4f;
+    [SerializeField] private float gainLerp = 12f;
+    [SerializeField] private float maxGainScaling = 1.6f;
 
     private float _factor = 1f;
     private bool _prevActive = false;
+    private float _gain = 1f;
 
     void Awake()
     {
@@ -32,17 +41,37 @@ public class MicroScalingAnalogController : MonoBehaviour
     void Update()
     {
         if (router == null || scalingTask == null) return;
-        if (router.CurrentMode != PhoneInputRouter.Mode.Micro) { scalingTask.SetExternalDriving(false); _prevActive = false; return; }
-        if (!scalingTask.IsTrialRunning) { scalingTask.SetExternalDriving(false); _prevActive = false; _factor = 1f; return; }
+
+        float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+
+        if (router.CurrentMode != PhoneInputRouter.Mode.Micro)
+        {
+            scalingTask.SetExternalDriving(false);
+            _prevActive = false;
+            UpdateAdaptiveGain(Vector2.zero, false, dt);
+            return;
+        }
+
+        if (!scalingTask.IsTrialRunning)
+        {
+            scalingTask.SetExternalDriving(false);
+            _prevActive = false;
+            _factor = 1f;
+            UpdateAdaptiveGain(Vector2.zero, false, dt);
+            return;
+        }
 
         if (!router.AxisActive)
         {
             scalingTask.SetExternalDriving(false);
             _prevActive = false;
+            UpdateAdaptiveGain(Vector2.zero, false, dt);
             return;
         }
 
         Vector2 a = router.Axis;
+        UpdateAdaptiveGain(a, true, dt);
+
         if (Mathf.Abs(a.y) < deadzone)
         {
             scalingTask.SetExternalDriving(false);
@@ -50,7 +79,7 @@ public class MicroScalingAnalogController : MonoBehaviour
             return;
         }
 
-        // holding gate (Micro only)
+        // Holding gate (Micro only)
         if (!allowWithoutHoldingInMicro)
         {
             if (grabber == null || !grabber.IsHolding)
@@ -61,9 +90,7 @@ public class MicroScalingAnalogController : MonoBehaviour
             }
         }
 
-        float dt = Mathf.Max(Time.unscaledDeltaTime, 1e-4f);
-
-        // On first active frame, start from current cmd (or 1.0). Here we reset to 1 for predictability.
+        // On first active frame, start from current cmd (or 1.0). Here it resets to 1 for predictability.
         if (!_prevActive)
         {
             _factor = 1f;
@@ -71,8 +98,8 @@ public class MicroScalingAnalogController : MonoBehaviour
             _prevActive = true;
         }
 
-        // factor *= exp(rate * y * dt)
-        _factor *= Mathf.Exp(scaleRatePerSec * a.y * dt);
+        // factor *= exp((rate * gain) * y * dt)
+        _factor *= Mathf.Exp((scaleRatePerSec * _gain) * a.y * dt);
         _factor = Mathf.Clamp(_factor, minFactor, maxFactor);
 
         scalingTask.SetExternalDriving(true);
@@ -82,5 +109,28 @@ public class MicroScalingAnalogController : MonoBehaviour
     void OnDisable()
     {
         if (scalingTask != null) scalingTask.SetExternalDriving(false);
+    }
+
+    private void UpdateAdaptiveGain(Vector2 axis, bool axisActive, float dt)
+    {
+        if (!useAdaptiveGain)
+        {
+            _gain = 1f;
+            return;
+        }
+
+        float gainMax = Mathf.Min(maxGain, maxGainScaling);
+        gainMax = Mathf.Max(minGain, gainMax);
+
+        float targetGain = 1f;
+        if (axisActive)
+        {
+            float m = Mathf.Clamp01(axis.magnitude);
+            float shaped = Mathf.Pow(m, gainGamma);
+            targetGain = Mathf.Lerp(minGain, gainMax, shaped);
+        }
+
+        float t = 1f - Mathf.Exp(-gainLerp * dt);
+        _gain = Mathf.Lerp(_gain, targetGain, t);
     }
 }

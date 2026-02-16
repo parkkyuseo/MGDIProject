@@ -14,6 +14,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
     public event Action<int, int> OnProgressChanged;            // (placedCount, totalCount)
     public event Action<float, bool> OnConfirmProgress;         // (t01, eligible)
     public event Action OnConfirmDwellCompleted;
+    public event Action<string> OnConfirmStatus;
 
     [Header("Roots (auto-discovered via ToolId)")]
     [Tooltip("Root that contains the movable tool instances (Tools_Dynamic).")]
@@ -64,6 +65,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
     [Header("Feedback (Audio / UI)")]
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private AudioClip snapClip;
+    [SerializeField] private AudioClip confirmClip;
     [SerializeField] private GameObject starUI;
     [SerializeField] private GameObject xUI;
     [SerializeField] private float feedbackShowSeconds = 0.50f;
@@ -160,6 +162,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         inTransition = false;
         trialRunning = false;
         trialIndex = 0;
+        OnConfirmStatus?.Invoke("");
 
         HideFeedbackUI();
 
@@ -183,7 +186,11 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
     void Update()
     {
-        if (!trialRunning || inTransition) return;
+        if (!trialRunning || inTransition)
+        {
+            OnConfirmStatus?.Invoke("");
+            return;
+        }
 
         float dt = Time.deltaTime;
         trialTimer += dt;
@@ -191,6 +198,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         if (trialTimer >= trialTimeoutSeconds)
         {
             OnConfirmProgress?.Invoke(0f, false);
+            OnConfirmStatus?.Invoke("");
             ResetConfirmState();
             StartCoroutine(EndTrialRoutine(false, true));
             return;
@@ -203,6 +211,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         {
             float err = ComputeErrorMeters(_active);
             _active.lastErr = err;
+            EmitPlacementConfirmStatus(err, _active.tolerance);
 
             bool pass = (err <= _active.tolerance);
             _active.placed = pass;
@@ -227,6 +236,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
                 confirmLatched = true;
                 confirmDwellTimer = 0f;
                 OnConfirmDwellCompleted?.Invoke();
+                PlayConfirmSound();
                 EndTrialSuccess(_active);
             }
 
@@ -234,6 +244,10 @@ public class ToolPlacementTaskManager : MonoBehaviour
         }
 
         OnConfirmProgress?.Invoke(0f, false);
+
+        float statusErr = (_active != null) ? ComputeErrorMeters(_active) : float.MaxValue;
+        float statusTol = (_active != null) ? _active.tolerance : float.MaxValue;
+        EmitPlacementConfirmStatus(statusErr, statusTol);
 
         // ---- Fallback: original "all tools" behavior (kept for compatibility) ----
         if (requireNotHolding && grabber != null && grabber.IsHolding)
@@ -367,6 +381,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         InitializeConfirmPoseFromActive();
         trialRunning = true;
         inTransition = false;
+        OnConfirmStatus?.Invoke("");
 
         // For workflow, trial count UI isn't meaningful; still send something stable.
         int shownTotal = string.IsNullOrEmpty(_forcedActiveId) ? totalTrials : 1;
@@ -387,6 +402,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         if (inTransition) yield break;
         inTransition = true;
         trialRunning = false;
+        OnConfirmStatus?.Invoke("");
         ResetConfirmState();
 
         HideFeedbackUI();
@@ -527,6 +543,22 @@ public class ToolPlacementTaskManager : MonoBehaviour
             return Vector3.Distance(it.tool.position, it.target.position);
 
         return Vector3.Distance(it.toolR.bounds.center, it.targetR.bounds.center);
+    }
+
+    private void EmitPlacementConfirmStatus(float errorMeters, float toleranceMeters)
+    {
+        bool holding = requireNotHolding && grabber != null && grabber.IsHolding;
+        bool withinTol = errorMeters <= toleranceMeters;
+
+        string msg;
+        if (holding)
+            msg = "Release to confirm";
+        else if (!withinTol)
+            msg = "Align position";
+        else
+            msg = "Confirming...";
+
+        OnConfirmStatus?.Invoke(msg);
     }
 
     private bool ComputeActiveStability(float dt)
@@ -690,6 +722,12 @@ public class ToolPlacementTaskManager : MonoBehaviour
             audioSource.PlayOneShot(snapClip);
     }
 
+    private void PlayConfirmSound()
+    {
+        if (audioSource != null && confirmClip != null)
+            audioSource.PlayOneShot(confirmClip);
+    }
+
     private void ShowStar()
     {
         if (starUI != null) starUI.SetActive(true);
@@ -752,6 +790,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
     {
         trialRunning = false;
         inTransition = false;
+        OnConfirmStatus?.Invoke("");
         ResetConfirmState();
         HideFeedbackUI();
 
@@ -760,6 +799,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
     private void OnDisable()
     {
+        OnConfirmStatus?.Invoke("");
+
         // Prevent mode leaking into other tasks if this manager is disabled mid-run
         if (restoreRotationModeAfterTrial)
             SetGrabberRotationMode(restoreGrabberModeAfterTrial);
