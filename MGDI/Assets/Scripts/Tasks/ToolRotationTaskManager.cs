@@ -70,6 +70,9 @@ public class ToolRotationTaskManager : MonoBehaviour
     [Tooltip("If true, confirm dwell accumulates only when not holding any object.")]
     [SerializeField] private bool requireNotHolding = true;
 
+    [Header("Target Rotation Source")]
+    [SerializeField] private bool autoGenerateTargetRotation = true;
+
     [Header("Target rotation sampling (Full 3D)")]
     [Tooltip("Yaw random range in degrees (around world up in start-base frame).")]
     [SerializeField] private float yawMinDeg = 20f;
@@ -351,10 +354,13 @@ public class ToolRotationTaskManager : MonoBehaviour
                 microAutoPlacer.PlaceHandNear(_active.tool);
         }
 
-        // Sample a full 3D target rotation offset relative to startBaseRot
-        Quaternion offset = SampleRandomRotationOffset();
-        _active.targetDesiredRot = offset * _active.startBaseRot; // left-multiply for "delta in world"
-        _active.target.rotation = _active.targetDesiredRot;
+        if (autoGenerateTargetRotation)
+        {
+            // Sample a full 3D target rotation offset relative to startBaseRot
+            Quaternion offset = SampleRandomRotationOffset();
+            _active.targetDesiredRot = offset * _active.startBaseRot; // left-multiply for "delta in world"
+            _active.target.rotation = _active.targetDesiredRot;
+        }
 
         _trialTimer = 0f;
         _dwellTimer = 0f;
@@ -427,7 +433,8 @@ public class ToolRotationTaskManager : MonoBehaviour
         if (!bringTargetNearActiveTool) return;
 
         _active.target.position = _active.targetBasePos;
-        _active.target.rotation = _active.targetBaseRot;
+        if (autoGenerateTargetRotation)
+            _active.target.rotation = _active.targetBaseRot;
     }
 
     private void MoveTargetNearActiveTool()

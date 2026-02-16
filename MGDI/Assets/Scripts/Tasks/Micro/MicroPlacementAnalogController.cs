@@ -3,6 +3,7 @@ using UnityEngine;
 public class MicroPlacementAnalogController : MonoBehaviour
 {
     public enum PlaneMode { XY = 0, XZ = 1 }
+    private enum DominantAxis { None, X, Y, Mixed }
 
     [Header("Refs")]
     [SerializeField] private PhoneInputRouter router;
@@ -25,6 +26,16 @@ public class MicroPlacementAnalogController : MonoBehaviour
     [SerializeField] private float gainGamma = 1.4f;
     [SerializeField] private float gainLerp = 12f;
 
+    [Header("Dominant Axis (Micro analog)")]
+    [SerializeField] private bool useDominantAxisLock = true;
+    [SerializeField] private float dominanceRatio = 1.35f;
+    [SerializeField] private float smallThreshold = 0.05f;
+    [SerializeField] private bool softBiasWhenDiagonal = true;
+    [SerializeField] private float diagonalBiasStrength = 0.75f;
+
+    [Header("Debug")]
+    [SerializeField] private bool logDominantAxis = false;
+
     private float _gain = 1f;
 
     void Awake()
@@ -41,7 +52,10 @@ public class MicroPlacementAnalogController : MonoBehaviour
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
 
         if (router.TryConsumeModeToggle())
+        {
             planeMode = (planeMode == PlaneMode.XY) ? PlaneMode.XZ : PlaneMode.XY;
+            ResetModeSensitiveState();
+        }
 
         if (!router.AxisActive)
         {
@@ -53,11 +67,19 @@ public class MicroPlacementAnalogController : MonoBehaviour
         if (invertAxisX) a.x = -a.x;
         if (invertAxisY) a.y = -a.y;
 
-        UpdateAdaptiveGain(a, true, dt);
+        DominantAxis dominant;
+        Vector2 useAxis = ApplyDominantAxisPolicy(a, out dominant);
 
-        if (a.magnitude < deadzone) return;
+        UpdateAdaptiveGain(useAxis, true, dt);
+
+        if (useAxis.magnitude < deadzone) return;
 
         float effectiveSpeed = speedMetersPerSec * _gain;
+
+        if (logDominantAxis)
+        {
+            Debug.Log($"[MicroPlacementAnalog] mode={planeMode} raw={a} used={useAxis} dominant={dominant}");
+        }
 
         Vector3 delta;
         if (useCameraFrame && cameraTransform != null)
@@ -67,19 +89,61 @@ public class MicroPlacementAnalogController : MonoBehaviour
             Vector3 fwd = cameraTransform.forward;
 
             if (planeMode == PlaneMode.XY)
-                delta = (right * a.x + up * a.y) * (effectiveSpeed * dt);
+                delta = (right * useAxis.x + up * useAxis.y) * (effectiveSpeed * dt);
             else
-                delta = (right * a.x + fwd * a.y) * (effectiveSpeed * dt);
+                delta = (right * useAxis.x + fwd * useAxis.y) * (effectiveSpeed * dt);
         }
         else
         {
             if (planeMode == PlaneMode.XY)
-                delta = new Vector3(a.x, a.y, 0f) * (effectiveSpeed * dt);
+                delta = new Vector3(useAxis.x, useAxis.y, 0f) * (effectiveSpeed * dt);
             else
-                delta = new Vector3(a.x, 0f, a.y) * (effectiveSpeed * dt);
+                delta = new Vector3(useAxis.x, 0f, useAxis.y) * (effectiveSpeed * dt);
         }
 
         target.position += delta;
+    }
+
+    private Vector2 ApplyDominantAxisPolicy(Vector2 axis, out DominantAxis dominant)
+    {
+        dominant = DominantAxis.Mixed;
+        if (!useDominantAxisLock)
+            return axis;
+
+        float absX = Mathf.Abs(axis.x);
+        float absY = Mathf.Abs(axis.y);
+
+        if (absX + absY < smallThreshold)
+        {
+            dominant = DominantAxis.None;
+            return Vector2.zero;
+        }
+
+        float ratio = Mathf.Max(1f, dominanceRatio);
+        if (absX >= absY * ratio)
+        {
+            dominant = DominantAxis.X;
+            return new Vector2(axis.x, 0f);
+        }
+
+        if (absY >= absX * ratio)
+        {
+            dominant = DominantAxis.Y;
+            return new Vector2(0f, axis.y);
+        }
+
+        dominant = DominantAxis.Mixed;
+        if (!softBiasWhenDiagonal)
+            return axis;
+
+        float major = Mathf.Max(absX, absY);
+        float minor = Mathf.Max(1e-5f, Mathf.Min(absX, absY));
+        float majorToMinor = major / minor;
+        float t = Mathf.InverseLerp(1f, ratio, majorToMinor);
+        t = Mathf.Clamp01(t) * Mathf.Clamp01(diagonalBiasStrength);
+
+        Vector2 hardLocked = absX >= absY ? new Vector2(axis.x, 0f) : new Vector2(0f, axis.y);
+        return Vector2.Lerp(axis, hardLocked, t);
     }
 
     private void UpdateAdaptiveGain(Vector2 axis, bool axisActive, float dt)
@@ -101,5 +165,10 @@ public class MicroPlacementAnalogController : MonoBehaviour
 
         float t = 1f - Mathf.Exp(-gainLerp * dt);
         _gain = Mathf.Lerp(_gain, targetGain, t);
+    }
+
+    private void ResetModeSensitiveState()
+    {
+        _gain = 1f;
     }
 }

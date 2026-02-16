@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.Windows.Speech;
 
@@ -19,6 +20,9 @@ public class StudyFlowController : MonoBehaviour
 
     [Header("Workflow")]
     [SerializeField] private WorkflowProgressionController workflow;
+
+    [Header("Shared Ghost Targets")]
+    [SerializeField] private Transform slotsTargetsRoot;
 
     [Tooltip("Placement task (tools).")]
     public ToolPlacementTaskManager placementTask;
@@ -170,6 +174,11 @@ public class StudyFlowController : MonoBehaviour
     private bool _warnedHandWorkspaceMissing = false;
     private bool _warnedPhoneIntegrationMissing = false;
 
+    private readonly Dictionary<string, Transform> ghostById = new Dictionary<string, Transform>();
+    private readonly Dictionary<string, Quaternion> goalLocalRotById = new Dictionary<string, Quaternion>();
+    private FieldInfo _rotationAutoGenerateField;
+    private bool _rotationAutoGenerateFieldChecked = false;
+
     private void Start()
     {
 /*         _lastRemapLoc = currentHandLocation;
@@ -227,6 +236,9 @@ public class StudyFlowController : MonoBehaviour
 
         if (workflow != null)
             workflow.OnStepChanged += HandleStepChanged;
+
+        RebuildGhostRegistry();
+        CacheAuthoredGoalRotations();
     }
 
     private void OnDestroy()
@@ -374,6 +386,14 @@ public class StudyFlowController : MonoBehaviour
         _startTaskCo = null;
 
         currentTask = t;
+        RebuildGhostRegistry();
+
+        if (currentTask == TaskType.Placement)
+            ApplyGhostRotations_BaselineForPlacement();
+        else if (currentTask == TaskType.Rotation)
+            ApplyGhostRotations_GoalForRotation();
+        else if (currentTask == TaskType.Scaling)
+            ApplyGhostRotations_GoalForRotation();
 
         if (contentWorkspaceController == null)
         {
@@ -437,16 +457,21 @@ public class StudyFlowController : MonoBehaviour
         {
             case TaskType.Placement:
                 if (placementTask == null) { Debug.LogError("[StudyFlowController] placementTask missing."); yield break; }
+                ApplyGhostRotations_BaselineForPlacement();
                 placementTask.StartBlock();
                 break;
 
             case TaskType.Rotation:
                 if (rotationTask == null) { Debug.LogError("[StudyFlowController] rotationTask missing."); yield break; }
                 rotationTask.StartBlock();
+                if (IsRotationAutoGenerateTargetRotationEnabled())
+                    CaptureGoalRotationsFromCurrentGhosts();
+                ApplyGhostRotations_GoalForRotation();
                 break;
 
             case TaskType.Scaling:
                 if (scalingTask == null) { Debug.LogError("[StudyFlowController] scalingTask missing."); yield break; }
+                ApplyGhostRotations_GoalForRotation();
                 scalingTask.StartBlock();
                 break;
 
@@ -507,6 +532,112 @@ public class StudyFlowController : MonoBehaviour
         {
             UpdateHUDStatic();
             ShowInstructionForCurrentState_ReturnSeconds();
+        }
+    }
+
+    private void ResolveSlotsTargetsRootIfNeeded()
+    {
+        if (slotsTargetsRoot != null) return;
+
+        slotsTargetsRoot = TryGetPrivateTransformField(rotationTask, "slotsTargetsRoot");
+        if (slotsTargetsRoot == null)
+            slotsTargetsRoot = TryGetPrivateTransformField(placementTask, "slotsTargetsRoot");
+
+        if (slotsTargetsRoot == null)
+        {
+            GameObject go = GameObject.Find("Slots_Targets");
+            if (go != null) slotsTargetsRoot = go.transform;
+        }
+    }
+
+    private Transform TryGetPrivateTransformField(object source, string fieldName)
+    {
+        if (source == null || string.IsNullOrEmpty(fieldName)) return null;
+        FieldInfo f = source.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        if (f == null || f.FieldType != typeof(Transform)) return null;
+        return f.GetValue(source) as Transform;
+    }
+
+    private bool IsRotationAutoGenerateTargetRotationEnabled()
+    {
+        if (rotationTask == null) return false;
+
+        if (!_rotationAutoGenerateFieldChecked)
+        {
+            _rotationAutoGenerateFieldChecked = true;
+            _rotationAutoGenerateField = typeof(ToolRotationTaskManager).GetField(
+                "autoGenerateTargetRotation",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public
+            );
+        }
+
+        if (_rotationAutoGenerateField != null && _rotationAutoGenerateField.FieldType == typeof(bool))
+        {
+            object v = _rotationAutoGenerateField.GetValue(rotationTask);
+            if (v is bool b) return b;
+        }
+
+        // Fallback keeps runtime-capture path available when the flag cannot be read.
+        return true;
+    }
+
+    private void RebuildGhostRegistry()
+    {
+        ghostById.Clear();
+        ResolveSlotsTargetsRootIfNeeded();
+        if (slotsTargetsRoot == null) return;
+
+        ToolId[] ids = slotsTargetsRoot.GetComponentsInChildren<ToolId>(true);
+        for (int i = 0; i < ids.Length; i++)
+        {
+            ToolId tid = ids[i];
+            if (tid == null || string.IsNullOrEmpty(tid.id)) continue;
+            ghostById[tid.id] = tid.transform;
+        }
+    }
+
+    private void CacheAuthoredGoalRotations()
+    {
+        if (ghostById.Count == 0) RebuildGhostRegistry();
+
+        goalLocalRotById.Clear();
+        foreach (var kv in ghostById)
+        {
+            if (kv.Value == null) continue;
+            goalLocalRotById[kv.Key] = kv.Value.localRotation;
+        }
+    }
+
+    private void CaptureGoalRotationsFromCurrentGhosts()
+    {
+        if (ghostById.Count == 0) RebuildGhostRegistry();
+
+        foreach (var kv in ghostById)
+        {
+            if (kv.Value == null) continue;
+            goalLocalRotById[kv.Key] = kv.Value.localRotation;
+        }
+    }
+
+    private void ApplyGhostRotations_BaselineForPlacement()
+    {
+        if (ghostById.Count == 0) RebuildGhostRegistry();
+
+        foreach (var kv in ghostById)
+        {
+            if (kv.Value == null) continue;
+            kv.Value.localRotation = Quaternion.identity;
+        }
+    }
+
+    private void ApplyGhostRotations_GoalForRotation()
+    {
+        if (ghostById.Count == 0) RebuildGhostRegistry();
+
+        foreach (var kv in goalLocalRotById)
+        {
+            if (!ghostById.TryGetValue(kv.Key, out var ghost) || ghost == null) continue;
+            ghost.localRotation = kv.Value;
         }
     }
 
@@ -733,6 +864,9 @@ public class StudyFlowController : MonoBehaviour
     {
         if (taskContextHUD == null) return;
         taskContextHUD.SetTrialWithCountdown(current1Based, total, 0f);
+
+        if (currentTask == TaskType.Rotation && IsRotationAutoGenerateTargetRotationEnabled())
+            CaptureGoalRotationsFromCurrentGhosts();
 
         TryAutoPlaceHandNearActiveTool(); // NEW
     }
