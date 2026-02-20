@@ -5,7 +5,7 @@ using UnityEngine;
 public class ConditionBlockController : MonoBehaviour
 {
     public enum Technique { Macro, Micro }
-    public enum HandLocation { NearHead, Side } // "Side" means side-of-body input, proxy stays where it is
+    public enum HandLocation { NearHead, Side } // "Side" means side-of-body input.
 
     [Serializable]
     public class Condition
@@ -14,7 +14,7 @@ public class ConditionBlockController : MonoBehaviour
         public Technique technique = Technique.Macro;
         public HandLocation handLocation = HandLocation.NearHead;
 
-        [Tooltip("Only used for Macro+Side (Side→Front remap).")]
+        [Tooltip("Only used for Macro+Side remap.")]
         public bool invertSideToFront = false;
     }
 
@@ -31,10 +31,24 @@ public class ConditionBlockController : MonoBehaviour
     [SerializeField] private bool logDebug = true;
 
     [SerializeField] private TaskContextHUD taskContextHUD;
-
     [SerializeField] private BasketToolResetter basketResetter;
 
     private int _condIndex = 0;
+    private Condition _currentCondition;
+
+    public Technique CurrentTechnique => _currentCondition != null ? _currentCondition.technique : Technique.Macro;
+    public HandLocation CurrentHandLocation => _currentCondition != null ? _currentCondition.handLocation : HandLocation.NearHead;
+    public bool HasCurrentCondition => _currentCondition != null;
+
+    public string GetConditionLabel()
+    {
+        if (_currentCondition == null)
+            return "Macro - Near Head";
+
+        string tech = _currentCondition.technique == Technique.Micro ? "Micro" : "Macro";
+        string location = _currentCondition.handLocation == HandLocation.Side ? "Side Of Body" : "Near Head";
+        return $"{tech} - {location}";
+    }
 
     void Start()
     {
@@ -52,7 +66,6 @@ public class ConditionBlockController : MonoBehaviour
 
         workflow.OnAllCompleted += HandleBlockCompleted;
 
-        // Start first condition
         _condIndex = Mathf.Clamp(_condIndex, 0, Mathf.Max(0, conditions.Count - 1));
         ApplyCurrentConditionAndRestartWorkflow();
     }
@@ -86,23 +99,18 @@ public class ConditionBlockController : MonoBehaviour
         }
 
         var c = conditions[_condIndex];
+        _currentCondition = c;
 
-        // 1) Technique routing (Macro/Micro)
         if (phoneRouter != null)
         {
             if (c.technique == Technique.Micro) phoneRouter.SetModeMicro();
             else phoneRouter.SetModeMacro();
         }
 
-        // 2) Micro task gate is still controlled by StudyFlowController_V2 per phase,
-        // so we do not force a micro task here. (Optional: you can leave it out.)
-
-        // 3) Side→Front remap: only for Macro + Side
         bool remapOn = (c.technique == Technique.Macro) && (c.handLocation == HandLocation.Side);
 
         if (phoneMacroPoseDriver != null)
         {
-            // Avoid jumps when toggling remap
             phoneMacroPoseDriver.RebaselineKeepWorldPose();
             phoneMacroPoseDriver.SetSideToFrontRemap(remapOn, c.invertSideToFront, forceRecenter: false);
         }
@@ -110,8 +118,12 @@ public class ConditionBlockController : MonoBehaviour
         if (taskContextHUD != null)
         {
             taskContextHUD.SetVisible(true);
-            taskContextHUD.SetCondition($"{c.technique} · {(c.handLocation == HandLocation.Side ? "Side" : "Near")}" +
-                                         $"{((c.technique == Technique.Macro && c.handLocation == HandLocation.Side) ? (c.invertSideToFront ? " · Remap(Invert)" : " · Remap") : "")}");
+
+            string condText = GetConditionLabel();
+            if ((c.technique == Technique.Macro) && (c.handLocation == HandLocation.Side))
+                condText += c.invertSideToFront ? " - Remap(Invert)" : " - Remap";
+
+            taskContextHUD.SetCondition(condText);
         }
 
         if (logDebug)
@@ -119,7 +131,6 @@ public class ConditionBlockController : MonoBehaviour
             Debug.Log($"[Cond] Apply #{_condIndex + 1}/{conditions.Count} '{c.label}' tech={c.technique} loc={c.handLocation} remap={remapOn} invert={c.invertSideToFront}");
         }
 
-        // 4) Restart workflow from Tool_01 + Placement
         if (workflow != null)
         {
             if (basketResetter != null)
@@ -127,6 +138,5 @@ public class ConditionBlockController : MonoBehaviour
 
             workflow.RestartFromBeginning();
         }
-
     }
 }

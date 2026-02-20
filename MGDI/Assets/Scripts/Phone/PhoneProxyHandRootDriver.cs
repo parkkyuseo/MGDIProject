@@ -28,6 +28,9 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
     [Tooltip("If true, translation delta is remapped so up/down tends to become forward/back (reduces diagonal feel).")]
     [SerializeField] private bool enableSideToFrontRemap = false;
 
+    [Tooltip("Extra translation gain applied only while Side→Front remap is enabled.")]
+    [SerializeField] private float sideRemapGain = 1.0f;
+
     [Tooltip("If true, flips the remap direction (use this if forward/back feels inverted).")]
     [SerializeField] private bool invertSideToFront = false;
 
@@ -64,6 +67,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         if (enableSideToFrontRemap && cameraTransform != null)
         {
             dp = RemapSideToFront(dp, cameraTransform, useCameraYawFrame, invertSideToFront);
+            dp *= Mathf.Max(0f, sideRemapGain);
         }
 
         // Phone rotation delta (unchanged)

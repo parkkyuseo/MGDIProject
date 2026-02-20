@@ -11,7 +11,12 @@ public class StartupVoiceRouter : MonoBehaviour
 
     [Header("Voice")]
     public bool enableVoice = true;
-    public float autoGoAfterSec = 0f; // 0이면 자동 없음. >0이면 n초 뒤 runtime으로 자동 이동.
+    [Tooltip("Legacy option. Auto runtime transition is disabled in this flow.")]
+    public float autoGoAfterSec = 0f;
+
+    [Header("Legacy Runtime Route")]
+    [Tooltip("If false, runtime transition from this router is blocked. ParticipantIdGate handles runtime transition.")]
+    public bool allowLegacyRuntimeRouting = false;
 
     private KeywordRecognizer _kr;
     private string[] _kws = new[] { "calibrate", "calibration", "runtime", "런타임", "캘리브레이션" };
@@ -29,17 +34,27 @@ public class StartupVoiceRouter : MonoBehaviour
                     if (_routed) return;
                     var s = a.text.ToLower();
                     if (s.Contains("calib") || s.Contains("캘리")) Go(calibrationSceneName);
-                    else Go(runtimeSceneName);
+                    else if ((s.Contains("runtime") || s.Contains("런타임")) && allowLegacyRuntimeRouting) Go(runtimeSceneName);
+                    else if (s.Contains("runtime") || s.Contains("런타임")) Log("Runtime voice route is disabled.");
                 };
                 _kr.Start();
-                Log("Say 'calibrate/캘리브레이션' or 'runtime/런타임'");
+                Log("Say 'calibrate/캘리브레이션'");
             }
             catch (Exception ex) { Log("Voice init failed: " + ex.Message); }
         }
-        if (autoGoAfterSec > 0f) Invoke(nameof(GoRuntime), autoGoAfterSec);
     }
 
-    public void GoRuntime() => Go(runtimeSceneName);
+    public void GoRuntime()
+    {
+        if (!allowLegacyRuntimeRouting)
+        {
+            Log("Runtime route is disabled. Use ParticipantIdGate Continue.");
+            return;
+        }
+
+        Go(runtimeSceneName);
+    }
+
     public void GoCalibration() => Go(calibrationSceneName);
 
     void Go(string scene)

@@ -2,6 +2,12 @@ using UnityEngine;
 
 public class MicroRotationAnalogController : MonoBehaviour
 {
+    private enum SecondaryAxisMode
+    {
+        Roll = 0,
+        Pitch = 1
+    }
+
     [Header("Refs")]
     [SerializeField] private PhoneInputRouter router;
     [SerializeField] private ProxyHandGrabber grabber;
@@ -9,14 +15,17 @@ public class MicroRotationAnalogController : MonoBehaviour
     [SerializeField] private Transform cameraTransform;
 
     [Header("Settings")]
+    [SerializeField] private SecondaryAxisMode secondaryAxisMode = SecondaryAxisMode.Roll;
     [SerializeField] private float yawDegPerSec = 120f;
     [SerializeField] private float rollDegPerSec = 120f;
+    [SerializeField] private float pitchDegPerSec = 120f;
     [SerializeField] private bool useCameraFrame = true;
     [SerializeField] private float deadzone = 0.08f;
 
     [Header("Invert")]
     [SerializeField] private bool invertYaw = false;
     [SerializeField] private bool invertRoll = true;
+    [SerializeField] private bool invertPitch = true;
 
     [Header("Micro only policy")]
     [Tooltip("If true, allows rotating the active tool even when not holding (Micro mode only).")]
@@ -48,6 +57,14 @@ public class MicroRotationAnalogController : MonoBehaviour
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
 
+        if (router.TryConsumeModeToggle())
+        {
+            secondaryAxisMode = (secondaryAxisMode == SecondaryAxisMode.Roll)
+                ? SecondaryAxisMode.Pitch
+                : SecondaryAxisMode.Roll;
+            _gain = 1f;
+        }
+
         if (!router.AxisActive)
         {
             UpdateAdaptiveGain(Vector2.zero, false, dt);
@@ -65,43 +82,61 @@ public class MicroRotationAnalogController : MonoBehaviour
         }
 
         if (invertYaw) a.x = -a.x;
-        if (invertRoll) a.y = -a.y;
+        if (secondaryAxisMode == SecondaryAxisMode.Roll)
+        {
+            if (invertRoll) a.y = -a.y;
+        }
+        else
+        {
+            if (invertPitch) a.y = -a.y;
+        }
 
         float yaw = a.x * (yawDegPerSec * _gain) * dt;
-        float roll = a.y * (rollDegPerSec * _gain) * dt;
+        float secondaryRate = (secondaryAxisMode == SecondaryAxisMode.Roll) ? rollDegPerSec : pitchDegPerSec;
+        float secondary = a.y * (secondaryRate * _gain) * dt;
+
+        bool holdingAny = grabber.IsHolding && grabber.HeldBody != null;
+        bool holdingActive = false;
+        if (rotationTask != null && holdingAny && rotationTask.ActiveToolBody != null)
+            holdingActive = grabber.HeldBody == rotationTask.ActiveToolBody;
+
+        Transform t = null;
+        if (rotationTask != null)
+            t = rotationTask.GetMicroRotationTargetTransform();
+
+        if (!allowWithoutHoldingInMicro && !holdingActive)
+            t = null;
+
+        if (t == null && rotationTask == null && holdingAny)
+            t = grabber.HeldBody.transform;
+
+        if (t == null)
+        {
+            if (rotationTask != null) rotationTask.SetExternalDriving(false);
+            return;
+        }
 
         // Signal "driving" to rotation task so evaluation gating works
         if (rotationTask != null) rotationTask.SetExternalDriving(true);
 
-        Transform t = null;
-
-        // Prefer held object if holding
-        if (grabber.IsHolding && grabber.HeldBody != null)
-        {
-            t = grabber.HeldBody.transform;
-        }
-        else
-        {
-            // Not holding: allow only in Micro if enabled
-            if (!allowWithoutHoldingInMicro) return;
-            if (rotationTask == null) return;
-
-            t = rotationTask.GetMicroRotationTargetTransform();
-            if (t == null) return;
-        }
-
         Vector3 yawAxis = Vector3.up;
         Vector3 rollAxis = Vector3.forward;
+        Vector3 pitchAxis = Vector3.right;
 
         if (useCameraFrame && cameraTransform != null)
         {
             yawAxis = cameraTransform.up;
             rollAxis = cameraTransform.forward;
+            pitchAxis = cameraTransform.right;
         }
 
         Quaternion dq = Quaternion.identity;
         if (!Mathf.Approximately(yaw, 0f)) dq = Quaternion.AngleAxis(yaw, yawAxis) * dq;
-        if (!Mathf.Approximately(roll, 0f)) dq = Quaternion.AngleAxis(roll, rollAxis) * dq;
+        if (!Mathf.Approximately(secondary, 0f))
+        {
+            Vector3 secondaryAxis = (secondaryAxisMode == SecondaryAxisMode.Roll) ? rollAxis : pitchAxis;
+            dq = Quaternion.AngleAxis(secondary, secondaryAxis) * dq;
+        }
 
         t.rotation = dq * t.rotation;
     }

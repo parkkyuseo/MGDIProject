@@ -5,6 +5,9 @@ using Microsoft.MixedReality.OpenXR;
 
 public class QRWorkspaceLock_OpenXR : MonoBehaviour
 {
+    public bool IsWorkspaceReady { get; private set; } = false;
+    public event Action OnWorkspaceReady;
+
     [Header("Refs")]
     public ARMarkerManager markerManager;
     public Transform workshopEnvironment; // WorkshopEnvironment 루트
@@ -33,6 +36,7 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
     public float yawOffsetDeg = 0f;          // 필요하면 몇 도 보정(±)
 
     private bool _locked = false;
+    private bool _workspaceReadyFired = false;
 
     // sampling state
     private bool _sampling = false;
@@ -115,6 +119,7 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
                 _sampling = false;
                 Log("[Workspace] locked (averaged)");
                 HandleRemoteHandAfterWorkspaceJump();
+                NotifyWorkspaceReadyOnce();
             }
         }
     }
@@ -251,6 +256,14 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
             remoteHandRuntime.ContextRecaptureNow();
         else
             remoteHandRuntime.ContextClearAndRearm();
+    }
+
+    private void NotifyWorkspaceReadyOnce()
+    {
+        if (_workspaceReadyFired) return;
+        _workspaceReadyFired = true;
+        IsWorkspaceReady = true;
+        try { OnWorkspaceReady?.Invoke(); } catch { }
     }
 
     void Log(string msg)

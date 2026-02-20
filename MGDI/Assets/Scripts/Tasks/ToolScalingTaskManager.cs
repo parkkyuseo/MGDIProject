@@ -13,6 +13,7 @@ public class ToolScalingTaskManager : MonoBehaviour
     public event Action<float, bool> OnConfirmProgress; // (t01, eligible)
     public event Action OnConfirmDwellCompleted;
     public event Action<string> OnConfirmStatus;
+    public event Action<bool, bool> OnTrialEnded; // (success, timedOut)
 
     [Header("Tools Root (auto-discovered via ToolId)")]
     [SerializeField] private Transform toolsDynamicRoot;
@@ -100,11 +101,17 @@ public class ToolScalingTaskManager : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
 
+    [Header("Practice Target Randomization")]
+    [SerializeField] private bool usePracticeRandomTargetScale = true;
+    [SerializeField] private float practiceTargetFactorMin = 0.80f;
+    [SerializeField] private float practiceTargetFactorMax = 1.25f;
+    [SerializeField] private float practiceMinTargetFactorDelta = 0.10f;
+
     // ---- Forced active (Workflow integration) ----
     [SerializeField] private bool finishBlockAfterOneSuccessWhenForced = true;
     private string _forcedActiveId = null;
 
-    public void SetForcedActiveId(string id) => _forcedActiveId = string.IsNullOrEmpty(id) ? null : id;
+    public void SetForcedActiveId(string id) => _forcedActiveId = NormalizeToolId(id);
     public void ClearForcedActiveId() => _forcedActiveId = null;
 
     // ---------- runtime ----------
@@ -150,9 +157,12 @@ public class ToolScalingTaskManager : MonoBehaviour
     private bool _externalDriving = false;
 
     // --- Ghost runtime ---
-    private readonly Dictionary<string, Transform> _ghostById = new Dictionary<string, Transform>();
+    private readonly Dictionary<string, Transform> _ghostById = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
     private Transform _activeGhost;
     private Vector3 _activeGhostBaseScale;
+    private bool _practiceGhostRandomizationEnabled = false;
+    private float _lastPracticeTargetFactor = 1f;
+    private bool _hasLastPracticeTargetFactor = false;
 
     public bool IsTrialRunning => trialRunning && !inTransition;
     public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - trialTimer);
@@ -162,6 +172,19 @@ public class ToolScalingTaskManager : MonoBehaviour
     public string ActiveId => active != null ? active.id : null;
     public float ActiveTargetFactor => active != null ? active.targetFactor : 1f;
     public float ActiveCurrentFactor => GetActualScaleFactor(active);
+    public float ScaleFactorTolerance => scaleFactorTolerance;
+    public float ActiveScalingErrorFactor => active != null ? Mathf.Abs(ActiveCurrentFactor - active.targetFactor) : float.MaxValue;
+    public bool ResetScaleAfterTrial
+    {
+        get => resetScaleAfterTrial;
+        set => resetScaleAfterTrial = value;
+    }
+
+    public void SetPracticeGhostRandomization(bool enabled)
+    {
+        _practiceGhostRandomizationEnabled = enabled;
+        _hasLastPracticeTargetFactor = false;
+    }
 
     public Transform ActiveToolTransform => active != null ? active.tool : null;
 
@@ -208,6 +231,7 @@ public class ToolScalingTaskManager : MonoBehaviour
         inTransition = false;
         trialRunning = false;
         trialIndex = 0;
+        _hasLastPracticeTargetFactor = false;
         _externalDriving = false;
         OnConfirmProgress?.Invoke(0f, false);
         OnConfirmStatus?.Invoke("");
@@ -336,9 +360,24 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         if (!string.IsNullOrEmpty(_forcedActiveId))
         {
-            active = items.Find(it => it != null && it.id == _forcedActiveId);
+            active = items.Find(
+                it => it != null && string.Equals(it.id, _forcedActiveId, StringComparison.OrdinalIgnoreCase));
             if (active == null)
-                Debug.LogWarning($"[ToolScaleTM] ForcedActiveId '{_forcedActiveId}' not found. Falling back.");
+            {
+                RebuildItemsFromScene();
+                active = items.Find(
+                    it => it != null && string.Equals(it.id, _forcedActiveId, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (active == null)
+            {
+                Debug.LogError($"[ToolScaleTM] ForcedActiveId '{_forcedActiveId}' not found. Trial start canceled.");
+                trialRunning = false;
+                inTransition = false;
+                OnConfirmProgress?.Invoke(0f, false);
+                OnConfirmStatus?.Invoke("");
+                return;
+            }
         }
 
         if (active == null)
@@ -358,7 +397,9 @@ public class ToolScalingTaskManager : MonoBehaviour
         _externalDriving = false;
 
         // ✅ Improved target factor sampling (balanced smaller/larger when possible)
-        float tf = SampleTargetFactorBalanced();
+        float tf = (_practiceGhostRandomizationEnabled && usePracticeRandomTargetScale)
+            ? SamplePracticeTargetFactor()
+            : SampleTargetFactorBalanced();
         active.targetFactor = tf;
 
         // ✅ Apply target ghost visual scale (optional)
@@ -419,6 +460,8 @@ public class ToolScalingTaskManager : MonoBehaviour
         // ✅ Restore ghost scale at trial end
         RestoreTargetGhostScale();
 
+        OnTrialEnded?.Invoke(success, timedOut);
+
         // Forced: finish after one success
         if (success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced)
         {
@@ -439,11 +482,13 @@ public class ToolScalingTaskManager : MonoBehaviour
         if (toolsDynamicRoot == null) return;
 
         var toolIds = toolsDynamicRoot.GetComponentsInChildren<ToolId>(true);
-        var map = new Dictionary<string, Transform>();
+        var map = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < toolIds.Length; i++)
         {
-            if (toolIds[i] == null || string.IsNullOrEmpty(toolIds[i].id)) continue;
-            map[toolIds[i].id] = toolIds[i].transform;
+            if (toolIds[i] == null) continue;
+            string id = NormalizeToolId(toolIds[i].id);
+            if (string.IsNullOrEmpty(id)) continue;
+            map[id] = toolIds[i].transform;
         }
 
         foreach (var kv in map)
@@ -495,8 +540,10 @@ public class ToolScalingTaskManager : MonoBehaviour
         var ids = slotsTargetsRoot.GetComponentsInChildren<ToolId>(true);
         for (int i = 0; i < ids.Length; i++)
         {
-            if (ids[i] == null || string.IsNullOrEmpty(ids[i].id)) continue;
-            _ghostById[ids[i].id] = ids[i].transform;
+            if (ids[i] == null) continue;
+            string id = NormalizeToolId(ids[i].id);
+            if (string.IsNullOrEmpty(id)) continue;
+            _ghostById[id] = ids[i].transform;
         }
     }
 
@@ -515,7 +562,7 @@ public class ToolScalingTaskManager : MonoBehaviour
             var ids = slotsTargetsRoot.GetComponentsInChildren<ToolId>(true);
             for (int i = 0; i < ids.Length; i++)
             {
-                if (ids[i] != null && ids[i].id == id)
+                if (ids[i] != null && string.Equals(NormalizeToolId(ids[i].id), id, StringComparison.OrdinalIgnoreCase))
                 {
                     ghost = ids[i].transform;
                     break;
@@ -619,6 +666,39 @@ public class ToolScalingTaskManager : MonoBehaviour
         } while (Mathf.Abs(outTf - 1f) < avoid);
 
         return Mathf.Clamp(outTf, minScaleFactor, maxScaleFactor);
+    }
+
+    private float SamplePracticeTargetFactor()
+    {
+        float minF = Mathf.Min(practiceTargetFactorMin, practiceTargetFactorMax);
+        float maxF = Mathf.Max(practiceTargetFactorMin, practiceTargetFactorMax);
+
+        minF = Mathf.Clamp(minF, minScaleFactor, maxScaleFactor);
+        maxF = Mathf.Clamp(maxF, minScaleFactor, maxScaleFactor);
+
+        if (maxF < minF)
+        {
+            float tmp = minF;
+            minF = maxF;
+            maxF = tmp;
+        }
+
+        if (Mathf.Abs(maxF - minF) < 1e-6f)
+            return Mathf.Clamp(minF, minScaleFactor, maxScaleFactor);
+
+        float minDelta = Mathf.Max(0f, practiceMinTargetFactorDelta);
+        float tf = minF;
+
+        for (int i = 0; i < 16; i++)
+        {
+            tf = Random.Range(minF, maxF);
+            if (!_hasLastPracticeTargetFactor || Mathf.Abs(tf - _lastPracticeTargetFactor) >= minDelta)
+                break;
+        }
+
+        _lastPracticeTargetFactor = tf;
+        _hasLastPracticeTargetFactor = true;
+        return Mathf.Clamp(tf, minScaleFactor, maxScaleFactor);
     }
 
     // ---------------- MACRO helpers ----------------
@@ -825,6 +905,11 @@ public class ToolScalingTaskManager : MonoBehaviour
         OnConfirmProgress?.Invoke(0f, false);
         OnConfirmStatus?.Invoke("");
         ResetConfirmState();
+    }
+
+    private static string NormalizeToolId(string id)
+    {
+        return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
     }
 }
 

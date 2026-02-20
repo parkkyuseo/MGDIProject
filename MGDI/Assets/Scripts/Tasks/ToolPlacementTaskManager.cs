@@ -15,6 +15,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
     public event Action<float, bool> OnConfirmProgress;         // (t01, eligible)
     public event Action OnConfirmDwellCompleted;
     public event Action<string> OnConfirmStatus;
+    public event Action<bool, bool> OnTrialEnded;               // (success, timedOut)
 
     [Header("Roots (auto-discovered via ToolId)")]
     [Tooltip("Root that contains the movable tool instances (Tools_Dynamic).")]
@@ -81,7 +82,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
     public void SetForcedActiveId(string id)
     {
-        _forcedActiveId = string.IsNullOrEmpty(id) ? null : id;
+        _forcedActiveId = NormalizeToolId(id);
     }
 
     public void ClearForcedActiveId()
@@ -107,6 +108,12 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
+
+    [Header("Practice Target Randomization")]
+    [SerializeField] private bool usePracticeRandomTargetPlacement = true;
+    [SerializeField] private Vector3 practiceTargetOffsetMin = new Vector3(-0.04f, -0.02f, -0.04f);
+    [SerializeField] private Vector3 practiceTargetOffsetMax = new Vector3(0.04f, 0.02f, 0.04f);
+    [SerializeField] private float practiceMinTargetOffsetDelta = 0.02f;
 
     // ---------------- Runtime ----------------
     private int trialIndex = 0;
@@ -140,6 +147,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         public Transform startParent;
         public Vector3 startPos;
         public Quaternion startRot;
+        public Vector3 targetStartLocalPos;
 
         public float tolerance;   // per tool (computed at trial start)
         public bool placed;        // current frame pass/fail
@@ -148,12 +156,41 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
     private readonly List<Item> items = new List<Item>();
     private readonly StringBuilder sb = new StringBuilder(512);
+    private bool _practiceGhostRandomizationEnabled = false;
+    private Vector3 _lastPracticeTargetOffset = Vector3.zero;
+    private bool _hasLastPracticeTargetOffset = false;
 
     public bool IsTrialRunning => trialRunning && !inTransition;
     public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - trialTimer);
     public int TotalTrials => totalTrials;
     public int CurrentTrialIndex1Based => trialIndex + 1;
     public int ToolCount => items.Count;
+    public Transform ActiveToolTransform => _active != null ? _active.tool : null;
+    public string ActiveToolId => _active != null ? _active.id : null;
+    public float ActiveToleranceMeters => _active != null ? _active.tolerance : float.MaxValue;
+    public float ActiveErrorMeters => _active != null ? _active.lastErr : float.MaxValue;
+    public bool ResetToolsToStartAfterTrial
+    {
+        get => resetToolsToStartAfterTrial;
+        set => resetToolsToStartAfterTrial = value;
+    }
+
+    public void SetPracticeGhostRandomization(bool enabled)
+    {
+        _practiceGhostRandomizationEnabled = enabled;
+        _hasLastPracticeTargetOffset = false;
+
+        if (!enabled)
+            RestoreAllTargetPositionsToBaseline();
+    }
+
+    public float GetActiveErrorMeters()
+    {
+        if (_active == null) return float.MaxValue;
+        float err = ComputeErrorMeters(_active);
+        _active.lastErr = err;
+        return err;
+    }
 
     // ---------------- Public ----------------
     public void StartBlock()
@@ -162,6 +199,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         inTransition = false;
         trialRunning = false;
         trialIndex = 0;
+        _hasLastPracticeTargetOffset = false;
         OnConfirmStatus?.Invoke("");
 
         HideFeedbackUI();
@@ -348,7 +386,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         {
             for (int i = 0; i < items.Count; i++)
             {
-                if (items[i] != null && items[i].id == _forcedActiveId)
+                if (items[i] != null && string.Equals(items[i].id, _forcedActiveId, StringComparison.OrdinalIgnoreCase))
                 {
                     _active = items[i];
                     break;
@@ -357,7 +395,25 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
             if (_active == null)
             {
-                Debug.Log($"[ToolPlacementTM] ForcedActiveId '{_forcedActiveId}' not found in registry. Falling back to first item.");
+                RebuildItemsFromScene();
+                for (int i = 0; i < items.Count; i++)
+                {
+                    if (items[i] != null && string.Equals(items[i].id, _forcedActiveId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _active = items[i];
+                        break;
+                    }
+                }
+            }
+
+            if (_active == null)
+            {
+                Debug.LogError($"[ToolPlacementTM] ForcedActiveId '{_forcedActiveId}' not found. Trial start canceled.");
+                trialRunning = false;
+                inTransition = false;
+                OnConfirmProgress?.Invoke(0f, false);
+                OnConfirmStatus?.Invoke("");
+                return;
             }
         }
 
@@ -370,6 +426,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
             FinishBlock();
             return;
         }
+
+        ApplyPracticePlacementTargetIfNeeded(_active);
 
         // Compute tolerance for the ACTIVE item only (based on current start distance)
         float d0 = ComputeErrorMeters(_active);
@@ -440,6 +498,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
                 ResetAllToolsToStartPose();
         }
 
+        OnTrialEnded?.Invoke(success, timedOut);
+
         // ---- If forced active id is set, finish after one successful trial (workflow step) ----
         if (success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced)
         {
@@ -463,20 +523,24 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         // tools: id -> ToolId transform
         var toolIds = toolsDynamicRoot.GetComponentsInChildren<ToolId>(true);
-        var toolMap = new Dictionary<string, Transform>();
+        var toolMap = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < toolIds.Length; i++)
         {
-            if (toolIds[i] == null || string.IsNullOrEmpty(toolIds[i].id)) continue;
-            toolMap[toolIds[i].id] = toolIds[i].transform;
+            if (toolIds[i] == null) continue;
+            string id = NormalizeToolId(toolIds[i].id);
+            if (string.IsNullOrEmpty(id)) continue;
+            toolMap[id] = toolIds[i].transform;
         }
 
         // targets: id -> ToolId transform (ghost)
         var targetIds = slotsTargetsRoot.GetComponentsInChildren<ToolId>(true);
-        var targetMap = new Dictionary<string, Transform>();
+        var targetMap = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < targetIds.Length; i++)
         {
-            if (targetIds[i] == null || string.IsNullOrEmpty(targetIds[i].id)) continue;
-            targetMap[targetIds[i].id] = targetIds[i].transform;
+            if (targetIds[i] == null) continue;
+            string id = NormalizeToolId(targetIds[i].id);
+            if (string.IsNullOrEmpty(id)) continue;
+            targetMap[id] = targetIds[i].transform;
         }
 
         // Intersection only
@@ -495,6 +559,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
                 startParent = toolTf != null ? toolTf.parent : null,
                 startPos = toolTf != null ? toolTf.position : Vector3.zero,
                 startRot = toolTf != null ? toolTf.rotation : Quaternion.identity,
+                targetStartLocalPos = tgt != null ? tgt.localPosition : Vector3.zero,
                 tolerance = minTolMeters,
                 placed = false,
                 lastErr = float.MaxValue
@@ -508,6 +573,11 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         if (logDebug)
             Debug.Log($"[ToolPlacementTM] Registry rebuilt: tools={toolMap.Count}, targets={targetMap.Count}, matched={items.Count}");
+    }
+
+    private static string NormalizeToolId(string id)
+    {
+        return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
     }
 
     private void ResetAllToolsToStartPose()
@@ -819,5 +889,52 @@ public class ToolPlacementTaskManager : MonoBehaviour
         if (it.startParent != null)
             it.tool.SetParent(it.startParent, true);
         it.tool.SetPositionAndRotation(it.startPos, it.startRot);
+    }
+
+    private void ApplyPracticePlacementTargetIfNeeded(Item it)
+    {
+        if (it == null || it.target == null) return;
+
+        it.target.localPosition = it.targetStartLocalPos;
+
+        if (!_practiceGhostRandomizationEnabled || !usePracticeRandomTargetPlacement)
+            return;
+
+        Vector3 min = Vector3.Min(practiceTargetOffsetMin, practiceTargetOffsetMax);
+        Vector3 max = Vector3.Max(practiceTargetOffsetMin, practiceTargetOffsetMax);
+        Vector3 offset = SamplePracticePlacementOffset(min, max);
+
+        it.target.localPosition = it.targetStartLocalPos + offset;
+    }
+
+    private Vector3 SamplePracticePlacementOffset(Vector3 min, Vector3 max)
+    {
+        Vector3 candidate = Vector3.zero;
+        float minDelta = Mathf.Max(0f, practiceMinTargetOffsetDelta);
+
+        for (int i = 0; i < 16; i++)
+        {
+            candidate = new Vector3(
+                UnityEngine.Random.Range(min.x, max.x),
+                UnityEngine.Random.Range(min.y, max.y),
+                UnityEngine.Random.Range(min.z, max.z));
+
+            if (!_hasLastPracticeTargetOffset || Vector3.Distance(candidate, _lastPracticeTargetOffset) >= minDelta)
+                break;
+        }
+
+        _lastPracticeTargetOffset = candidate;
+        _hasLastPracticeTargetOffset = true;
+        return candidate;
+    }
+
+    private void RestoreAllTargetPositionsToBaseline()
+    {
+        for (int i = 0; i < items.Count; i++)
+        {
+            Item it = items[i];
+            if (it == null || it.target == null) continue;
+            it.target.localPosition = it.targetStartLocalPos;
+        }
     }
 }

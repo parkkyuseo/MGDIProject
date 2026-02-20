@@ -16,7 +16,13 @@ public class StartupMenu : MonoBehaviour
 
     [Header("Voice Options")]
     public bool enableVoice = true;
-    public float autoGoAfterSec = 0f;  // 0이면 자동 없음, >0이면 n초 후 runtime으로 자동 이동
+    [Tooltip("Legacy option. Auto runtime transition is disabled in this flow.")]
+    public float autoGoAfterSec = 0f;
+
+    [Header("Legacy Runtime Route")]
+    [Tooltip("If false, runtime transition from this router is blocked. ParticipantIdGate handles runtime transition.")]
+    public bool allowLegacyRuntimeRouting = false;
+
     private KeywordRecognizer _kr;
     private string[] _keywords = new[] { "calibrate", "calibration", "runtime", "캘리브레이션", "런타임" };
 
@@ -36,21 +42,19 @@ public class StartupMenu : MonoBehaviour
                     string s = args.text.ToLower();
                     if (s.Contains("calib") || s.Contains("캘리"))
                         GoCalibration();
-                    else
+                    else if ((s.Contains("runtime") || s.Contains("런타임")) && allowLegacyRuntimeRouting)
                         GoRuntime();
+                    else if (s.Contains("runtime") || s.Contains("런타임"))
+                        Log("Runtime voice route is disabled.");
                 };
                 _kr.Start();
-                Log("Voice ready: say 'calibrate/캘리브레이션' or 'runtime/런타임'");
+                Log("Voice ready: say 'calibrate/캘리브레이션'");
             }
             catch (Exception ex)
             {
                 Log("Voice init failed: " + ex.Message);
             }
         }
-
-        // 자동 이동(선택)
-        if (autoGoAfterSec > 0f)
-            Invoke(nameof(GoRuntime), autoGoAfterSec);
     }
 
     void Update()
@@ -58,7 +62,7 @@ public class StartupMenu : MonoBehaviour
 #if UNITY_EDITOR
         // 에디터 테스트용 단축키
         if (!_routed && Input.GetKeyDown(KeyCode.C)) GoCalibration();
-        if (!_routed && Input.GetKeyDown(KeyCode.R)) GoRuntime();
+        if (!_routed && allowLegacyRuntimeRouting && Input.GetKeyDown(KeyCode.R)) GoRuntime();
 #endif
     }
 
@@ -77,6 +81,12 @@ public class StartupMenu : MonoBehaviour
 
     private void GoRuntime()
     {
+        if (!allowLegacyRuntimeRouting)
+        {
+            Log("Runtime route is disabled. Use ParticipantIdGate Continue.");
+            return;
+        }
+
         if (_routed) return;
         _routed = true;
         StopVoice();

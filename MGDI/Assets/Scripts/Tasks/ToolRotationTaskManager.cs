@@ -14,6 +14,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     public event Action<float, bool> OnConfirmProgress; // (t01, eligible)
     public event Action OnConfirmDwellCompleted;
     public event Action<string> OnConfirmStatus;
+    public event Action<bool, bool> OnTrialEnded; // (success, timedOut)
 
     [Header("Roots (auto-discovered via ToolId)")]
     [SerializeField] private Transform toolsDynamicRoot;
@@ -92,6 +93,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     [SerializeField] private float postSnapHoldSeconds = 0.35f;
     [SerializeField] private bool snapRotationOnSuccess = true;
     [SerializeField] private bool resetToolToStartAfterTrial = true;
+    [SerializeField] private bool preserveSolvedPoseForNextPhase = false;
 
     [Header("Trial Count")]
     [SerializeField] private int totalTrials = 20;
@@ -122,11 +124,16 @@ public class ToolRotationTaskManager : MonoBehaviour
     [SerializeField] private bool finishBlockAfterOneSuccessWhenForced = true;
     private string _forcedActiveId = null;
 
-    public void SetForcedActiveId(string id) => _forcedActiveId = string.IsNullOrEmpty(id) ? null : id;
+    public void SetForcedActiveId(string id) => _forcedActiveId = NormalizeToolId(id);
     public void ClearForcedActiveId() => _forcedActiveId = null;
 
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
+
+    [Header("Practice Target Randomization")]
+    [SerializeField] private bool usePracticeRandomTargetRotation = true;
+    [SerializeField] private Vector3 practiceRotationAbsEulerDeg = new Vector3(20f, 35f, 20f);
+    [SerializeField] private float practiceMinRotationDeltaDeg = 10f;
 
     // Micro controller can set this true while it is actively rotating.
     private bool _externalDriving = false;
@@ -140,6 +147,7 @@ public class ToolRotationTaskManager : MonoBehaviour
         public Transform tool;
         public Rigidbody toolBody;
         public Transform target;
+        public Transform targetEval;
 
         public Transform startParent;
         public Vector3 startPos;
@@ -149,6 +157,10 @@ public class ToolRotationTaskManager : MonoBehaviour
         public Quaternion startBaseRot;
         public Quaternion targetBaseRot;
         public Vector3 targetBasePos;
+        public Quaternion targetEvalBaseRot;
+        public Vector3 targetScenePos;
+        public Quaternion targetSceneRot;
+        public Quaternion targetSceneEvalRot;
 
         // For snap on success
         public Quaternion targetDesiredRot;
@@ -175,11 +187,54 @@ public class ToolRotationTaskManager : MonoBehaviour
     private Dictionary<string, Action> _keywordActions;
 
     private readonly StringBuilder _sb = new StringBuilder(512);
+    private bool _practiceGhostRandomizationEnabled = false;
+    private Quaternion _lastPracticeRotationOffset = Quaternion.identity;
+    private bool _hasLastPracticeRotationOffset = false;
+    private bool _hasCapturedCarryPose = false;
+    private string _capturedCarryId = null;
+    private Quaternion _capturedCarryToolRot = Quaternion.identity;
+    private Quaternion _capturedCarryTargetRot = Quaternion.identity;
+    private Quaternion _capturedCarryTargetEvalRot = Quaternion.identity;
 
     public bool IsTrialRunning => _trialRunning && !_inTransition;
     public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - _trialTimer);
     public int TotalTrials => totalTrials;
     public int CurrentTrialIndex1Based => _trialIndex + 1;
+    public float RotationToleranceDeg => rotationToleranceDeg;
+    public float ActiveRotationErrorDeg => ComputeRotationErrorDeg();
+    public bool ResetToolToStartAfterTrial
+    {
+        get => resetToolToStartAfterTrial;
+        set => resetToolToStartAfterTrial = value;
+    }
+    public bool PreserveSolvedPoseForNextPhase
+    {
+        get => preserveSolvedPoseForNextPhase;
+        set => preserveSolvedPoseForNextPhase = value;
+    }
+
+    public void SetPracticeGhostRandomization(bool enabled)
+    {
+        _practiceGhostRandomizationEnabled = enabled;
+        _hasLastPracticeRotationOffset = false;
+
+        if (enabled)
+        {
+            for (int i = 0; i < _items.Count; i++)
+            {
+                Item it = _items[i];
+                if (it == null) continue;
+                if (it.targetEval == null)
+                    it.targetEval = ResolveTargetEvaluationTransform(it.target);
+                if (it.targetEval != null)
+                    it.targetEvalBaseRot = it.targetEval.rotation;
+            }
+        }
+        else
+        {
+            RestoreAllPracticeTargetRotations();
+        }
+    }
 
     public Transform ActiveToolTransform => _active != null ? _active.tool : null;
     public string ActiveToolId => _active != null ? _active.id : null;
@@ -191,6 +246,7 @@ public class ToolRotationTaskManager : MonoBehaviour
         _inTransition = false;
         _trialRunning = false;
         _trialIndex = 0;
+        _hasLastPracticeRotationOffset = false;
 
         _externalDriving = false;
         OnConfirmStatus?.Invoke("");
@@ -200,6 +256,75 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         RebuildItemsFromScene();
         BeginNextTrial();
+    }
+
+    public void CaptureActivePoseForCarry()
+    {
+        if (_active == null || _active.tool == null || _active.target == null) return;
+
+        Transform eval = GetActiveEvaluationTargetTransform();
+        if (eval == null) return;
+
+        _capturedCarryId = _active.id;
+        _capturedCarryToolRot = _active.tool.rotation;
+        _capturedCarryTargetRot = _active.target.rotation;
+        _capturedCarryTargetEvalRot = eval.rotation;
+        _hasCapturedCarryPose = true;
+    }
+
+    public void ApplyCapturedPoseForId(string id)
+    {
+        if (!_hasCapturedCarryPose) return;
+        if (string.IsNullOrEmpty(id)) return;
+        if (!string.Equals(_capturedCarryId, id, StringComparison.OrdinalIgnoreCase)) return;
+
+        if (_items.Count == 0)
+            RebuildItemsFromScene();
+
+        Item it = _items.FirstOrDefault(
+            x => x != null && string.Equals(x.id, id, StringComparison.OrdinalIgnoreCase));
+        if (it == null || it.tool == null || it.target == null) return;
+
+        it.tool.rotation = _capturedCarryToolRot;
+        it.target.rotation = _capturedCarryTargetRot;
+
+        Transform eval = it.targetEval != null ? it.targetEval : ResolveTargetEvaluationTransform(it.target);
+        if (eval != null)
+        {
+            it.targetEval = eval;
+            eval.rotation = _capturedCarryTargetEvalRot;
+        }
+    }
+
+    public void ClearCapturedCarryPose()
+    {
+        _hasCapturedCarryPose = false;
+        _capturedCarryId = null;
+        _capturedCarryToolRot = Quaternion.identity;
+        _capturedCarryTargetRot = Quaternion.identity;
+        _capturedCarryTargetEvalRot = Quaternion.identity;
+    }
+
+    public void ResetAllTargetsToSceneBaseline()
+    {
+        if (_items.Count == 0)
+            RebuildItemsFromScene();
+
+        for (int i = 0; i < _items.Count; i++)
+        {
+            Item it = _items[i];
+            if (it == null || it.target == null) continue;
+
+            it.target.position = it.targetScenePos;
+            it.target.rotation = it.targetSceneRot;
+
+            Transform eval = it.targetEval != null ? it.targetEval : ResolveTargetEvaluationTransform(it.target);
+            if (eval != null)
+            {
+                it.targetEval = eval;
+                eval.rotation = it.targetSceneEvalRot;
+            }
+        }
     }
 
     private void Start()
@@ -318,17 +443,32 @@ public class ToolRotationTaskManager : MonoBehaviour
         }
 
         _active = null;
+        bool hasForcedActive = !string.IsNullOrEmpty(_forcedActiveId);
 
-        if (!string.IsNullOrEmpty(_forcedActiveId))
+        if (hasForcedActive)
         {
-            _active = _items.FirstOrDefault(it => it != null && it.id == _forcedActiveId);
-            if (_active == null && logDebug)
-                Debug.LogWarning($"[ToolRotationTM] ForcedActiveId '{_forcedActiveId}' not found. Falling back.");
+            _active = FindItemById(_forcedActiveId);
+            if (_active == null)
+            {
+                RebuildItemsFromScene();
+                _active = FindItemById(_forcedActiveId);
+            }
+
+            if (_active == null)
+            {
+                Debug.LogError($"[ToolRotationTM] ForcedActiveId '{_forcedActiveId}' not found. Trial start canceled.");
+                _trialRunning = false;
+                _inTransition = false;
+                OnConfirmProgress?.Invoke(0f, false);
+                OnConfirmStatus?.Invoke("");
+                return;
+            }
         }
 
         if (_active == null)
             _active = _items[_trialIndex % _items.Count];
 
+        _active.targetEval = ResolveTargetEvaluationTransform(_active.target);
         EnsureActiveBody();
 
         // Reset active tool to its start pose at trial start
@@ -339,6 +479,9 @@ public class ToolRotationTaskManager : MonoBehaviour
         _active.startBaseRot = _active.tool.rotation;
         _active.targetBaseRot = _active.target.rotation;
         _active.targetBasePos = _active.target.position;
+        Transform evalTargetAtStart = GetActiveEvaluationTargetTransform();
+        if (evalTargetAtStart != null)
+            _active.targetEvalBaseRot = evalTargetAtStart.rotation;
 
         // Move target near active tool (optional)
         if (bringTargetNearActiveTool)
@@ -354,7 +497,11 @@ public class ToolRotationTaskManager : MonoBehaviour
                 microAutoPlacer.PlaceHandNear(_active.tool);
         }
 
-        if (autoGenerateTargetRotation)
+        if (_practiceGhostRandomizationEnabled && usePracticeRandomTargetRotation)
+        {
+            ApplyPracticeTargetRotation(_active);
+        }
+        else if (autoGenerateTargetRotation)
         {
             // Sample a full 3D target rotation offset relative to startBaseRot
             Quaternion offset = SampleRandomRotationOffset();
@@ -408,16 +555,21 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         HideFeedbackUI();
 
-        // Restore target back to original placement
-        RestoreTargetPose();
+        bool finishingForcedSuccess = success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced;
+        bool keepSolvedPoseForScaling = finishingForcedSuccess && preserveSolvedPoseForNextPhase;
 
-        if (resetToolToStartAfterTrial)
+        if (!keepSolvedPoseForScaling)
+            RestoreTargetPose();
+
+        if (!keepSolvedPoseForScaling && resetToolToStartAfterTrial)
         {
             ForceReleaseIfPossible();
             ResetActiveToolToStartPose();
         }
 
-        if (success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced)
+        OnTrialEnded?.Invoke(success, timedOut);
+
+        if (finishingForcedSuccess)
         {
             FinishBlock();
             yield break;
@@ -430,11 +582,18 @@ public class ToolRotationTaskManager : MonoBehaviour
     private void RestoreTargetPose()
     {
         if (_active == null || _active.target == null) return;
-        if (!bringTargetNearActiveTool) return;
 
-        _active.target.position = _active.targetBasePos;
-        if (autoGenerateTargetRotation)
+        if (bringTargetNearActiveTool)
+            _active.target.position = _active.targetBasePos;
+
+        if (_practiceGhostRandomizationEnabled && usePracticeRandomTargetRotation)
+        {
+            RestorePracticeTargetRotation(_active);
+        }
+        else if (autoGenerateTargetRotation)
+        {
             _active.target.rotation = _active.targetBaseRot;
+        }
     }
 
     private void MoveTargetNearActiveTool()
@@ -482,19 +641,23 @@ public class ToolRotationTaskManager : MonoBehaviour
         if (toolsDynamicRoot == null || slotsTargetsRoot == null) return;
 
         var toolIds = toolsDynamicRoot.GetComponentsInChildren<ToolId>(true);
-        var toolMap = new Dictionary<string, Transform>();
+        var toolMap = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < toolIds.Length; i++)
         {
-            if (toolIds[i] == null || string.IsNullOrEmpty(toolIds[i].id)) continue;
-            toolMap[toolIds[i].id] = toolIds[i].transform;
+            if (toolIds[i] == null) continue;
+            string id = NormalizeToolId(toolIds[i].id);
+            if (string.IsNullOrEmpty(id)) continue;
+            toolMap[id] = toolIds[i].transform;
         }
 
         var targetIds = slotsTargetsRoot.GetComponentsInChildren<ToolId>(true);
-        var targetMap = new Dictionary<string, Transform>();
+        var targetMap = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < targetIds.Length; i++)
         {
-            if (targetIds[i] == null || string.IsNullOrEmpty(targetIds[i].id)) continue;
-            targetMap[targetIds[i].id] = targetIds[i].transform;
+            if (targetIds[i] == null) continue;
+            string id = NormalizeToolId(targetIds[i].id);
+            if (string.IsNullOrEmpty(id)) continue;
+            targetMap[id] = targetIds[i].transform;
         }
 
         foreach (var kv in toolMap)
@@ -508,6 +671,7 @@ public class ToolRotationTaskManager : MonoBehaviour
                 id = kv.Key,
                 tool = toolTf,
                 target = tgt,
+                targetEval = ResolveTargetEvaluationTransform(tgt),
                 startParent = toolTf != null ? toolTf.parent : null,
                 startPos = toolTf != null ? toolTf.position : Vector3.zero,
                 startRot = toolTf != null ? toolTf.rotation : Quaternion.identity,
@@ -515,8 +679,18 @@ public class ToolRotationTaskManager : MonoBehaviour
                 startBaseRot = Quaternion.identity,
                 targetBaseRot = Quaternion.identity,
                 targetBasePos = Vector3.zero,
+                targetEvalBaseRot = Quaternion.identity,
+                targetScenePos = tgt != null ? tgt.position : Vector3.zero,
+                targetSceneRot = tgt != null ? tgt.rotation : Quaternion.identity,
+                targetSceneEvalRot = Quaternion.identity,
                 targetDesiredRot = Quaternion.identity
             };
+
+            if (it.targetEval != null)
+            {
+                it.targetEvalBaseRot = it.targetEval.rotation;
+                it.targetSceneEvalRot = it.targetEval.rotation;
+            }
 
             _items.Add(it);
         }
@@ -525,6 +699,18 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         if (logDebug)
             Debug.Log($"[ToolRotationTM] Registry rebuilt: matched={_items.Count}");
+    }
+
+    private static string NormalizeToolId(string id)
+    {
+        return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
+    }
+
+    private Item FindItemById(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        return _items.FirstOrDefault(
+            it => it != null && string.Equals(it.id, id, StringComparison.OrdinalIgnoreCase));
     }
 
     private void EnsureActiveBody()
@@ -550,7 +736,11 @@ public class ToolRotationTaskManager : MonoBehaviour
     private float ComputeRotationErrorDeg()
     {
         if (_active == null || _active.tool == null || _active.target == null) return float.MaxValue;
-        return Quaternion.Angle(_active.tool.rotation, _active.target.rotation);
+
+        Transform evalTarget = GetActiveEvaluationTargetTransform();
+        if (evalTarget == null) return float.MaxValue;
+
+        return Quaternion.Angle(_active.tool.rotation, evalTarget.rotation);
     }
 
     private void EmitRotationConfirmStatus(float errorDeg, float toleranceDeg)
@@ -637,7 +827,36 @@ public class ToolRotationTaskManager : MonoBehaviour
     private void SnapRotationToTarget()
     {
         if (_active == null || _active.tool == null || _active.target == null) return;
-        _active.tool.rotation = _active.target.rotation;
+
+        Transform evalTarget = GetActiveEvaluationTargetTransform();
+        if (evalTarget == null) return;
+
+        _active.tool.rotation = evalTarget.rotation;
+    }
+
+    private Transform GetActiveEvaluationTargetTransform()
+    {
+        if (_active == null || _active.target == null) return null;
+
+        if (_active.targetEval == null)
+            _active.targetEval = ResolveTargetEvaluationTransform(_active.target);
+
+        return _active.targetEval != null ? _active.targetEval : _active.target;
+    }
+
+    private Transform ResolveTargetEvaluationTransform(Transform targetRoot)
+    {
+        if (targetRoot == null) return null;
+
+        var resolver = targetRoot.GetComponent<GhostVisualResolver>();
+        if (resolver != null && resolver.VisualRoot != null)
+            return resolver.VisualRoot;
+
+        Transform visualChild = targetRoot.Find("GhostVisual");
+        if (visualChild != null)
+            return visualChild;
+
+        return targetRoot;
     }
 
     private Quaternion SampleRandomRotationOffset()
@@ -663,6 +882,66 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         // Order matters; use yaw->pitch->roll
         return qYaw * qPitch * qRoll;
+    }
+
+    private void ApplyPracticeTargetRotation(Item it)
+    {
+        if (it == null || it.target == null) return;
+        Transform evalTarget = GetActiveEvaluationTargetTransform();
+        if (evalTarget == null) return;
+
+        if (it.targetEvalBaseRot == Quaternion.identity)
+            it.targetEvalBaseRot = evalTarget.rotation;
+
+        Quaternion offset = SamplePracticeRotationOffset();
+        evalTarget.rotation = it.targetEvalBaseRot * offset;
+    }
+
+    private Quaternion SamplePracticeRotationOffset()
+    {
+        Vector3 abs = new Vector3(
+            Mathf.Abs(practiceRotationAbsEulerDeg.x),
+            Mathf.Abs(practiceRotationAbsEulerDeg.y),
+            Mathf.Abs(practiceRotationAbsEulerDeg.z));
+
+        Quaternion candidate = Quaternion.identity;
+        float minDelta = Mathf.Max(0f, practiceMinRotationDeltaDeg);
+
+        for (int i = 0; i < 16; i++)
+        {
+            float pitch = Random.Range(-abs.x, abs.x);
+            float yaw = Random.Range(-abs.y, abs.y);
+            float roll = Random.Range(-abs.z, abs.z);
+            candidate = Quaternion.Euler(pitch, yaw, roll);
+
+            if (!_hasLastPracticeRotationOffset || Quaternion.Angle(candidate, _lastPracticeRotationOffset) >= minDelta)
+                break;
+        }
+
+        _lastPracticeRotationOffset = candidate;
+        _hasLastPracticeRotationOffset = true;
+        return candidate;
+    }
+
+    private void RestorePracticeTargetRotation(Item it)
+    {
+        if (it == null) return;
+        Transform evalTarget = GetActiveEvaluationTargetTransform();
+        if (evalTarget == null) return;
+        evalTarget.rotation = it.targetEvalBaseRot;
+    }
+
+    private void RestoreAllPracticeTargetRotations()
+    {
+        for (int i = 0; i < _items.Count; i++)
+        {
+            Item it = _items[i];
+            if (it == null) continue;
+            Transform eval = it.targetEval != null ? it.targetEval : ResolveTargetEvaluationTransform(it.target);
+            if (eval == null) continue;
+            if (it.targetEval == null) it.targetEval = eval;
+            eval.rotation = it.targetEvalBaseRot;
+        }
     }
 
     // ---------------- UI ----------------
@@ -760,6 +1039,7 @@ public class ToolRotationTaskManager : MonoBehaviour
         OnConfirmProgress?.Invoke(0f, false);
         OnConfirmStatus?.Invoke("");
         ResetConfirmState();
+        RestoreAllPracticeTargetRotations();
 
         if (grabber != null)
             grabber.SetHeldRotationMode(restoreGrabberModeOnDisable);
@@ -778,10 +1058,17 @@ public class ToolRotationTaskManager : MonoBehaviour
     /// </summary>
     public Transform GetMicroRotationTargetTransform()
     {
-        if (_active == null) return null;
+        if (_active == null || _active.tool == null) return null;
+
+        EnsureActiveBody();
 
         if (grabber != null && grabber.IsHolding && grabber.HeldBody != null)
-            return grabber.HeldBody.transform;
+        {
+            if (_active.toolBody == null || grabber.HeldBody == _active.toolBody)
+                return grabber.HeldBody.transform;
+
+            return allowMicroRotateWithoutHolding ? _active.tool : null;
+        }
 
         if (allowMicroRotateWithoutHolding)
             return _active.tool;

@@ -1,7 +1,10 @@
+using System;
 using UnityEngine;
 
 public class PhoneInputRouter : MonoBehaviour
 {
+    public event Action OnModeToggle;
+
     public enum Mode { Macro = 0, Micro = 1 }
 
     [Header("Refs")]
@@ -55,6 +58,7 @@ public class PhoneInputRouter : MonoBehaviour
                 {
                     _lastSeenModeToggleId = id;
                     _modeToggleBuffered = true;
+                    try { OnModeToggle?.Invoke(); } catch { }
                 }
             }
         }
