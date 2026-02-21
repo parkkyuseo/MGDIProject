@@ -27,10 +27,6 @@ public class MicroRotationAnalogController : MonoBehaviour
     [SerializeField] private bool invertRoll = true;
     [SerializeField] private bool invertPitch = true;
 
-    [Header("Micro only policy")]
-    [Tooltip("If true, allows rotating the active tool even when not holding (Micro mode only).")]
-    [SerializeField] private bool allowWithoutHoldingInMicro = true;
-
     [Header("Adaptive Gain (Micro analog)")]
     [SerializeField] private bool useAdaptiveGain = true;
     [SerializeField] private float minGain = 0.35f;
@@ -53,9 +49,16 @@ public class MicroRotationAnalogController : MonoBehaviour
         if (router == null) return;
         if (router.CurrentMode != PhoneInputRouter.Mode.Micro) return;
 
-        if (grabber == null) return;
+        if (rotationTask == null && grabber == null) return;
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+
+        if (rotationTask != null && !rotationTask.IsTrialRunning)
+        {
+            UpdateAdaptiveGain(Vector2.zero, false, dt);
+            rotationTask.SetExternalDriving(false);
+            return;
+        }
 
         if (router.TryConsumeModeToggle())
         {
@@ -95,19 +98,10 @@ public class MicroRotationAnalogController : MonoBehaviour
         float secondaryRate = (secondaryAxisMode == SecondaryAxisMode.Roll) ? rollDegPerSec : pitchDegPerSec;
         float secondary = a.y * (secondaryRate * _gain) * dt;
 
-        bool holdingAny = grabber.IsHolding && grabber.HeldBody != null;
-        bool holdingActive = false;
-        if (rotationTask != null && holdingAny && rotationTask.ActiveToolBody != null)
-            holdingActive = grabber.HeldBody == rotationTask.ActiveToolBody;
-
         Transform t = null;
         if (rotationTask != null)
             t = rotationTask.GetMicroRotationTargetTransform();
-
-        if (!allowWithoutHoldingInMicro && !holdingActive)
-            t = null;
-
-        if (t == null && rotationTask == null && holdingAny)
+        else if (grabber != null && grabber.IsHolding && grabber.HeldBody != null)
             t = grabber.HeldBody.transform;
 
         if (t == null)

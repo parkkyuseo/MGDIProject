@@ -16,9 +16,9 @@ public class PhoneTechniqueGate : MonoBehaviour
     [SerializeField] private Behaviour microRotationOnlyDriver;
 
     [Header("Micro Controllers (enabled only in Micro)")]
-    [SerializeField] private Behaviour microPlacementController; // MicroPlacementSwipeController
-    [SerializeField] private Behaviour microRotationController;  // MicroRotationSwipeController
-    [SerializeField] private Behaviour microScalingController;   // MicroScalingSwipeController
+    [SerializeField] private Behaviour microPlacementController; 
+    [SerializeField] private Behaviour microRotationController;  
+    [SerializeField] private Behaviour microScalingController;   
 
     [Header("Micro Task (default while not wired to StudyFlowController)")]
     [SerializeField] private MicroTask microTask = MicroTask.Placement;

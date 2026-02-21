@@ -1,5 +1,5 @@
 {
-  "timestamp": 1764170301.7198107,
+  "timestamp": 1770300772.9621542,
   "shots_goal": 8,
   "shots_success": 8,
   "min_charuco": 12,
@@ -11,8 +11,8 @@
   "stats": [
     {
       "ok": true,
-      "n_markers": 17,
-      "n_charuco": 24
+      "n_markers": 15,
+      "n_charuco": 17
     },
     {
       "ok": true,
@@ -21,41 +21,41 @@
     },
     {
       "ok": true,
-      "n_markers": 17,
-      "n_charuco": 24
+      "n_markers": 16,
+      "n_charuco": 22
     },
     {
       "ok": true,
-      "n_markers": 17,
-      "n_charuco": 24
+      "n_markers": 15,
+      "n_charuco": 18
     },
     {
       "ok": true,
-      "n_markers": 17,
-      "n_charuco": 24
+      "n_markers": 15,
+      "n_charuco": 20
     },
     {
       "ok": true,
-      "n_markers": 17,
-      "n_charuco": 24
+      "n_markers": 14,
+      "n_charuco": 18
     },
     {
       "ok": true,
-      "n_markers": 17,
-      "n_charuco": 24
+      "n_markers": 14,
+      "n_charuco": 16
     },
     {
       "ok": true,
-      "n_markers": 17,
-      "n_charuco": 24
+      "n_markers": 13,
+      "n_charuco": 14
     }
   ],
   "C_ref": "left_rectified",
   "convention_C": "opencv",
   "sanity": {
-    "detR": 1.0,
-    "ortho_err": 2.49295207165904e-16,
-    "Rz_dot_Z": 0.9947998018077946,
-    "tz": 0.558625417345762
+    "detR": 0.9999999999999999,
+    "ortho_err": 5.322305894227347e-16,
+    "Rz_dot_Z": 0.9952941208368665,
+    "tz": 0.6699787447830858
   }
 }

@@ -29,6 +29,12 @@ public class ToolScalingTaskManager : MonoBehaviour
     [Tooltip("RemoteHandRuntime used for MACRO wrist diagonal scaling.")]
     [SerializeField] private RemoteHandRuntime remoteHand;
 
+    [Header("Phone (optional)")]
+    [SerializeField] private PhoneInputRouter phoneRouter;
+
+    [Header("Micro: allow scale without holding")]
+    [SerializeField] private bool allowMicroScaleWithoutHolding = true;
+
     [Tooltip("If true, evaluation occurs only when NOT holding (release-to-evaluate).")]
     [SerializeField] private bool requireNotHolding = true;
 
@@ -37,6 +43,9 @@ public class ToolScalingTaskManager : MonoBehaviour
 
     [Tooltip("If true, allow scaling updates only while holding THIS trial's tool rigidbody (id-matched).")]
     [SerializeField] private bool requireHoldingThisTool = true;
+
+    [Tooltip("If true, Macro mode requires holding regardless of scaleOnlyWhenHolding.")]
+    [SerializeField] private bool requireHoldingInMacro = true;
 
     [Header("Trial Timing")]
     [SerializeField] private float trialTimeoutSeconds = 12f;
@@ -174,6 +183,7 @@ public class ToolScalingTaskManager : MonoBehaviour
     public float ActiveCurrentFactor => GetActualScaleFactor(active);
     public float ScaleFactorTolerance => scaleFactorTolerance;
     public float ActiveScalingErrorFactor => active != null ? Mathf.Abs(ActiveCurrentFactor - active.targetFactor) : float.MaxValue;
+    public bool AllowMicroScaleWithoutHolding => allowMicroScaleWithoutHolding;
     public bool ResetScaleAfterTrial
     {
         get => resetScaleAfterTrial;
@@ -196,17 +206,20 @@ public class ToolScalingTaskManager : MonoBehaviour
         if (!trialRunning || inTransition) return false;
         if (active == null || active.tool == null) return false;
 
+        bool isMicroMode = phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro;
+        if (isMicroMode)
+        {
+            if (allowMicroScaleWithoutHolding)
+                return true;
+            return IsHoldingAllowedForDrive();
+        }
+
+        if (!isMicroMode && requireHoldingInMacro)
+            return IsHoldingAllowedForDrive();
+
         if (!scaleOnlyWhenHolding) return true;
 
-        if (grabber == null) return false;
-        if (!grabber.IsHolding) return false;
-
-        if (!requireHoldingThisTool) return true;
-
-        if (active.toolBody == null) return false;
-        if (grabber.HeldBody == null) return false;
-
-        return grabber.HeldBody == active.toolBody;
+        return IsHoldingAllowedForDrive();
     }
 
     // Controllers (and macro) use this to apply factor to the TOOL scale
@@ -228,6 +241,8 @@ public class ToolScalingTaskManager : MonoBehaviour
     public void StartBlock()
     {
         StopAllCoroutines();
+        if (phoneRouter == null)
+            phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
         inTransition = false;
         trialRunning = false;
         trialIndex = 0;
@@ -284,10 +299,21 @@ public class ToolScalingTaskManager : MonoBehaviour
                 active.haveWristPrev = false;
         }
 
+        bool useTouchHoldConfirmGate = IsMicroTouchHoldConfirmGateActive();
+        bool touchHolding = useTouchHoldConfirmGate && phoneRouter != null && phoneRouter.HoldActive;
+
         // ---------------- Evaluate (release-to-evaluate) ----------------
         bool evalAllowed = true;
-        if (requireNotHolding && grabber != null && grabber.IsHolding)
-            evalAllowed = false;
+        if (useTouchHoldConfirmGate)
+        {
+            if (touchHolding)
+                evalAllowed = false;
+        }
+        else
+        {
+            if (requireNotHolding && grabber != null && grabber.IsHolding)
+                evalAllowed = false;
+        }
 
         float curFactor = GetActualScaleFactor(active);
         float err = Mathf.Abs(curFactor - active.targetFactor);
@@ -300,7 +326,7 @@ public class ToolScalingTaskManager : MonoBehaviour
             ActiveToolTransform != null &&
             err <= scaleFactorTolerance &&
             stable &&
-            IsNotHolding() &&
+            (useTouchHoldConfirmGate || IsNotHolding()) &&
             evalAllowed;
 
         if (eligible && !confirmLatched)
@@ -771,6 +797,19 @@ public class ToolScalingTaskManager : MonoBehaviour
         ApplyScaleFactor(next);
     }
 
+    private bool IsHoldingAllowedForDrive()
+    {
+        if (grabber == null) return false;
+        if (!grabber.IsHolding) return false;
+
+        if (!requireHoldingThisTool) return true;
+        if (active == null || active.tool == null) return false;
+
+        if (active.toolBody == null) return false;
+        if (grabber.HeldBody == null) return false;
+        return grabber.HeldBody == active.toolBody;
+    }
+
     // ---------------- Scale factor measurement (SAFE) ----------------
     private float GetActualScaleFactor(Item it)
     {
@@ -793,8 +832,31 @@ public class ToolScalingTaskManager : MonoBehaviour
         return Mathf.Clamp(f, minScaleFactor, maxScaleFactor);
     }
 
+    private bool IsMicroTouchHoldConfirmGateActive()
+    {
+        return phoneRouter != null &&
+               phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro &&
+               allowMicroScaleWithoutHolding;
+    }
+
     private void EmitScaleConfirmStatus(float errorFactor, float toleranceFactor)
     {
+        if (IsMicroTouchHoldConfirmGateActive())
+        {
+            bool touchHolding = phoneRouter != null && phoneRouter.HoldActive;
+            bool withinTolMicro = errorFactor <= toleranceFactor;
+            string microMsg;
+            if (touchHolding)
+                microMsg = "Release touch to confirm";
+            else if (!withinTolMicro)
+                microMsg = "Align size";
+            else
+                microMsg = "Confirming...";
+
+            OnConfirmStatus?.Invoke(microMsg);
+            return;
+        }
+
         bool holding = requireNotHolding && grabber != null && grabber.IsHolding;
         bool withinTol = errorFactor <= toleranceFactor;
 

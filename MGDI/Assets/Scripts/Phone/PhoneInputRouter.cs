@@ -22,6 +22,7 @@ public class PhoneInputRouter : MonoBehaviour
 
     public Vector2 Axis { get; private set; }       // Micro only
     public bool AxisActive { get; private set; }    // Micro only
+    public bool HoldActive { get; private set; }    // Micro only (screen touch)
 
     private bool _modeToggleBuffered = false;
     private int _lastSeenModeToggleId = int.MinValue;
@@ -45,6 +46,7 @@ public class PhoneInputRouter : MonoBehaviour
         {
             Axis = new Vector2(phoneRx.LatestAx, phoneRx.LatestAy);
             AxisActive = phoneRx.LatestDrag;
+            HoldActive = hold;
 
             if (phoneRx.HasPhonePose)
             {
@@ -66,6 +68,7 @@ public class PhoneInputRouter : MonoBehaviour
         {
             Axis = Vector2.zero;
             AxisActive = false;
+            HoldActive = false;
             _modeToggleBuffered = false;
 
             if (phoneRx.HasPhonePose && _lastSeenModeToggleId == int.MinValue)

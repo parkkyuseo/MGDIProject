@@ -45,6 +45,9 @@ public class StudyFlowController_V2 : MonoBehaviour
     [TextArea(2, 5)]
     [SerializeField] private string practiceIntroTextTemplate = "Practice ({count} trials) - Tool: {tool}\nLogging disabled";
     [SerializeField] private float practiceIntroSeconds = 2f;
+    [SerializeField] private float minPracticeIntroRepeatInterval = 1.0f;
+    [SerializeField] private bool showPracticeCompleteMessage = false;
+    [SerializeField] private string practiceCompleteMessage = "Main task starts now";
     [SerializeField] private float practiceCompleteSeconds = 1f;
 
     private Action _onPlacementFinished;
@@ -89,6 +92,9 @@ public class StudyFlowController_V2 : MonoBehaviour
     private bool _practiceResetPolicyApplied;
     private string _conditionStateKey = null;
     private bool _carryRotationPoseIntoScaling = false;
+    private bool _practiceIntroShownThisSession = false;
+    private float _lastPracticeIntroShownAt = -999f;
+    private string _lastPracticeIntroShownText = null;
 
     void Awake() => Debug.Log("[SFC_V2] Awake");
 
@@ -699,6 +705,7 @@ public class StudyFlowController_V2 : MonoBehaviour
         _practicePhase = phase;
         practiceSuccessCount = 0;
         practiceTargetCount = target;
+        _practiceIntroShownThisSession = false;
         ApplyPracticeResetPolicy(phase);
         ApplyPracticeGhostRandomizationPolicy(phase);
         ApplyForcedIdForPhase(phase, GetPracticeToolIdNormalized());
@@ -717,10 +724,7 @@ public class StudyFlowController_V2 : MonoBehaviour
 
     private IEnumerator BeginPracticeAfterIntro()
     {
-        if (instructionHUD != null)
-        {
-            instructionHUD.Show(BuildPracticeIntroText(), Mathf.Max(0f, practiceIntroSeconds));
-        }
+        ShowPracticeIntroIfNeeded();
 
         float wait = Mathf.Max(0f, practiceIntroSeconds);
         if (wait > 0f)
@@ -810,10 +814,18 @@ public class StudyFlowController_V2 : MonoBehaviour
         if (logger != null)
             logger.LoggingEnabled = true;
 
-        if (instructionHUD != null)
-            instructionHUD.Show("Practice complete", Mathf.Max(0f, practiceCompleteSeconds));
+        float wait = 0f;
+        if (showPracticeCompleteMessage &&
+            instructionHUD != null &&
+            !string.IsNullOrWhiteSpace(practiceCompleteMessage))
+        {
+            wait = Mathf.Max(0f, practiceCompleteSeconds);
+            if (wait > 0f)
+                instructionHUD.Show(practiceCompleteMessage, wait);
+            else
+                instructionHUD.Show(practiceCompleteMessage, 0.05f);
+        }
 
-        float wait = Mathf.Max(0f, practiceCompleteSeconds);
         if (wait > 0f)
             yield return new WaitForSeconds(wait);
 
@@ -840,6 +852,32 @@ public class StudyFlowController_V2 : MonoBehaviour
         return template
             .Replace("{count}", practiceTargetCount.ToString())
             .Replace("{tool}", toolLabel);
+    }
+
+    private void ShowPracticeIntroIfNeeded()
+    {
+        if (instructionHUD == null)
+            return;
+
+        if (_practiceIntroShownThisSession)
+            return;
+
+        string text = BuildPracticeIntroText();
+        float now = Time.unscaledTime;
+        float minInterval = Mathf.Max(0f, minPracticeIntroRepeatInterval);
+
+        bool isRapidDuplicate =
+            !string.IsNullOrEmpty(_lastPracticeIntroShownText) &&
+            string.Equals(_lastPracticeIntroShownText, text, StringComparison.Ordinal) &&
+            (now - _lastPracticeIntroShownAt) < minInterval;
+
+        if (isRapidDuplicate)
+            return;
+
+        instructionHUD.Show(text, Mathf.Max(0f, practiceIntroSeconds));
+        _practiceIntroShownThisSession = true;
+        _lastPracticeIntroShownText = text;
+        _lastPracticeIntroShownAt = now;
     }
 
     private void UpdatePracticeText()

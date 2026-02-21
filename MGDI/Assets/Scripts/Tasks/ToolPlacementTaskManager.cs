@@ -359,17 +359,6 @@ public class ToolPlacementTaskManager : MonoBehaviour
         if (lockRotationDuringPlacement)
             SetGrabberRotationMode(placementGrabberMode);
 
-        // Reset tools to their captured start poses
-        /* if (resetToolsToStartAfterTrial)
-         *     ResetAllToolsToStartPose(); */
-        if (resetToolsToStartAfterTrial)
-        {
-            if (workflowSingleActiveMode && _active != null)
-                ResetToolToStartPose(_active);
-            else
-                ResetAllToolsToStartPose();
-        }
-
         // Refresh cached renderers each trial (safe)
         for (int i = 0; i < items.Count; i++)
         {
@@ -425,6 +414,17 @@ public class ToolPlacementTaskManager : MonoBehaviour
             Debug.Log("[ToolPlacementTM] Active item selection failed (registry empty?).");
             FinishBlock();
             return;
+        }
+
+        // Reset tools to captured start poses after active selection,
+        // so the reset always targets the actual trial item.
+        if (resetToolsToStartAfterTrial)
+        {
+            ForceReleaseIfPossible();
+            if (workflowSingleActiveMode)
+                ResetToolToStartPose(_active);
+            else
+                ResetAllToolsToStartPose();
         }
 
         ApplyPracticePlacementTargetIfNeeded(_active);

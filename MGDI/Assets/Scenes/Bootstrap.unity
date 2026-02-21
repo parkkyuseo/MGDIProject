@@ -924,15 +924,40 @@ MonoBehaviour:
   continueButton: {fileID: 1221783425}
   instructionMessage: Enter your assigned Participant ID
   idPrefix: 'Participant ID: '
+  idTypingPrefix: 'Typing ID: '
+  participantIdPrefix: P
+  digitsOnlyAfterPrefix: 1
+  startWithPrefixTemplate: 1
   allowEmptyContinue: 1
   autoContinueOnKeyboardDone: 1
+  showKeyboardOpenHint: 1
+  keyboardOpenHint: Type the ID and press Enter or Continue.
+  useButtonFeedback: 1
+  buttonFeedbackScale: 1.06
+  buttonFeedbackDuration: 0.1
+  buttonFlashColor: {r: 0.78, g: 0.95, b: 1, a: 1}
+  useInstructionStatusFeedback: 1
+  statusMessageSeconds: 0.75
+  editPressedStatus: Opening keyboard...
+  continuePressedStatus: Continuing...
+  feedbackAudioSource: {fileID: 0}
+  buttonClickSfx: {fileID: 0}
+  buttonClickVolume: 0.8
+  autoLayoutUi: 1
+  instructionAnchoredPos: {x: 0, y: 150}
+  instructionSize: {x: 920, y: 120}
+  idDisplayAnchoredPos: {x: 0, y: 52}
+  idDisplaySize: {x: 780, y: 72}
+  editButtonAnchoredPos: {x: -150, y: -58}
+  continueButtonAnchoredPos: {x: 150, y: -58}
+  buttonSize: {x: 220, y: 68}
   placeInFrontOnStart: 1
   detachFromParentOnStart: 1
   spawnDistanceMeters: 1.2
   verticalOffsetMeters: -0.05
   faceTowardCameraOnStart: 1
   invertFacingForWorldCanvas: 1
-  followCameraSecondsOnStart: 2
+  followCameraSecondsOnStart: 1
   cameraFindMaxFrames: 120
   logDebug: 0
   enableDirectFingerPress: 1

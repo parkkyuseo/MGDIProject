@@ -4,7 +4,6 @@ public class MicroScalingAnalogController : MonoBehaviour
 {
     [Header("Refs")]
     [SerializeField] private PhoneInputRouter router;
-    [SerializeField] private ProxyHandGrabber grabber;
     [SerializeField] private ToolScalingTaskManager scalingTask; // Drive task manager, not transform scale
 
     [Header("Settings")]
@@ -14,10 +13,6 @@ public class MicroScalingAnalogController : MonoBehaviour
     [Header("Factor clamp (relative)")]
     [SerializeField] private float minFactor = 0.60f;
     [SerializeField] private float maxFactor = 1.80f;
-
-    [Header("Micro only policy")]
-    [Tooltip("If false, scaling requires holding in Micro mode. If true, scaling can run without holding, while task-manager gating still applies.")]
-    [SerializeField] private bool allowWithoutHoldingInMicro = true;
 
     [Header("Adaptive Gain (Micro analog)")]
     [SerializeField] private bool useAdaptiveGain = true;
@@ -34,7 +29,6 @@ public class MicroScalingAnalogController : MonoBehaviour
     void Awake()
     {
         if (router == null) router = FindFirstObjectByType<PhoneInputRouter>();
-        if (grabber == null) grabber = FindFirstObjectByType<ProxyHandGrabber>();
         if (scalingTask == null) scalingTask = FindFirstObjectByType<ToolScalingTaskManager>();
     }
 
@@ -79,15 +73,11 @@ public class MicroScalingAnalogController : MonoBehaviour
             return;
         }
 
-        // Holding gate (Micro only)
-        if (!allowWithoutHoldingInMicro)
+        if (!scalingTask.CanDriveNow())
         {
-            if (grabber == null || !grabber.IsHolding)
-            {
-                scalingTask.SetExternalDriving(false);
-                _prevActive = false;
-                return;
-            }
+            scalingTask.SetExternalDriving(false);
+            _prevActive = false;
+            return;
         }
 
         // On first active frame, start from current cmd (or 1.0). Here it resets to 1 for predictability.

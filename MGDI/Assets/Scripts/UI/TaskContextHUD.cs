@@ -32,6 +32,34 @@ public class TaskContextHUD : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool logDebugUpdates = false;
 
+    [Header("Professional Look")]
+    [SerializeField] private bool useProfessionalLook = true;
+    [SerializeField] private bool autoArrangeRows = true;
+    [SerializeField] private bool allowRepositioning = false;
+    [SerializeField] private bool overridePanelSizing = false;
+    [SerializeField] private bool overrideTextSizing = false;
+    [SerializeField] private RectTransform panelRect;
+    [SerializeField] private Image panelBackground;
+    [SerializeField] private Vector2 panelSize = new Vector2(660f, 280f);
+    [SerializeField] private Vector2 panelPadding = new Vector2(30f, 22f);
+    [SerializeField] private float rowGap = 46f;
+    [SerializeField] private float secondaryRowGap = 40f;
+    [SerializeField] private Color panelBgColor = new Color(0.06f, 0.11f, 0.17f, 0.86f);
+    [SerializeField] private Color taskPlacementColor = new Color(0.46f, 0.87f, 0.62f, 1f);
+    [SerializeField] private Color taskRotationColor = new Color(0.44f, 0.72f, 1f, 1f);
+    [SerializeField] private Color taskScalingColor = new Color(1f, 0.73f, 0.45f, 1f);
+    [SerializeField] private Color taskDefaultColor = new Color(0.85f, 0.93f, 1f, 1f);
+    [SerializeField] private Color conditionColor = new Color(0.76f, 0.83f, 0.91f, 0.95f);
+    [SerializeField] private Color trialColor = new Color(0.94f, 0.97f, 1f, 1f);
+    [SerializeField] private Color practiceColor = new Color(1f, 0.86f, 0.50f, 1f);
+    [SerializeField] private Color errorColor = new Color(1f, 0.72f, 0.57f, 1f);
+    [SerializeField] private float taskFontSize = 34f;
+    [SerializeField] private float lineFontSize = 24f;
+    [SerializeField] private float practiceFontSize = 22f;
+    [SerializeField] private float errorFontSize = 20f;
+    [SerializeField] private TextAlignmentOptions tmpLineAlignment = TextAlignmentOptions.Left;
+    [SerializeField] private TextAnchor uguiLineAlignment = TextAnchor.MiddleLeft;
+
     private bool _warnedTaskLabelMissing;
     private bool _warnedConditionMissing;
     private bool _warnedTrialMissing;
@@ -40,16 +68,27 @@ public class TaskContextHUD : MonoBehaviour
 
     private float _errorAlphaSmooth;
     private bool _errorInitialized;
+    private bool _visualInitialized;
 
     public void SetVisible(bool visible) => gameObject.SetActive(visible);
 
     private void Awake()
     {
         ResolveTaskRefs();
+        EnsureVisualRefs();
+        ApplyProfessionalLook();
+    }
+
+    private void OnEnable()
+    {
+        if (useProfessionalLook)
+            ApplyProfessionalLook();
     }
 
     private void LateUpdate()
     {
+        if (useProfessionalLook && !_visualInitialized)
+            ApplyProfessionalLook();
         UpdateErrorFeedback();
     }
 
@@ -69,6 +108,7 @@ public class TaskContextHUD : MonoBehaviour
     {
         string value = taskName ?? "";
         SetText(taskLabelText, taskLabelTextUGUI, value, ref _warnedTaskLabelMissing, "Task Label");
+        ApplyTaskAccentColor(value);
         if (logDebugUpdates) Debug.Log("[TaskContextHUD] TaskLabel=" + value);
     }
 
@@ -101,7 +141,8 @@ public class TaskContextHUD : MonoBehaviour
     {
         string value = text ?? "";
         bool visible = !string.IsNullOrWhiteSpace(value);
-        SetText(practiceText, practiceTextUGUI, value, ref _warnedPracticeMissing, "Practice");
+        string display = visible ? value.ToUpperInvariant() : value;
+        SetText(practiceText, practiceTextUGUI, display, ref _warnedPracticeMissing, "Practice");
 
         if (practiceText != null) practiceText.gameObject.SetActive(visible);
         if (practiceTextUGUI != null) practiceTextUGUI.gameObject.SetActive(visible);
@@ -291,6 +332,165 @@ public class TaskContextHUD : MonoBehaviour
         if (placementTask == null) placementTask = FindFirstObjectByType<ToolPlacementTaskManager>();
         if (rotationTask == null) rotationTask = FindFirstObjectByType<ToolRotationTaskManager>();
         if (scalingTask == null) scalingTask = FindFirstObjectByType<ToolScalingTaskManager>();
+    }
+
+    private void EnsureVisualRefs()
+    {
+        if (panelRect == null)
+            panelRect = transform as RectTransform;
+
+        if (panelBackground == null)
+        {
+            Image[] images = GetComponentsInChildren<Image>(true);
+            for (int i = 0; i < images.Length; i++)
+            {
+                Image img = images[i];
+                if (img == null) continue;
+                string n = img.name.ToLowerInvariant();
+                if (n.Contains("bg") || n.Contains("background") || n.Contains("panel"))
+                {
+                    panelBackground = img;
+                    break;
+                }
+            }
+
+            if (panelBackground == null && images.Length > 0)
+                panelBackground = images[0];
+        }
+    }
+
+    private void ApplyProfessionalLook()
+    {
+        if (!useProfessionalLook)
+            return;
+
+        EnsureVisualRefs();
+
+        if (panelBackground != null)
+            panelBackground.color = panelBgColor;
+
+        ApplyTmpStyle(taskLabelText, taskFontSize, FontStyles.Bold, taskDefaultColor, tmpLineAlignment, true, overrideTextSizing);
+        ApplyTmpStyle(conditionText, lineFontSize, FontStyles.Normal, conditionColor, tmpLineAlignment, false, overrideTextSizing);
+        ApplyTmpStyle(trialText, lineFontSize, FontStyles.Bold, trialColor, tmpLineAlignment, false, overrideTextSizing);
+        ApplyTmpStyle(practiceText, practiceFontSize, FontStyles.Bold, practiceColor, tmpLineAlignment, false, overrideTextSizing);
+        ApplyTmpStyle(errorText, errorFontSize, FontStyles.Bold, errorColor, tmpLineAlignment, false, overrideTextSizing);
+
+        ApplyUguiStyle(taskLabelTextUGUI, taskDefaultColor, uguiLineAlignment, FontStyle.Bold);
+        ApplyUguiStyle(conditionTextUGUI, conditionColor, uguiLineAlignment, FontStyle.Normal);
+        ApplyUguiStyle(trialTextUGUI, trialColor, uguiLineAlignment, FontStyle.Bold);
+        ApplyUguiStyle(practiceTextUGUI, practiceColor, uguiLineAlignment, FontStyle.Bold);
+        ApplyUguiStyle(errorTextUGUI, errorColor, uguiLineAlignment, FontStyle.Bold);
+
+        if (autoArrangeRows && allowRepositioning)
+            ArrangeRows();
+
+        ApplyTaskAccentColor(taskLabelText != null ? taskLabelText.text : (taskLabelTextUGUI != null ? taskLabelTextUGUI.text : ""));
+        _visualInitialized = true;
+    }
+
+    private void ArrangeRows()
+    {
+        if (panelRect == null)
+            return;
+
+        if (overridePanelSizing)
+            panelRect.sizeDelta = panelSize;
+
+        float contentWidth = Mathf.Max(80f, panelSize.x - panelPadding.x * 2f);
+        float top = panelSize.y * 0.5f - panelPadding.y;
+        float x = 0f;
+
+        PlaceRect(taskLabelText != null ? taskLabelText.rectTransform : null, x, top - 32f, contentWidth, 64f);
+        PlaceRect(taskLabelTextUGUI != null ? taskLabelTextUGUI.rectTransform : null, x, top - 32f, contentWidth, 64f);
+
+        float y2 = top - 32f - rowGap;
+        PlaceRect(conditionText != null ? conditionText.rectTransform : null, x, y2, contentWidth, 46f);
+        PlaceRect(conditionTextUGUI != null ? conditionTextUGUI.rectTransform : null, x, y2, contentWidth, 46f);
+
+        float y3 = y2 - secondaryRowGap;
+        PlaceRect(trialText != null ? trialText.rectTransform : null, x, y3, contentWidth, 44f);
+        PlaceRect(trialTextUGUI != null ? trialTextUGUI.rectTransform : null, x, y3, contentWidth, 44f);
+
+        float y4 = y3 - secondaryRowGap;
+        PlaceRect(practiceText != null ? practiceText.rectTransform : null, x, y4, contentWidth, 42f);
+        PlaceRect(practiceTextUGUI != null ? practiceTextUGUI.rectTransform : null, x, y4, contentWidth, 42f);
+
+        float y5 = y4 - secondaryRowGap;
+        PlaceRect(errorText != null ? errorText.rectTransform : null, x, y5, contentWidth, 40f);
+        PlaceRect(errorTextUGUI != null ? errorTextUGUI.rectTransform : null, x, y5, contentWidth, 40f);
+    }
+
+    private void ApplyTaskAccentColor(string taskLabel)
+    {
+        if (!useProfessionalLook)
+            return;
+
+        Color accent = taskDefaultColor;
+        if (!string.IsNullOrWhiteSpace(taskLabel))
+        {
+            if (taskLabel.IndexOf("placement", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                accent = taskPlacementColor;
+            else if (taskLabel.IndexOf("rotation", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                accent = taskRotationColor;
+            else if (taskLabel.IndexOf("scaling", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                accent = taskScalingColor;
+        }
+
+        if (taskLabelText != null) taskLabelText.color = accent;
+        if (taskLabelTextUGUI != null) taskLabelTextUGUI.color = accent;
+
+        if (panelBackground != null)
+        {
+            Color bg = panelBgColor;
+            bg.r = Mathf.Lerp(bg.r, accent.r, 0.08f);
+            bg.g = Mathf.Lerp(bg.g, accent.g, 0.08f);
+            bg.b = Mathf.Lerp(bg.b, accent.b, 0.08f);
+            panelBackground.color = bg;
+        }
+    }
+
+    private static void PlaceRect(RectTransform rect, float x, float y, float w, float h)
+    {
+        if (rect == null)
+            return;
+
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(x, y);
+        rect.sizeDelta = new Vector2(w, h);
+    }
+
+    private static void ApplyTmpStyle(
+        TMP_Text text,
+        float fontSize,
+        FontStyles style,
+        Color color,
+        TextAlignmentOptions alignment,
+        bool uppercase,
+        bool applyFontSize)
+    {
+        if (text == null)
+            return;
+
+        if (applyFontSize)
+            text.fontSize = fontSize;
+        text.fontStyle = style;
+        text.color = color;
+        text.alignment = alignment;
+        text.enableWordWrapping = true;
+        if (uppercase && !string.IsNullOrEmpty(text.text))
+            text.text = text.text.ToUpperInvariant();
+    }
+
+    private static void ApplyUguiStyle(Text text, Color color, TextAnchor alignment, FontStyle style)
+    {
+        if (text == null)
+            return;
+
+        text.color = color;
+        text.alignment = alignment;
+        text.fontStyle = style;
     }
 
     private static bool IsFinite(float v)

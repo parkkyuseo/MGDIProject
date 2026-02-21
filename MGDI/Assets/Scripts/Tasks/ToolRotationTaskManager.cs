@@ -331,6 +331,9 @@ public class ToolRotationTaskManager : MonoBehaviour
     {
         HideFeedbackUI();
 
+        if (phoneRouter == null)
+            phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
+
         if (enableVoiceStart)
             SetupVoiceCommands();
 
@@ -365,11 +368,18 @@ public class ToolRotationTaskManager : MonoBehaviour
             return;
         }
 
+        bool useTouchHoldConfirmGate = IsMicroTouchHoldConfirmGateActive();
+        bool touchHolding = useTouchHoldConfirmGate && phoneRouter != null && phoneRouter.HoldActive;
+
         // Evaluation gating ("stop input to evaluate")
         bool holding = (grabber != null && grabber.IsHolding);
-
         bool evalAllowed = true;
-        if (requireNotDrivingForEvaluation)
+        if (useTouchHoldConfirmGate)
+        {
+            if (touchHolding)
+                evalAllowed = false;
+        }
+        else if (requireNotDrivingForEvaluation)
         {
             bool macro = (phoneRouter == null) ? true : (phoneRouter.CurrentMode == PhoneInputRouter.Mode.Macro);
 
@@ -392,7 +402,7 @@ public class ToolRotationTaskManager : MonoBehaviour
             ActiveToolTransform != null &&
             errDeg <= rotationToleranceDeg &&
             stable &&
-            IsNotHolding() &&
+            (useTouchHoldConfirmGate || IsNotHolding()) &&
             evalAllowed;
 
         if (eligible && !_confirmLatched)
@@ -743,8 +753,31 @@ public class ToolRotationTaskManager : MonoBehaviour
         return Quaternion.Angle(_active.tool.rotation, evalTarget.rotation);
     }
 
+    private bool IsMicroTouchHoldConfirmGateActive()
+    {
+        return phoneRouter != null &&
+               phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro &&
+               allowMicroRotateWithoutHolding;
+    }
+
     private void EmitRotationConfirmStatus(float errorDeg, float toleranceDeg)
     {
+        if (IsMicroTouchHoldConfirmGateActive())
+        {
+            bool touchHolding = phoneRouter != null && phoneRouter.HoldActive;
+            bool withinTolMicro = errorDeg <= toleranceDeg;
+            string microMsg;
+            if (touchHolding)
+                microMsg = "Release touch to confirm";
+            else if (!withinTolMicro)
+                microMsg = "Align rotation";
+            else
+                microMsg = "Confirming...";
+
+            OnConfirmStatus?.Invoke(microMsg);
+            return;
+        }
+
         bool holding = requireNotHolding && grabber != null && grabber.IsHolding;
         bool withinTol = errorDeg <= toleranceDeg;
 

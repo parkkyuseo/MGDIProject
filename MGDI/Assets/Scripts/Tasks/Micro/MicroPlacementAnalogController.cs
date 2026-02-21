@@ -7,6 +7,7 @@ public class MicroPlacementAnalogController : MonoBehaviour
 
     [Header("Refs")]
     [SerializeField] private PhoneInputRouter router;
+    [SerializeField] private ToolPlacementTaskManager placementTask;
     [SerializeField] private Transform target; // Example: Remote_Wrist
     [SerializeField] private Transform cameraTransform;
 
@@ -41,6 +42,7 @@ public class MicroPlacementAnalogController : MonoBehaviour
     void Awake()
     {
         if (router == null) router = FindFirstObjectByType<PhoneInputRouter>();
+        if (placementTask == null) placementTask = FindFirstObjectByType<ToolPlacementTaskManager>();
         if (cameraTransform == null && Camera.main != null) cameraTransform = Camera.main.transform;
     }
 
@@ -50,6 +52,12 @@ public class MicroPlacementAnalogController : MonoBehaviour
         if (router.CurrentMode != PhoneInputRouter.Mode.Micro) return;
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
+
+        if (placementTask != null && !placementTask.IsTrialRunning)
+        {
+            UpdateAdaptiveGain(Vector2.zero, false, dt);
+            return;
+        }
 
         if (router.TryConsumeModeToggle())
         {
