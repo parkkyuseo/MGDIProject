@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Latin Square Lookup</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 32px;
+      color: #111827;
+      line-height: 1.45;
+      background: #ffffff;
+    }
+    h1, h2 {
+      margin: 0 0 12px;
+    }
+    p, ul {
+      margin: 0 0 14px;
+    }
+    .note {
+      padding: 14px 16px;
+      background: #f3f4f6;
+      border-left: 4px solid #2563eb;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid #d1d5db;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #e5eefc;
+    }
+    tr:nth-child(even) td {
+      background: #f9fafb;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      background: #f3f4f6;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Latin Square Condition Order Lookup</h1>
+
+  <p>This sheet is for quick facilitator lookup by participant ID.</p>
+
+  <div class="note">
+    <strong>Base order:</strong>
+    <code>A = Macro Near</code>,
+    <code>B = Macro Side</code>,
+    <code>C = Micro Near</code>,
+    <code>D = Micro Side</code>.
+    The numeric part of the participant ID determines the sequence.
+  </div>
+
+  <p><strong>Sequence patterns</strong></p>
+  <ul>
+    <li><code>Sequence 1</code>: <code>A -&gt; D -&gt; B -&gt; C</code></li>
+    <li><code>Sequence 2</code>: <code>B -&gt; A -&gt; C -&gt; D</code></li>
+    <li><code>Sequence 3</code>: <code>C -&gt; B -&gt; D -&gt; A</code></li>
+    <li><code>Sequence 4</code>: <code>D -&gt; C -&gt; A -&gt; B</code></li>
+  </ul>
+
+  <p><strong>Example:</strong> <code>P15</code> uses participant number <code>15</code>, so it uses <code>Sequence 3</code>: <code>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</code>.</p>
+
+  <h2>Participant ID Quick Lookup (P01-P50)</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Participant ID</th>
+        <th>Sequence</th>
+        <th>Condition order</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>P01</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P02</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P03</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P04</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P05</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P06</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P07</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P08</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P09</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P10</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P11</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P12</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P13</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P14</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P15</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P16</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P17</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P18</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P19</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P20</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P21</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P22</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P23</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P24</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P25</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P26</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P27</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P28</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P29</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P30</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P31</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P32</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P33</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P34</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P35</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P36</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P37</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P38</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P39</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P40</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P41</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P42</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P43</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P44</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P45</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P46</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+      <tr><td><code>P47</code></td><td><code>C -&gt; B -&gt; D -&gt; A</code></td><td>Micro Near -&gt; Macro Side -&gt; Micro Side -&gt; Macro Near</td></tr>
+      <tr><td><code>P48</code></td><td><code>D -&gt; C -&gt; A -&gt; B</code></td><td>Micro Side -&gt; Micro Near -&gt; Macro Near -&gt; Macro Side</td></tr>
+      <tr><td><code>P49</code></td><td><code>A -&gt; D -&gt; B -&gt; C</code></td><td>Macro Near -&gt; Micro Side -&gt; Macro Side -&gt; Micro Near</td></tr>
+      <tr><td><code>P50</code></td><td><code>B -&gt; A -&gt; C -&gt; D</code></td><td>Macro Side -&gt; Macro Near -&gt; Micro Near -&gt; Micro Side</td></tr>
+    </tbody>
+  </table>
+</body>
+</html>

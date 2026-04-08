@@ -53,6 +53,63 @@ Quick example:
 - so `P15` uses `C -> B -> D -> A`
 - that means `Micro Near -> Macro Side -> Micro Side -> Macro Near`
 
+### Participant ID quick lookup (`P01-P50`)
+
+Use this table when you want to know the condition order immediately without doing the modulo calculation by hand.
+
+| Participant ID | Sequence | Condition order |
+| --- | --- | --- |
+| `P01` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P02` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P03` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P04` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P05` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P06` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P07` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P08` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P09` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P10` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P11` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P12` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P13` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P14` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P15` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P16` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P17` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P18` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P19` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P20` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P21` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P22` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P23` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P24` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P25` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P26` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P27` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P28` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P29` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P30` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P31` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P32` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P33` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P34` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P35` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P36` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P37` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P38` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P39` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P40` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P41` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P42` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P43` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P44` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P45` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P46` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `P47` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `P48` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+| `P49` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `P50` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+
 ## 2. Facilitator Summary
 
 Each participant completes all four conditions.
