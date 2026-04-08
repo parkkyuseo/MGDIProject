@@ -31,6 +31,7 @@ public class PhoneTechniqueGate : MonoBehaviour
     [SerializeField] private bool recenterRotationOnMicroEnable = true;
 
     private PhoneInputRouter.Mode _lastMode;
+    private bool _inputFrozen;
 
     void Awake()
     {
@@ -56,6 +57,16 @@ public class PhoneTechniqueGate : MonoBehaviour
 
     private void ApplyMode(PhoneInputRouter.Mode mode, bool force)
     {
+        if (_inputFrozen)
+        {
+            SetEnabled(macroPoseDriver, false);
+            SetEnabled(microRotationOnlyDriver, false);
+            SetEnabled(microPlacementController, false);
+            SetEnabled(microRotationController, false);
+            SetEnabled(microScalingController, false);
+            return;
+        }
+
         bool isMicro = (mode == PhoneInputRouter.Mode.Micro);
 
         // -------------------------
@@ -120,5 +131,31 @@ public class PhoneTechniqueGate : MonoBehaviour
     {
         microTask = t;
         ApplyMode(_lastMode, force: true);
+    }
+
+    public void SetInputFrozen(bool frozen, bool recenterOnUnfreeze = false)
+    {
+        if (_inputFrozen == frozen)
+            return;
+
+        _inputFrozen = frozen;
+        ApplyMode(_lastMode, force: true);
+
+        if (!frozen && recenterOnUnfreeze)
+            RecenterCurrentModeBaselines();
+    }
+
+    public void RecenterCurrentModeBaselines()
+    {
+        bool isMicro = router != null && router.CurrentMode == PhoneInputRouter.Mode.Micro;
+        if (isMicro)
+        {
+            if (microRotationOnlyDriver != null)
+                microRotationOnlyDriver.SendMessage("RecenterRotation", SendMessageOptions.DontRequireReceiver);
+            return;
+        }
+
+        if (macroPoseDriver != null)
+            macroPoseDriver.SendMessage("RebaselineKeepWorldPose", SendMessageOptions.DontRequireReceiver);
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class ProxyHandGrabber : MonoBehaviour
@@ -30,6 +31,12 @@ public class ProxyHandGrabber : MonoBehaviour
 
     [Header("Collision")]
     public bool disableHeldColliders = true;
+
+    [Header("Proxy hand visibility")]
+    [Tooltip("If true, cached proxy-hand renderers are hidden while an object is held and restored on release.")]
+    [SerializeField] private bool hideProxyHandWhileHolding = true;
+    [Tooltip("Optional explicit visual root for the proxy hand. If empty, a hand visual root is auto-resolved from the phone hand driver.")]
+    [SerializeField] private Transform proxyHandVisualRoot;
 
     [Header("Held object follow filter")]
     public bool filterHeldObject = true;
@@ -68,6 +75,21 @@ public class ProxyHandGrabber : MonoBehaviour
 
     public bool IsHolding => _heldBody != null;
     public Rigidbody HeldBody => _heldBody;
+    public Rigidbody HoverCandidateBody => _hoverBody;
+    public bool HasAttachCandidateNow
+    {
+        get
+        {
+            if (_heldBody != null)
+                return false;
+
+            Collider bestCol;
+            float bestDist;
+            return TryFindBestCandidate(out bestCol, out bestDist, requireAttachDistance: true, emitDebugLogs: false) &&
+                   bestCol != null;
+        }
+    }
+    public bool IsHoldingOrHasAttachCandidateNow => _heldBody != null || HasAttachCandidateNow;
 
     private readonly Collider[] _overlapBuffer = new Collider[32];
 
@@ -97,6 +119,11 @@ public class ProxyHandGrabber : MonoBehaviour
 
     // release time
     private float _lastReleaseTime = -999f;
+    private Rigidbody _hoverBody;
+    private GrabCandidateOutline _hoverOutline;
+    private Renderer[] _proxyHandRenderers;
+    private bool[] _proxyHandRendererWasEnabled;
+    private bool _proxyHandVisualsCached;
 
     void Start()
     {
@@ -105,11 +132,16 @@ public class ProxyHandGrabber : MonoBehaviour
 
         if (router != null)
             _lastGrabSignal = router.Grab;
+
+        CacheProxyHandVisualRenderers();
     }
 
     private void Update()
     {
         if (router == null) return;
+
+        if (!_proxyHandVisualsCached && _heldBody == null)
+            CacheProxyHandVisualRenderers();
 
         bool grabSignal = router.Grab;
 
@@ -121,6 +153,8 @@ public class ProxyHandGrabber : MonoBehaviour
 
         if (_heldBody == null)
         {
+            UpdateHoverCandidate();
+
             if (_lastGrabSignal)
             {
                 if ((Time.unscaledTime - _lastReleaseTime) >= regrabCooldownSec)
@@ -129,6 +163,8 @@ public class ProxyHandGrabber : MonoBehaviour
         }
         else
         {
+            ClearHoverCandidate();
+
             if (!_lastGrabSignal)
                 TryRelease();
         }
@@ -282,41 +318,10 @@ public class ProxyHandGrabber : MonoBehaviour
             return;
         }
 
-        int count = Physics.OverlapSphereNonAlloc(
-            grabAnchor.position,
-            grabRadius,
-            _overlapBuffer,
-            grabbableLayers,
-            QueryTriggerInteraction.Collide
-        );
-
-        if (count <= 0)
-        {
-            if (logDebug) DebugHUD.Log("[Grabber] No candidate in range.");
+        Collider bestCol;
+        float bestDist;
+        if (!TryFindBestCandidate(out bestCol, out bestDist, requireAttachDistance: true, emitDebugLogs: true))
             return;
-        }
-
-        Collider bestCol = null;
-        float bestDist = float.MaxValue;
-
-        for (int i = 0; i < count; i++)
-        {
-            Collider col = _overlapBuffer[i];
-            if (col == null) continue;
-
-            if (!string.IsNullOrEmpty(requiredTag) && !col.CompareTag(requiredTag))
-                continue;
-
-            Rigidbody rb = col.attachedRigidbody;
-            if (rb == null) continue;
-
-            float d2 = (col.ClosestPoint(grabAnchor.position) - grabAnchor.position).sqrMagnitude;
-            if (d2 < bestDist)
-            {
-                bestDist = d2;
-                bestCol = col;
-            }
-        }
 
         if (bestCol == null)
         {
@@ -324,15 +329,10 @@ public class ProxyHandGrabber : MonoBehaviour
             return;
         }
 
-        float attachD = Mathf.Max(0f, attachDistance);
-        if (attachD > 0f && bestDist > attachD * attachD)
-        {
-            if (logDebug) DebugHUD.Log("[Grabber] Candidate too far for attach.");
-            return;
-        }
-
         Rigidbody body = bestCol.attachedRigidbody;
         if (body == null) return;
+
+        ClearHoverCandidate();
 
         _heldBody = body;
         _heldOriginalParent = body.transform.parent;
@@ -368,6 +368,7 @@ public class ProxyHandGrabber : MonoBehaviour
         }
 
         if (logDebug) DebugHUD.Log("[Grabber] Grabbed " + body.name);
+        SetProxyHandVisualVisible(false);
         OnGrabbed?.Invoke(_heldBody);
     }
 
@@ -400,12 +401,117 @@ public class ProxyHandGrabber : MonoBehaviour
         _heldFollowInit = false;
         _lastReleaseTime = Time.unscaledTime;
 
+        SetProxyHandVisualVisible(true);
         OnReleased?.Invoke(releasedBody);
     }
 
     public void ForceRelease()
     {
         TryRelease();
+    }
+
+    private void OnDisable()
+    {
+        SetProxyHandVisualVisible(true);
+    }
+
+    private void UpdateHoverCandidate()
+    {
+        Collider bestCol;
+        float bestDist;
+        if (!TryFindBestCandidate(out bestCol, out bestDist, requireAttachDistance: true, emitDebugLogs: false))
+        {
+            ClearHoverCandidate();
+            return;
+        }
+
+        Rigidbody body = bestCol != null ? bestCol.attachedRigidbody : null;
+        if (body == null)
+        {
+            ClearHoverCandidate();
+            return;
+        }
+
+        if (_hoverBody == body && _hoverOutline != null)
+            return;
+
+        ClearHoverCandidate();
+
+        _hoverBody = body;
+        _hoverOutline = body.GetComponent<GrabCandidateOutline>();
+        if (_hoverOutline == null)
+            _hoverOutline = body.gameObject.AddComponent<GrabCandidateOutline>();
+
+        _hoverOutline.SetVisible(true);
+    }
+
+    private void ClearHoverCandidate()
+    {
+        if (_hoverOutline != null)
+            _hoverOutline.SetVisible(false);
+
+        _hoverBody = null;
+        _hoverOutline = null;
+    }
+
+    private bool TryFindBestCandidate(out Collider bestCol, out float bestDist, bool requireAttachDistance, bool emitDebugLogs)
+    {
+        bestCol = null;
+        bestDist = float.MaxValue;
+
+        if (grabAnchor == null)
+            return false;
+
+        int count = Physics.OverlapSphereNonAlloc(
+            grabAnchor.position,
+            grabRadius,
+            _overlapBuffer,
+            grabbableLayers,
+            QueryTriggerInteraction.Collide
+        );
+
+        if (count <= 0)
+        {
+            if (emitDebugLogs && logDebug) DebugHUD.Log("[Grabber] No candidate in range.");
+            return false;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            Collider col = _overlapBuffer[i];
+            if (col == null)
+                continue;
+
+            if (!string.IsNullOrEmpty(requiredTag) && !col.CompareTag(requiredTag))
+                continue;
+
+            Rigidbody rb = col.attachedRigidbody;
+            if (rb == null)
+                continue;
+
+            float d2 = (col.ClosestPoint(grabAnchor.position) - grabAnchor.position).sqrMagnitude;
+            if (d2 < bestDist)
+            {
+                bestDist = d2;
+                bestCol = col;
+            }
+        }
+
+        if (bestCol == null)
+            return false;
+
+        if (requireAttachDistance)
+        {
+            float attachD = Mathf.Max(0f, attachDistance);
+            if (attachD > 0f && bestDist > attachD * attachD)
+            {
+                if (emitDebugLogs && logDebug) DebugHUD.Log("[Grabber] Candidate too far for attach.");
+                bestCol = null;
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public void SetHeldRotationMode(HeldRotationMode mode)
@@ -454,5 +560,133 @@ public class ProxyHandGrabber : MonoBehaviour
 
         Gizmos.color = new Color(1f, 0f, 0f, 0.35f);
         Gizmos.DrawWireSphere(grabAnchor.position, attachDistance);
+    }
+
+    private void CacheProxyHandVisualRenderers()
+    {
+        if (!hideProxyHandWhileHolding)
+            return;
+
+        List<Renderer> renderers = ResolveProxyHandVisualRenderers();
+        if (renderers == null || renderers.Count == 0)
+            return;
+
+        _proxyHandRenderers = renderers.ToArray();
+        _proxyHandRendererWasEnabled = new bool[_proxyHandRenderers.Length];
+        for (int i = 0; i < _proxyHandRenderers.Length; i++)
+            _proxyHandRendererWasEnabled[i] = _proxyHandRenderers[i] != null && _proxyHandRenderers[i].enabled;
+
+        _proxyHandVisualsCached = true;
+    }
+
+    private List<Renderer> ResolveProxyHandVisualRenderers()
+    {
+        List<Renderer> renderers = new List<Renderer>(16);
+        HashSet<Renderer> seen = new HashSet<Renderer>();
+
+        if (proxyHandVisualRoot != null)
+        {
+            AddRenderersFromRoot(proxyHandVisualRoot, renderers, seen);
+            return renderers;
+        }
+
+        Transform seed = null;
+
+        PhoneProxyHandRootDriver phoneDriver = FindFirstObjectByType<PhoneProxyHandRootDriver>();
+        if (phoneDriver != null && phoneDriver.HandRootTransform != null)
+            seed = phoneDriver.HandRootTransform;
+        else if (grabAnchor != null)
+            seed = grabAnchor;
+
+        if (seed != null)
+        {
+            Transform current = seed;
+            while (current != null)
+            {
+                AddRenderersFromRoot(current, renderers, seen);
+                if (renderers.Count > 0)
+                {
+                    proxyHandVisualRoot = current;
+                    return renderers;
+                }
+
+                current = current.parent;
+            }
+        }
+
+        Transform namedRoot = FindNamedProxyHandVisualRoot();
+        if (namedRoot != null)
+            proxyHandVisualRoot = namedRoot;
+
+        AddNamedProxyHandRenderers(renderers, seen);
+        return renderers;
+    }
+
+    private void AddNamedProxyHandRenderers(List<Renderer> renderers, HashSet<Renderer> seen)
+    {
+        Transform[] allTransforms = FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < allTransforms.Length; i++)
+        {
+            Transform tf = allTransforms[i];
+            if (tf == null)
+                continue;
+
+            string name = tf.name;
+            if (name != "RightHand" && name != "RemoteHand" && name != "MicroHandVisual")
+                continue;
+
+            AddRenderersFromRoot(tf, renderers, seen);
+        }
+    }
+
+    private Transform FindNamedProxyHandVisualRoot()
+    {
+        Transform[] allTransforms = FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < allTransforms.Length; i++)
+        {
+            Transform tf = allTransforms[i];
+            if (tf == null)
+                continue;
+
+            string name = tf.name;
+            if (name == "RightHand" || name == "RemoteHand" || name == "MicroHandVisual")
+                return tf;
+        }
+
+        return null;
+    }
+
+    private static void AddRenderersFromRoot(Transform root, List<Renderer> renderers, HashSet<Renderer> seen)
+    {
+        if (root == null)
+            return;
+
+        Renderer[] rootRenderers = root.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < rootRenderers.Length; i++)
+        {
+            Renderer renderer = rootRenderers[i];
+            if (renderer == null || !seen.Add(renderer))
+                continue;
+
+            renderers.Add(renderer);
+        }
+    }
+
+    private void SetProxyHandVisualVisible(bool visible)
+    {
+        if (!hideProxyHandWhileHolding)
+            return;
+
+        if (!_proxyHandVisualsCached)
+            return;
+
+        for (int i = 0; i < _proxyHandRenderers.Length; i++)
+        {
+            Renderer renderer = _proxyHandRenderers[i];
+            if (renderer == null)
+                continue;
+
+            renderer.enabled = visible ? _proxyHandRendererWasEnabled[i] : false;
+        }
     }
 }

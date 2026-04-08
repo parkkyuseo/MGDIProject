@@ -30,7 +30,8 @@ public class PhoneRotationOnlyDriver : MonoBehaviour
         if (!_hasBaseline)
         {
             _phoneRot0 = phoneRot;
-            _targetRot0 = transform.rotation;
+            Quaternion off0 = Quaternion.Euler(rotationOffsetEuler);
+            _targetRot0 = transform.rotation * Quaternion.Inverse(off0);
             _hasBaseline = true;
         }
 
@@ -52,7 +53,8 @@ public class PhoneRotationOnlyDriver : MonoBehaviour
     {
         if (phoneRx == null || !phoneRx.HasPhonePose) return;
         _phoneRot0 = phoneRx.LatestPhonePose.rotation;
-        _targetRot0 = transform.rotation;
+        Quaternion off = Quaternion.Euler(rotationOffsetEuler);
+        _targetRot0 = transform.rotation * Quaternion.Inverse(off);
         _hasBaseline = true;
         DebugHUD.Log("[PhoneRotationOnlyDriver] RecenterRotation");
     }

@@ -39,6 +39,8 @@ public class MicroPlacementAnalogController : MonoBehaviour
 
     private float _gain = 1f;
 
+    public bool IsDepthMode => planeMode == PlaneMode.XZ;
+
     void Awake()
     {
         if (router == null) router = FindFirstObjectByType<PhoneInputRouter>();

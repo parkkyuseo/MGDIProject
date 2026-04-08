@@ -49,12 +49,17 @@ public class MicroScalingController : MonoBehaviour
         // driving flag for eval gating (macro in task should not overwrite when micro is driving)
         scalingTask.SetExternalDriving(engaged);
 
-        // rising edge: reset factor to 1
+        // On engage edge, continue from current task scale to avoid jump-to-baseline.
         if (engaged && !_prevEngaged)
         {
-            _factor = 1f;
-            // start from baseline
-            scalingTask.ApplyScaleFactor(_factor);
+            float minClamp = ResolveMinFactor();
+            float maxClamp = ResolveMaxFactor(minClamp);
+            float current = scalingTask.ActiveCurrentFactor;
+            if (float.IsNaN(current) || float.IsInfinity(current))
+                current = scalingTask.GetScaleFactorCmd();
+            if (float.IsNaN(current) || float.IsInfinity(current))
+                current = 1f;
+            _factor = Mathf.Clamp(current, minClamp, maxClamp);
         }
 
         _prevEngaged = engaged;
@@ -67,8 +72,24 @@ public class MicroScalingController : MonoBehaviour
 
         // Exponential integration: factor *= exp(gain * y * dt)
         _factor *= Mathf.Exp(scaleGainPerSec * y * dt);
-        _factor = Mathf.Clamp(_factor, minFactor, maxFactor);
+        float minF = ResolveMinFactor();
+        float maxF = ResolveMaxFactor(minF);
+        _factor = Mathf.Clamp(_factor, minF, maxF);
 
         scalingTask.ApplyScaleFactor(_factor);
+    }
+
+    private float ResolveMinFactor()
+    {
+        if (scalingTask != null)
+            return Mathf.Max(0.01f, scalingTask.EffectiveMinScaleFactor);
+        return Mathf.Max(0.01f, minFactor);
+    }
+
+    private float ResolveMaxFactor(float minResolved)
+    {
+        if (scalingTask != null)
+            return Mathf.Max(minResolved, scalingTask.EffectiveMaxScaleFactor);
+        return Mathf.Max(minResolved, maxFactor);
     }
 }

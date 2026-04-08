@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using Random = UnityEngine.Random;
+using UnityEngine.Windows.Speech;
 
 public class ToolScalingTaskManager : MonoBehaviour
 {
@@ -107,6 +108,16 @@ public class ToolScalingTaskManager : MonoBehaviour
     [Header("Trial Count")]
     [SerializeField] private int totalTrials = 20;
 
+    [Header("Voice Submit (HoloLens)")]
+    [SerializeField] private bool enableVoiceSubmit = true;
+    [SerializeField] private string submitKeyword = "next";
+    [SerializeField] private bool enableTripleTapSubmit = true;
+
+    [Header("Triple Tap Submit Safety")]
+    [SerializeField] private bool blockTripleTapSubmitWhenHandNearGrabbable = true;
+    [SerializeField] private float blockedTripleTapStatusSeconds = 1.0f;
+    [SerializeField] private string blockedTripleTapStatus = "Move hand away,\nthen triple tap.";
+
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
 
@@ -161,6 +172,10 @@ public class ToolScalingTaskManager : MonoBehaviour
     private bool inTransition = false;
 
     private readonly StringBuilder sb = new StringBuilder(512);
+    private KeywordRecognizer _keywordRecognizer;
+    private Dictionary<string, Action> _keywordActions;
+    private bool _voiceSubmitRequested = false;
+    private float _blockedTripleTapStatusUntil = -1f;
 
     // Micro controller can set this true so macro does NOT overwrite scale.
     private bool _externalDriving = false;
@@ -183,7 +198,10 @@ public class ToolScalingTaskManager : MonoBehaviour
     public float ActiveCurrentFactor => GetActualScaleFactor(active);
     public float ScaleFactorTolerance => scaleFactorTolerance;
     public float ActiveScalingErrorFactor => active != null ? Mathf.Abs(ActiveCurrentFactor - active.targetFactor) : float.MaxValue;
+    public Transform ActiveTargetTransform => _activeGhost;
     public bool AllowMicroScaleWithoutHolding => allowMicroScaleWithoutHolding;
+    public float EffectiveMinScaleFactor => GetEffectiveMinScaleFactor();
+    public float EffectiveMaxScaleFactor => GetEffectiveMaxScaleFactor();
     public bool ResetScaleAfterTrial
     {
         get => resetScaleAfterTrial;
@@ -228,7 +246,9 @@ public class ToolScalingTaskManager : MonoBehaviour
         if (!trialRunning || inTransition) return;
         if (active == null || active.tool == null) return;
 
-        float f = Mathf.Clamp(factor, minScaleFactor, maxScaleFactor);
+        float minF = GetEffectiveMinScaleFactor();
+        float maxF = GetEffectiveMaxScaleFactor();
+        float f = Mathf.Clamp(factor, minF, maxF);
         active.scaleFactorCmd = f;
 
         // ✅ IMPORTANT: Always scale relative to "true baseline"
@@ -246,6 +266,7 @@ public class ToolScalingTaskManager : MonoBehaviour
         inTransition = false;
         trialRunning = false;
         trialIndex = 0;
+        DrainPendingSubmitTriggers();
         _hasLastPracticeTargetFactor = false;
         _externalDriving = false;
         OnConfirmProgress?.Invoke(0f, false);
@@ -259,6 +280,18 @@ public class ToolScalingTaskManager : MonoBehaviour
         RebuildGhostMap();
 
         BeginNextTrial();
+    }
+
+    private void Start()
+    {
+        if (enableVoiceSubmit)
+            SetupVoiceCommands();
+    }
+
+    private void OnEnable()
+    {
+        if (enableVoiceSubmit)
+            SetupVoiceCommands();
     }
 
     void Update()
@@ -299,49 +332,14 @@ public class ToolScalingTaskManager : MonoBehaviour
                 active.haveWristPrev = false;
         }
 
-        bool useTouchHoldConfirmGate = IsMicroTouchHoldConfirmGateActive();
-        bool touchHolding = useTouchHoldConfirmGate && phoneRouter != null && phoneRouter.HoldActive;
-
-        // ---------------- Evaluate (release-to-evaluate) ----------------
-        bool evalAllowed = true;
-        if (useTouchHoldConfirmGate)
-        {
-            if (touchHolding)
-                evalAllowed = false;
-        }
-        else
-        {
-            if (requireNotHolding && grabber != null && grabber.IsHolding)
-                evalAllowed = false;
-        }
-
         float curFactor = GetActualScaleFactor(active);
         float err = Mathf.Abs(curFactor - active.targetFactor);
-        float statusCurFactor = active.scaleFactorCmd;
-        float statusErr = Mathf.Abs(statusCurFactor - active.targetFactor);
-        EmitScaleConfirmStatus(statusErr, scaleFactorTolerance);
-        bool stable = ComputeActiveStability(dt);
-        bool eligible =
-            IsTrialRunning &&
-            ActiveToolTransform != null &&
-            err <= scaleFactorTolerance &&
-            stable &&
-            (useTouchHoldConfirmGate || IsNotHolding()) &&
-            evalAllowed;
+        EmitScaleConfirmStatus(err, scaleFactorTolerance);
+        OnConfirmProgress?.Invoke(0f, false);
 
-        if (eligible && !confirmLatched)
-            confirmDwellTimer += dt;
-        else
-            confirmDwellTimer = 0f;
-
-        float confirmDuration = Mathf.Max(0.0001f, confirmDwellSeconds);
-        float t01 = Mathf.Clamp01(confirmDwellTimer / confirmDuration);
-        OnConfirmProgress?.Invoke(t01, eligible);
-
-        if (!confirmLatched && confirmDwellTimer >= confirmDuration)
+        if (TryConsumeVoiceSubmit("scaling"))
         {
             confirmLatched = true;
-            confirmDwellTimer = 0f;
             OnConfirmDwellCompleted?.Invoke();
             PlayConfirmSound();
             EndTrialSuccess();
@@ -397,12 +395,7 @@ public class ToolScalingTaskManager : MonoBehaviour
 
             if (active == null)
             {
-                Debug.LogError($"[ToolScaleTM] ForcedActiveId '{_forcedActiveId}' not found. Trial start canceled.");
-                trialRunning = false;
-                inTransition = false;
-                OnConfirmProgress?.Invoke(0f, false);
-                OnConfirmStatus?.Invoke("");
-                return;
+                Debug.LogWarning($"[ToolScaleTM] ForcedActiveId '{_forcedActiveId}' not found. Falling back to current list order.");
             }
         }
 
@@ -433,6 +426,7 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         trialTimer = 0f;
         dwellTimer = 0f;
+        DrainPendingSubmitTriggers();
         ResetConfirmState();
         InitializeConfirmPoseFromActive();
         trialRunning = true;
@@ -614,12 +608,15 @@ public class ToolScalingTaskManager : MonoBehaviour
     // ---------------- Target sampling (improved) ----------------
     private float SampleTargetFactorBalanced()
     {
+        float effMin = GetEffectiveMinScaleFactor();
+        float effMax = GetEffectiveMaxScaleFactor();
+
         // Normalize range and clamp to scale clamp
         float minF = Mathf.Min(targetFactorMin, targetFactorMax);
         float maxF = Mathf.Max(targetFactorMin, targetFactorMax);
 
-        minF = Mathf.Clamp(minF, minScaleFactor, maxScaleFactor);
-        maxF = Mathf.Clamp(maxF, minScaleFactor, maxScaleFactor);
+        minF = Mathf.Clamp(minF, effMin, effMax);
+        maxF = Mathf.Clamp(maxF, effMin, effMax);
 
         if (maxF < minF)
         {
@@ -630,7 +627,7 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         // If degenerate range
         if (Mathf.Abs(maxF - minF) < 1e-6f)
-            return Mathf.Clamp(minF, minScaleFactor, maxScaleFactor);
+            return Mathf.Clamp(minF, effMin, effMax);
 
         float avoid = Mathf.Max(0f, avoidNearOne);
         float minBand = Mathf.Max(0f, minSideBandWidth);
@@ -667,7 +664,7 @@ public class ToolScalingTaskManager : MonoBehaviour
                 {
                     bool pickLow = balanceSmallerVsLarger ? (Random.value < 0.5f) : (Random.value < (lowMax - minF) / ((lowMax - minF) + (maxF - highMin)));
                     float tf = pickLow ? Random.Range(minF, lowMax) : Random.Range(highMin, maxF);
-                    return Mathf.Clamp(tf, minScaleFactor, maxScaleFactor);
+                    return Mathf.Clamp(tf, effMin, effMax);
                 }
 
                 // If one side collapses due to numeric issues, fall through to fallback below.
@@ -691,16 +688,19 @@ public class ToolScalingTaskManager : MonoBehaviour
             if (!hasOutside) break;
         } while (Mathf.Abs(outTf - 1f) < avoid);
 
-        return Mathf.Clamp(outTf, minScaleFactor, maxScaleFactor);
+        return Mathf.Clamp(outTf, effMin, effMax);
     }
 
     private float SamplePracticeTargetFactor()
     {
+        float effMin = GetEffectiveMinScaleFactor();
+        float effMax = GetEffectiveMaxScaleFactor();
+
         float minF = Mathf.Min(practiceTargetFactorMin, practiceTargetFactorMax);
         float maxF = Mathf.Max(practiceTargetFactorMin, practiceTargetFactorMax);
 
-        minF = Mathf.Clamp(minF, minScaleFactor, maxScaleFactor);
-        maxF = Mathf.Clamp(maxF, minScaleFactor, maxScaleFactor);
+        minF = Mathf.Clamp(minF, effMin, effMax);
+        maxF = Mathf.Clamp(maxF, effMin, effMax);
 
         if (maxF < minF)
         {
@@ -710,7 +710,7 @@ public class ToolScalingTaskManager : MonoBehaviour
         }
 
         if (Mathf.Abs(maxF - minF) < 1e-6f)
-            return Mathf.Clamp(minF, minScaleFactor, maxScaleFactor);
+            return Mathf.Clamp(minF, effMin, effMax);
 
         float minDelta = Mathf.Max(0f, practiceMinTargetFactorDelta);
         float tf = minF;
@@ -724,7 +724,7 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         _lastPracticeTargetFactor = tf;
         _hasLastPracticeTargetFactor = true;
-        return Mathf.Clamp(tf, minScaleFactor, maxScaleFactor);
+        return Mathf.Clamp(tf, effMin, effMax);
     }
 
     // ---------------- MACRO helpers ----------------
@@ -786,7 +786,7 @@ public class ToolScalingTaskManager : MonoBehaviour
         active.axisAccum += delta;
 
         float desired = Mathf.Exp(moveToScaleGain * active.axisAccum);
-        desired = Mathf.Clamp(desired, minScaleFactor, maxScaleFactor);
+        desired = Mathf.Clamp(desired, GetEffectiveMinScaleFactor(), GetEffectiveMaxScaleFactor());
 
         float dt = Mathf.Max(Time.deltaTime, 1e-4f);
         float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(scaleLerp), dt * 60f);
@@ -829,7 +829,23 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         float f = sum / n;
         // Keep it sane
-        return Mathf.Clamp(f, minScaleFactor, maxScaleFactor);
+        return Mathf.Clamp(f, GetEffectiveMinScaleFactor(), GetEffectiveMaxScaleFactor());
+    }
+
+    private float GetEffectiveMinScaleFactor()
+    {
+        float minF = minScaleFactor;
+        minF = Mathf.Min(minF, targetFactorMin, targetFactorMax);
+        minF = Mathf.Min(minF, practiceTargetFactorMin, practiceTargetFactorMax);
+        return Mathf.Max(0.01f, minF);
+    }
+
+    private float GetEffectiveMaxScaleFactor()
+    {
+        float maxF = maxScaleFactor;
+        maxF = Mathf.Max(maxF, targetFactorMin, targetFactorMax);
+        maxF = Mathf.Max(maxF, practiceTargetFactorMin, practiceTargetFactorMax);
+        return Mathf.Max(GetEffectiveMinScaleFactor(), maxF);
     }
 
     private bool IsMicroTouchHoldConfirmGateActive()
@@ -841,34 +857,12 @@ public class ToolScalingTaskManager : MonoBehaviour
 
     private void EmitScaleConfirmStatus(float errorFactor, float toleranceFactor)
     {
-        if (IsMicroTouchHoldConfirmGateActive())
+        if (IsBlockedTripleTapStatusActive())
         {
-            bool touchHolding = phoneRouter != null && phoneRouter.HoldActive;
-            bool withinTolMicro = errorFactor <= toleranceFactor;
-            string microMsg;
-            if (touchHolding)
-                microMsg = "Release touch to confirm";
-            else if (!withinTolMicro)
-                microMsg = "Align size";
-            else
-                microMsg = "Confirming...";
-
-            OnConfirmStatus?.Invoke(microMsg);
+            OnConfirmStatus?.Invoke(blockedTripleTapStatus);
             return;
         }
-
-        bool holding = requireNotHolding && grabber != null && grabber.IsHolding;
-        bool withinTol = errorFactor <= toleranceFactor;
-
-        string msg;
-        if (holding)
-            msg = "Release to confirm";
-        else if (!withinTol)
-            msg = "Align size";
-        else
-            msg = "Confirming...";
-
-        OnConfirmStatus?.Invoke(msg);
+        OnConfirmStatus?.Invoke("");
     }
 
     private bool ComputeActiveStability(float dt)
@@ -966,12 +960,96 @@ public class ToolScalingTaskManager : MonoBehaviour
     {
         OnConfirmProgress?.Invoke(0f, false);
         OnConfirmStatus?.Invoke("");
+        DrainPendingSubmitTriggers();
         ResetConfirmState();
+
+        if (_keywordRecognizer != null)
+        {
+            _keywordRecognizer.Stop();
+            _keywordRecognizer.Dispose();
+            _keywordRecognizer = null;
+        }
     }
 
     private static string NormalizeToolId(string id)
     {
         return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
+    }
+
+    private void SetupVoiceCommands()
+    {
+        if (_keywordRecognizer != null)
+            return;
+
+        _keywordActions = new Dictionary<string, Action>();
+        string submit = string.IsNullOrWhiteSpace(submitKeyword) ? "" : submitKeyword.Trim().ToLower();
+        if (!string.IsNullOrEmpty(submit))
+            _keywordActions[submit] = () => _voiceSubmitRequested = true;
+
+        if (_keywordActions.Count == 0)
+            return;
+
+        _keywordRecognizer = new KeywordRecognizer(_keywordActions.Keys.ToArray());
+        _keywordRecognizer.OnPhraseRecognized += args =>
+        {
+            string key = args.text.ToLower();
+            if (_keywordActions.TryGetValue(key, out var action))
+                action.Invoke();
+        };
+        _keywordRecognizer.Start();
+    }
+
+    private bool TryConsumeVoiceSubmit(string context)
+    {
+        if (_voiceSubmitRequested)
+        {
+            _voiceSubmitRequested = false;
+            _ = context;
+            return true;
+        }
+
+        if (enableTripleTapSubmit && phoneRouter != null && phoneRouter.TryConsumeTripleTap())
+        {
+            if (ShouldBlockTripleTapSubmit())
+            {
+                NotifyBlockedTripleTapSubmit();
+                return false;
+            }
+            _ = context;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void DrainPendingSubmitTriggers()
+    {
+        _voiceSubmitRequested = false;
+
+        if (!enableTripleTapSubmit || phoneRouter == null)
+            return;
+
+        int guard = 0;
+        while (phoneRouter.TryConsumeTripleTap() && guard < 8)
+            guard++;
+    }
+
+    private bool ShouldBlockTripleTapSubmit()
+    {
+        return blockTripleTapSubmitWhenHandNearGrabbable &&
+               grabber != null &&
+               grabber.IsHoldingOrHasAttachCandidateNow;
+    }
+
+    private void NotifyBlockedTripleTapSubmit()
+    {
+        _blockedTripleTapStatusUntil = Time.unscaledTime + Mathf.Max(0.05f, blockedTripleTapStatusSeconds);
+        OnConfirmStatus?.Invoke(blockedTripleTapStatus);
+    }
+
+    private bool IsBlockedTripleTapStatusActive()
+    {
+        return Time.unscaledTime < _blockedTripleTapStatusUntil;
     }
 }
 

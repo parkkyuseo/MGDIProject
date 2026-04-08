@@ -28,6 +28,9 @@ public class ToolPlacementTaskManager : MonoBehaviour
     [Tooltip("ProxyHandGrabber instance (preferred). Used for rotation lock and requireNotHolding.")]
     [SerializeField] private ProxyHandGrabber grabber;
 
+    [Header("Phone (optional)")]
+    [SerializeField] private PhoneInputRouter phoneRouter;
+
     [Tooltip("If true, lock rotation during placement trials (translation-only).")]
     [SerializeField] private bool lockRotationDuringPlacement = true;
 
@@ -106,6 +109,16 @@ public class ToolPlacementTaskManager : MonoBehaviour
     [SerializeField] private string restartKeyword = "restart";
     [SerializeField] private bool autoStartInEditor = false;
 
+    [Header("Voice Submit (HoloLens)")]
+    [SerializeField] private bool enableVoiceSubmit = true;
+    [SerializeField] private string submitKeyword = "next";
+    [SerializeField] private bool enableTripleTapSubmit = true;
+
+    [Header("Triple Tap Submit Safety")]
+    [SerializeField] private bool blockTripleTapSubmitWhenHandNearGrabbable = true;
+    [SerializeField] private float blockedTripleTapStatusSeconds = 1.0f;
+    [SerializeField] private string blockedTripleTapStatus = "Move hand away,\nthen triple tap.";
+
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
 
@@ -132,6 +145,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
     // Voice
     private KeywordRecognizer keywordRecognizer;
     private Dictionary<string, Action> keywordActions;
+    private bool _voiceSubmitRequested = false;
+    private float _blockedTripleTapStatusUntil = -1f;
 
     // Tools/Targets registry
     [Serializable]
@@ -166,6 +181,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
     public int CurrentTrialIndex1Based => trialIndex + 1;
     public int ToolCount => items.Count;
     public Transform ActiveToolTransform => _active != null ? _active.tool : null;
+    public Transform ActiveTargetTransform => _active != null ? _active.target : null;
     public string ActiveToolId => _active != null ? _active.id : null;
     public float ActiveToleranceMeters => _active != null ? _active.tolerance : float.MaxValue;
     public float ActiveErrorMeters => _active != null ? _active.lastErr : float.MaxValue;
@@ -196,9 +212,12 @@ public class ToolPlacementTaskManager : MonoBehaviour
     public void StartBlock()
     {
         StopAllCoroutines();
+        if (phoneRouter == null)
+            phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
         inTransition = false;
         trialRunning = false;
         trialIndex = 0;
+        DrainPendingSubmitTriggers();
         _hasLastPracticeTargetOffset = false;
         OnConfirmStatus?.Invoke("");
 
@@ -213,13 +232,22 @@ public class ToolPlacementTaskManager : MonoBehaviour
     // ---------------- Unity ----------------
     void Start()
     {
-        if (enableVoiceStart)
+        if (phoneRouter == null)
+            phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
+
+        if (enableVoiceStart || enableVoiceSubmit)
             SetupVoiceCommands();
 
         HideFeedbackUI();
 
         if (autoStartInEditor && Application.isEditor)
             StartBlock();
+    }
+
+    private void OnEnable()
+    {
+        if (enableVoiceStart || enableVoiceSubmit)
+            SetupVoiceCommands();
     }
 
     void Update()
@@ -257,22 +285,9 @@ public class ToolPlacementTaskManager : MonoBehaviour
             OnProgressChanged?.Invoke(pass ? 1 : 0, 1);
             UpdateProgressUI();
 
-            bool stable = ComputeActiveStability(dt);
-            bool eligible = IsConfirmEligible(_active, err, stable);
-
-            if (eligible && !confirmLatched)
-                confirmDwellTimer += dt;
-            else
-                confirmDwellTimer = 0f;
-
-            float confirmDuration = Mathf.Max(0.0001f, confirmDwellSeconds);
-            float t01 = Mathf.Clamp01(confirmDwellTimer / confirmDuration);
-            OnConfirmProgress?.Invoke(t01, eligible);
-
-            if (!confirmLatched && confirmDwellTimer >= confirmDuration)
+            if (TryConsumeVoiceSubmit("placement"))
             {
                 confirmLatched = true;
-                confirmDwellTimer = 0f;
                 OnConfirmDwellCompleted?.Invoke();
                 PlayConfirmSound();
                 EndTrialSuccess(_active);
@@ -281,20 +296,9 @@ public class ToolPlacementTaskManager : MonoBehaviour
             return;
         }
 
-        OnConfirmProgress?.Invoke(0f, false);
-
         float statusErr = (_active != null) ? ComputeErrorMeters(_active) : float.MaxValue;
         float statusTol = (_active != null) ? _active.tolerance : float.MaxValue;
         EmitPlacementConfirmStatus(statusErr, statusTol);
-
-        // ---- Fallback: original "all tools" behavior (kept for compatibility) ----
-        if (requireNotHolding && grabber != null && grabber.IsHolding)
-        {
-            dwellTimer = 0f;
-            OnConfirmProgress?.Invoke(0f, false);
-            UpdateProgressUI();
-            return;
-        }
 
         int placedCount = 0;
         for (int i = 0; i < items.Count; i++)
@@ -308,17 +312,8 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         OnProgressChanged?.Invoke(placedCount, items.Count);
         UpdateProgressUI();
-
-        if (items.Count > 0 && placedCount == items.Count)
-        {
-            dwellTimer += dt;
-            if (dwellTimer >= dwellSeconds)
-                EndTrialSuccess(null);
-        }
-        else
-        {
-            dwellTimer = 0f;
-        }
+        if (TryConsumeVoiceSubmit("placement-fallback"))
+            EndTrialSuccess(null);
     }
 
     // ---------------- Trial Flow ----------------
@@ -397,12 +392,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
             if (_active == null)
             {
-                Debug.LogError($"[ToolPlacementTM] ForcedActiveId '{_forcedActiveId}' not found. Trial start canceled.");
-                trialRunning = false;
-                inTransition = false;
-                OnConfirmProgress?.Invoke(0f, false);
-                OnConfirmStatus?.Invoke("");
-                return;
+                Debug.LogWarning($"[ToolPlacementTM] ForcedActiveId '{_forcedActiveId}' not found. Falling back to first matched tool.");
             }
         }
 
@@ -435,6 +425,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         trialTimer = 0f;
         dwellTimer = 0f;
+        DrainPendingSubmitTriggers();
         ResetConfirmState();
         InitializeConfirmPoseFromActive();
         trialRunning = true;
@@ -617,18 +608,14 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
     private void EmitPlacementConfirmStatus(float errorMeters, float toleranceMeters)
     {
-        bool holding = requireNotHolding && grabber != null && grabber.IsHolding;
-        bool withinTol = errorMeters <= toleranceMeters;
-
-        string msg;
-        if (holding)
-            msg = "Release to confirm";
-        else if (!withinTol)
-            msg = "Align position";
-        else
-            msg = "Confirming...";
-
-        OnConfirmStatus?.Invoke(msg);
+        _ = errorMeters;
+        _ = toleranceMeters;
+        if (IsBlockedTripleTapStatusActive())
+        {
+            OnConfirmStatus?.Invoke(blockedTripleTapStatus);
+            return;
+        }
+        OnConfirmStatus?.Invoke("");
     }
 
     private bool ComputeActiveStability(float dt)
@@ -838,11 +825,27 @@ public class ToolPlacementTaskManager : MonoBehaviour
     {
         if (keywordRecognizer != null) return;
 
-        keywordActions = new Dictionary<string, Action>
+        keywordActions = new Dictionary<string, Action>();
+
+        if (enableVoiceStart)
         {
-            { startKeyword.ToLower(), StartBlock },
-            { restartKeyword.ToLower(), StartBlock }
-        };
+            string start = string.IsNullOrWhiteSpace(startKeyword) ? "" : startKeyword.Trim().ToLower();
+            string restart = string.IsNullOrWhiteSpace(restartKeyword) ? "" : restartKeyword.Trim().ToLower();
+            if (!string.IsNullOrEmpty(start))
+                keywordActions[start] = StartBlock;
+            if (!string.IsNullOrEmpty(restart))
+                keywordActions[restart] = StartBlock;
+        }
+
+        if (enableVoiceSubmit)
+        {
+            string submit = string.IsNullOrWhiteSpace(submitKeyword) ? "" : submitKeyword.Trim().ToLower();
+            if (!string.IsNullOrEmpty(submit))
+                keywordActions[submit] = () => _voiceSubmitRequested = true;
+        }
+
+        if (keywordActions.Count == 0)
+            return;
 
         keywordRecognizer = new KeywordRecognizer(keywordActions.Keys.ToArray());
         keywordRecognizer.OnPhraseRecognized += args =>
@@ -853,7 +856,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         keywordRecognizer.Start();
 
         if (logDebug)
-            Debug.Log($"[ToolPlacementTM] Voice enabled: '{startKeyword}', '{restartKeyword}'");
+            Debug.Log($"[ToolPlacementTM] Voice enabled. start={enableVoiceStart} submit={enableVoiceSubmit}");
     }
 
     private void FinishBlock()
@@ -870,6 +873,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
     private void OnDisable()
     {
         OnConfirmStatus?.Invoke("");
+        DrainPendingSubmitTriggers();
 
         // Prevent mode leaking into other tasks if this manager is disabled mid-run
         if (restoreRotationModeAfterTrial)
@@ -936,5 +940,58 @@ public class ToolPlacementTaskManager : MonoBehaviour
             if (it == null || it.target == null) continue;
             it.target.localPosition = it.targetStartLocalPos;
         }
+    }
+
+    private bool TryConsumeVoiceSubmit(string context)
+    {
+        if (_voiceSubmitRequested)
+        {
+            _voiceSubmitRequested = false;
+            _ = context;
+            return true;
+        }
+
+        if (enableTripleTapSubmit && phoneRouter != null && phoneRouter.TryConsumeTripleTap())
+        {
+            if (ShouldBlockTripleTapSubmit())
+            {
+                NotifyBlockedTripleTapSubmit();
+                return false;
+            }
+            _ = context;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void DrainPendingSubmitTriggers()
+    {
+        _voiceSubmitRequested = false;
+
+        if (!enableTripleTapSubmit || phoneRouter == null)
+            return;
+
+        int guard = 0;
+        while (phoneRouter.TryConsumeTripleTap() && guard < 8)
+            guard++;
+    }
+
+    private bool ShouldBlockTripleTapSubmit()
+    {
+        return blockTripleTapSubmitWhenHandNearGrabbable &&
+               grabber != null &&
+               grabber.IsHoldingOrHasAttachCandidateNow;
+    }
+
+    private void NotifyBlockedTripleTapSubmit()
+    {
+        _blockedTripleTapStatusUntil = Time.unscaledTime + Mathf.Max(0.05f, blockedTripleTapStatusSeconds);
+        OnConfirmStatus?.Invoke(blockedTripleTapStatus);
+    }
+
+    private bool IsBlockedTripleTapStatusActive()
+    {
+        return Time.unscaledTime < _blockedTripleTapStatusUntil;
     }
 }

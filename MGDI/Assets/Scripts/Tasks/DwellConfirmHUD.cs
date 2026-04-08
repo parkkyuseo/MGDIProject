@@ -4,6 +4,14 @@ using TMPro;
 
 public class DwellConfirmHUD : MonoBehaviour
 {
+    private enum ConfirmSource
+    {
+        None = 0,
+        Placement = 1,
+        Rotation = 2,
+        Scaling = 3
+    }
+
     [Header("Sources (assign what you use)")]
     [SerializeField] private ToolPlacementTaskManager placementTask;
     [SerializeField] private ToolRotationTaskManager rotationTask;   // optional
@@ -47,6 +55,7 @@ public class DwellConfirmHUD : MonoBehaviour
     private float _visibleSmooth;
     private bool _hasInitSmoothing;
     private Vector3 _baseScale = Vector3.one;
+    private ConfirmSource _activeSource = ConfirmSource.None;
 
     private void Awake()
     {
@@ -74,6 +83,7 @@ public class DwellConfirmHUD : MonoBehaviour
         _fillSmooth = 0f;
         _visibleSmooth = 0f;
         _hasInitSmoothing = false;
+        _activeSource = ConfirmSource.None;
         if (rootRect != null)
             rootRect.localScale = _baseScale;
     }
@@ -90,6 +100,8 @@ public class DwellConfirmHUD : MonoBehaviour
 
     private void Update()
     {
+        UpdateActiveSource();
+
         bool hasRecentEvent = Time.time - _lastEventTime <= noEventHideSeconds;
         bool hasStatus = !string.IsNullOrWhiteSpace(_lastStatus);
         bool statusKeepsVisible = showStatusWhenIneligible && hasStatus;
@@ -128,36 +140,39 @@ public class DwellConfirmHUD : MonoBehaviour
 
     private void HandlePlacementProgress(float t01, bool eligible)
     {
-        HandleProgressCommon(t01, eligible);
+        HandleProgressCommon(ConfirmSource.Placement, t01, eligible);
     }
 
     private void HandleRotationProgress(float t01, bool eligible)
     {
-        HandleProgressCommon(t01, eligible);
+        HandleProgressCommon(ConfirmSource.Rotation, t01, eligible);
     }
 
     private void HandleScalingProgress(float t01, bool eligible)
     {
-        HandleProgressCommon(t01, eligible);
+        HandleProgressCommon(ConfirmSource.Scaling, t01, eligible);
     }
 
     private void HandlePlacementStatus(string status)
     {
-        HandleStatusCommon(status);
+        HandleStatusCommon(ConfirmSource.Placement, status);
     }
 
     private void HandleRotationStatus(string status)
     {
-        HandleStatusCommon(status);
+        HandleStatusCommon(ConfirmSource.Rotation, status);
     }
 
     private void HandleScalingStatus(string status)
     {
-        HandleStatusCommon(status);
+        HandleStatusCommon(ConfirmSource.Scaling, status);
     }
 
-    private void HandleProgressCommon(float t01, bool eligible)
+    private void HandleProgressCommon(ConfirmSource source, float t01, bool eligible)
     {
+        if (!ShouldAcceptSource(source))
+            return;
+
         _lastEventTime = Time.time;
         _lastEligible = eligible;
         _lastT01 = Mathf.Clamp01(t01);
@@ -169,10 +184,57 @@ public class DwellConfirmHUD : MonoBehaviour
         SetVisible(show);
     }
 
-    private void HandleStatusCommon(string status)
+    private void HandleStatusCommon(ConfirmSource source, string status)
     {
+        if (!ShouldAcceptSource(source))
+            return;
+
         _lastStatus = status ?? "";
         SetStatus(_lastStatus);
+    }
+
+    private void UpdateActiveSource()
+    {
+        ConfirmSource now = ResolveActiveSource();
+        if (now == _activeSource)
+            return;
+
+        _activeSource = now;
+        ResetRuntimeDisplayState();
+    }
+
+    private ConfirmSource ResolveActiveSource()
+    {
+        if (scalingTask != null && scalingTask.IsTrialRunning)
+            return ConfirmSource.Scaling;
+        if (rotationTask != null && rotationTask.IsTrialRunning)
+            return ConfirmSource.Rotation;
+        if (placementTask != null && placementTask.IsTrialRunning)
+            return ConfirmSource.Placement;
+        return ConfirmSource.None;
+    }
+
+    private bool ShouldAcceptSource(ConfirmSource source)
+    {
+        if (source == ConfirmSource.None)
+            return false;
+        if (_activeSource == ConfirmSource.None)
+            return false;
+        return source == _activeSource;
+    }
+
+    private void ResetRuntimeDisplayState()
+    {
+        _lastEventTime = -999f;
+        _lastEligible = false;
+        _lastT01 = 0f;
+        _lastStatus = "";
+        SetStatus("");
+        SetFill(0f);
+        SetVisible(false);
+        _fillSmooth = 0f;
+        _visibleSmooth = 0f;
+        _hasInitSmoothing = false;
     }
 
     private void SetVisible(bool on)

@@ -33,15 +33,23 @@ public class InstructionPanelAutoSizer : MonoBehaviour
     [SerializeField] private bool usePositionStyle = true;
     [SerializeField] private Vector2 anchoredPosNormal = new Vector2(-80f, 0f);
     [SerializeField] private Vector2 anchoredPosCountdown = new Vector2(0f, 0f);
+    [SerializeField] private Vector2 countdownExtraOffset = new Vector2(20f, 0f);
     [SerializeField] private Vector2 globalPositionOffset = new Vector2(-70f, 0f);
+    [SerializeField] private bool applyGlobalOffsetToCountdown = false;
     [SerializeField] private float positionLerp = 18f;
+
+    [Header("Embedded Example Reserve")]
+    [SerializeField] private bool reserveSpaceForEmbeddedExample = true;
+    [SerializeField] private float embeddedExampleReservedWidth = 170f;
+    [SerializeField] private float embeddedExampleReservedGap = 12f;
+    [SerializeField] private float embeddedExampleReservedHeight = 120f;
 
     private bool _hasLastCountdownMode;
     private bool _lastCountdownMode;
     private float _baseFontNormal;
     private float _baseFontCountdown;
-    private bool _warnedSharedTargetAndContent;
     private string _lastAppliedText;
+    private bool _embeddedExampleActive;
 
     private void Reset()
     {
@@ -87,6 +95,14 @@ public class InstructionPanelAutoSizer : MonoBehaviour
         ApplySizing(smooth: false);
     }
 
+    public void SetEmbeddedExampleLayoutState(bool active, float reservedWidth, float reservedGap, float reservedHeight)
+    {
+        _embeddedExampleActive = active;
+        embeddedExampleReservedWidth = Mathf.Max(0f, reservedWidth);
+        embeddedExampleReservedGap = Mathf.Max(0f, reservedGap);
+        embeddedExampleReservedHeight = Mathf.Max(0f, reservedHeight);
+    }
+
     private void ApplySizing(bool smooth)
     {
         if (instructionText == null || targetRect == null) return;
@@ -99,10 +115,7 @@ public class InstructionPanelAutoSizer : MonoBehaviour
         string trimmed = text.Trim();
         if (trimmed.Length == 0) return;
 
-        bool isCountdown = (trimmed == "3" ||
-                            trimmed == "2" ||
-                            trimmed == "1" ||
-                            string.Equals(trimmed, "Go", StringComparison.OrdinalIgnoreCase));
+        bool isCountdown = IsCountdownText(trimmed);
 
         float scale = Mathf.Clamp(panelSizeScale, 0.5f, 1.2f);
 
@@ -138,13 +151,25 @@ public class InstructionPanelAutoSizer : MonoBehaviour
         minH = Mathf.Min(minH, maxH);
 
         float maxWidthConstraint = Mathf.Max(50f, maxW - paddingEffective.x);
+        float embeddedReserve = 0f;
+        if (!isCountdown && reserveSpaceForEmbeddedExample && _embeddedExampleActive)
+            embeddedReserve = Mathf.Max(0f, embeddedExampleReservedWidth + embeddedExampleReservedGap);
+
+        maxWidthConstraint = Mathf.Max(50f, maxWidthConstraint - embeddedReserve);
         if (!isCountdown && constrainNormalLineWidth)
             maxWidthConstraint = Mathf.Min(maxWidthConstraint, Mathf.Max(120f, normalMaxLineWidth * scale));
 
         Vector2 preferred = instructionText.GetPreferredValues(text, maxWidthConstraint, 0f);
 
-        float targetW = Mathf.Clamp(preferred.x + paddingEffective.x, minW, maxW);
-        float targetH = Mathf.Clamp(preferred.y + paddingEffective.y, minH, maxH);
+        float targetW = Mathf.Clamp(preferred.x + paddingEffective.x + embeddedReserve, minW, maxW);
+        float embeddedHeightReserve = 0f;
+        if (!isCountdown && reserveSpaceForEmbeddedExample && _embeddedExampleActive)
+            embeddedHeightReserve = Mathf.Max(0f, embeddedExampleReservedHeight + paddingEffective.y);
+
+        float targetH = Mathf.Clamp(
+            Mathf.Max(preferred.y + paddingEffective.y, embeddedHeightReserve),
+            minH,
+            maxH);
         Vector2 desired = new Vector2(targetW, targetH);
 
         float dt = Mathf.Max(Time.unscaledDeltaTime, 1e-4f);
@@ -171,8 +196,12 @@ public class InstructionPanelAutoSizer : MonoBehaviour
 
         if (usePositionStyle)
         {
-            Vector2 targetAnchoredPos = isCountdown ? anchoredPosCountdown : anchoredPosNormal;
-            targetAnchoredPos += globalPositionOffset;
+            Vector2 targetAnchoredPos = isCountdown
+                ? (anchoredPosCountdown + countdownExtraOffset)
+                : anchoredPosNormal;
+
+            if (!isCountdown || applyGlobalOffsetToCountdown)
+                targetAnchoredPos += globalPositionOffset;
 
             if (!useSmooth || positionLerp <= 0f)
             {
@@ -184,6 +213,17 @@ public class InstructionPanelAutoSizer : MonoBehaviour
                 targetRect.anchoredPosition = Vector2.Lerp(targetRect.anchoredPosition, targetAnchoredPos, tPos);
             }
         }
+    }
+
+    private static bool IsCountdownText(string trimmed)
+    {
+        if (string.Equals(trimmed, "Go", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (int.TryParse(trimmed, out int sec))
+            return sec >= 1 && sec <= 20;
+
+        return false;
     }
 
     [ContextMenu("Auto Assign References")]
@@ -266,6 +306,12 @@ public class InstructionPanelAutoSizer : MonoBehaviour
         if (instructionText == null || instructionText.rectTransform == null)
             return;
 
+        if (contentRect == instructionText.rectTransform)
+        {
+            contentRect = null;
+            return;
+        }
+
         if (contentRect != null && contentRect != targetRect)
             return;
 
@@ -278,12 +324,9 @@ public class InstructionPanelAutoSizer : MonoBehaviour
             return;
         }
 
-        contentRect = textRect;
-
-        if (!_warnedSharedTargetAndContent && parentRect == targetRect)
-        {
-            _warnedSharedTargetAndContent = true;
-            Debug.LogWarning("InstructionPanelAutoSizer: content wrapper not found. Using TMP rect as content rect.");
-        }
+        // If the TMP text is directly under the panel background, resizing the text
+        // rect itself conflicts with the embedded-image layout offsets. In that case,
+        // keep the text rect untouched and size only the panel background.
+        contentRect = null;
     }
 }

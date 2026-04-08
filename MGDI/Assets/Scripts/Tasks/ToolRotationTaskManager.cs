@@ -111,8 +111,18 @@ public class ToolRotationTaskManager : MonoBehaviour
     [SerializeField] private string restartKeyword = "restart rotation";
     [SerializeField] private bool autoStartInEditor = false;
 
+    [Header("Voice Submit (HoloLens)")]
+    [SerializeField] private bool enableVoiceSubmit = true;
+    [SerializeField] private string submitKeyword = "next";
+    [SerializeField] private bool enableTripleTapSubmit = true;
+
+    [Header("Triple Tap Submit Safety")]
+    [SerializeField] private bool blockTripleTapSubmitWhenHandNearGrabbable = true;
+    [SerializeField] private float blockedTripleTapStatusSeconds = 1.0f;
+    [SerializeField] private string blockedTripleTapStatus = "Move hand away,\nthen triple tap.";
+
     [Header("Target ghost positioning (bring near active tool)")]
-    [SerializeField] private bool bringTargetNearActiveTool = true;
+    [SerializeField] private bool bringTargetNearActiveTool = false;
 
     [Tooltip("Offset near the tool when bringing target close. X=right, Y=up, Z=forward (in chosen frame). Meters.")]
     [SerializeField] private Vector3 targetOffsetLocal = new Vector3(0.18f, 0.03f, 0.00f);
@@ -185,6 +195,8 @@ public class ToolRotationTaskManager : MonoBehaviour
 
     private KeywordRecognizer _keywordRecognizer;
     private Dictionary<string, Action> _keywordActions;
+    private bool _voiceSubmitRequested = false;
+    private float _blockedTripleTapStatusUntil = -1f;
 
     private readonly StringBuilder _sb = new StringBuilder(512);
     private bool _practiceGhostRandomizationEnabled = false;
@@ -195,6 +207,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     private Quaternion _capturedCarryToolRot = Quaternion.identity;
     private Quaternion _capturedCarryTargetRot = Quaternion.identity;
     private Quaternion _capturedCarryTargetEvalRot = Quaternion.identity;
+    private float _lastSubmittedErrorDeg = float.NaN;
 
     public bool IsTrialRunning => _trialRunning && !_inTransition;
     public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - _trialTimer);
@@ -202,6 +215,8 @@ public class ToolRotationTaskManager : MonoBehaviour
     public int CurrentTrialIndex1Based => _trialIndex + 1;
     public float RotationToleranceDeg => rotationToleranceDeg;
     public float ActiveRotationErrorDeg => ComputeRotationErrorDeg();
+    public float LastSubmittedErrorDeg => _lastSubmittedErrorDeg;
+    public Transform ActiveTargetTransform => GetActiveEvaluationTargetTransform();
     public bool ResetToolToStartAfterTrial
     {
         get => resetToolToStartAfterTrial;
@@ -243,10 +258,14 @@ public class ToolRotationTaskManager : MonoBehaviour
     public void StartBlock()
     {
         StopAllCoroutines();
+        if (phoneRouter == null)
+            phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
         _inTransition = false;
         _trialRunning = false;
         _trialIndex = 0;
+        DrainPendingSubmitTriggers();
         _hasLastPracticeRotationOffset = false;
+        _lastSubmittedErrorDeg = float.NaN;
 
         _externalDriving = false;
         OnConfirmStatus?.Invoke("");
@@ -254,6 +273,7 @@ public class ToolRotationTaskManager : MonoBehaviour
         ResetConfirmState();
         HideFeedbackUI();
 
+        ForceReleaseIfPossible();
         RebuildItemsFromScene();
         BeginNextTrial();
     }
@@ -334,11 +354,17 @@ public class ToolRotationTaskManager : MonoBehaviour
         if (phoneRouter == null)
             phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
 
-        if (enableVoiceStart)
+        if (enableVoiceStart || enableVoiceSubmit)
             SetupVoiceCommands();
 
         if (autoStartInEditor && Application.isEditor)
             StartBlock();
+    }
+
+    private void OnEnable()
+    {
+        if (enableVoiceStart || enableVoiceSubmit)
+            SetupVoiceCommands();
     }
 
     private void Update()
@@ -368,56 +394,15 @@ public class ToolRotationTaskManager : MonoBehaviour
             return;
         }
 
-        bool useTouchHoldConfirmGate = IsMicroTouchHoldConfirmGateActive();
-        bool touchHolding = useTouchHoldConfirmGate && phoneRouter != null && phoneRouter.HoldActive;
-
-        // Evaluation gating ("stop input to evaluate")
-        bool holding = (grabber != null && grabber.IsHolding);
-        bool evalAllowed = true;
-        if (useTouchHoldConfirmGate)
-        {
-            if (touchHolding)
-                evalAllowed = false;
-        }
-        else if (requireNotDrivingForEvaluation)
-        {
-            bool macro = (phoneRouter == null) ? true : (phoneRouter.CurrentMode == PhoneInputRouter.Mode.Macro);
-
-            if (macro && requireReleaseForEvaluationInMacro && holding)
-                evalAllowed = false;
-
-            if (_externalDriving)
-                evalAllowed = false;
-        }
-
         float errDeg = ComputeRotationErrorDeg();
         EmitRotationConfirmStatus(errDeg, rotationToleranceDeg);
 
         if (progressText != null)
-            UpdateProgressText(errDeg, evalAllowed);
+            UpdateProgressText(errDeg, true);
 
-        bool stable = ComputeActiveStability(dt);
-        bool eligible =
-            IsTrialRunning &&
-            ActiveToolTransform != null &&
-            errDeg <= rotationToleranceDeg &&
-            stable &&
-            (useTouchHoldConfirmGate || IsNotHolding()) &&
-            evalAllowed;
-
-        if (eligible && !_confirmLatched)
-            _confirmDwellTimer += dt;
-        else
-            _confirmDwellTimer = 0f;
-
-        float confirmDuration = Mathf.Max(0.0001f, confirmDwellSeconds);
-        float t01 = Mathf.Clamp01(_confirmDwellTimer / confirmDuration);
-        OnConfirmProgress?.Invoke(t01, eligible);
-
-        if (!_confirmLatched && _confirmDwellTimer >= confirmDuration)
+        if (TryConsumeVoiceSubmit("rotation"))
         {
             _confirmLatched = true;
-            _confirmDwellTimer = 0f;
             OnConfirmDwellCompleted?.Invoke();
             PlayConfirmSound();
             EndTrialSuccess();
@@ -466,12 +451,7 @@ public class ToolRotationTaskManager : MonoBehaviour
 
             if (_active == null)
             {
-                Debug.LogError($"[ToolRotationTM] ForcedActiveId '{_forcedActiveId}' not found. Trial start canceled.");
-                _trialRunning = false;
-                _inTransition = false;
-                OnConfirmProgress?.Invoke(0f, false);
-                OnConfirmStatus?.Invoke("");
-                return;
+                Debug.LogWarning($"[ToolRotationTM] ForcedActiveId '{_forcedActiveId}' not found. Falling back to current list order.");
             }
         }
 
@@ -521,6 +501,8 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         _trialTimer = 0f;
         _dwellTimer = 0f;
+        DrainPendingSubmitTriggers();
+        _lastSubmittedErrorDeg = float.NaN;
         ResetConfirmState();
         InitializeConfirmPoseFromActive();
         _trialRunning = true;
@@ -541,6 +523,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     {
         if (_inTransition) yield break;
         _inTransition = true;
+        _lastSubmittedErrorDeg = ComputeRotationErrorDeg();
         _trialRunning = false;
         OnConfirmProgress?.Invoke(0f, false);
         OnConfirmStatus?.Invoke("");
@@ -762,34 +745,14 @@ public class ToolRotationTaskManager : MonoBehaviour
 
     private void EmitRotationConfirmStatus(float errorDeg, float toleranceDeg)
     {
-        if (IsMicroTouchHoldConfirmGateActive())
+        _ = errorDeg;
+        _ = toleranceDeg;
+        if (IsBlockedTripleTapStatusActive())
         {
-            bool touchHolding = phoneRouter != null && phoneRouter.HoldActive;
-            bool withinTolMicro = errorDeg <= toleranceDeg;
-            string microMsg;
-            if (touchHolding)
-                microMsg = "Release touch to confirm";
-            else if (!withinTolMicro)
-                microMsg = "Align rotation";
-            else
-                microMsg = "Confirming...";
-
-            OnConfirmStatus?.Invoke(microMsg);
+            OnConfirmStatus?.Invoke(blockedTripleTapStatus);
             return;
         }
-
-        bool holding = requireNotHolding && grabber != null && grabber.IsHolding;
-        bool withinTol = errorDeg <= toleranceDeg;
-
-        string msg;
-        if (holding)
-            msg = "Release to confirm";
-        else if (!withinTol)
-            msg = "Align rotation";
-        else
-            msg = "Confirming...";
-
-        OnConfirmStatus?.Invoke(msg);
+        OnConfirmStatus?.Invoke("");
     }
 
     private bool ComputeActiveStability(float dt)
@@ -1040,11 +1003,27 @@ public class ToolRotationTaskManager : MonoBehaviour
     {
         if (_keywordRecognizer != null) return;
 
-        _keywordActions = new Dictionary<string, Action>
+        _keywordActions = new Dictionary<string, Action>();
+
+        if (enableVoiceStart)
         {
-            { startKeyword.ToLower(), StartBlock },
-            { restartKeyword.ToLower(), StartBlock }
-        };
+            string start = string.IsNullOrWhiteSpace(startKeyword) ? "" : startKeyword.Trim().ToLower();
+            string restart = string.IsNullOrWhiteSpace(restartKeyword) ? "" : restartKeyword.Trim().ToLower();
+            if (!string.IsNullOrEmpty(start))
+                _keywordActions[start] = StartBlock;
+            if (!string.IsNullOrEmpty(restart))
+                _keywordActions[restart] = StartBlock;
+        }
+
+        if (enableVoiceSubmit)
+        {
+            string submit = string.IsNullOrWhiteSpace(submitKeyword) ? "" : submitKeyword.Trim().ToLower();
+            if (!string.IsNullOrEmpty(submit))
+                _keywordActions[submit] = () => _voiceSubmitRequested = true;
+        }
+
+        if (_keywordActions.Count == 0)
+            return;
 
         _keywordRecognizer = new KeywordRecognizer(_keywordActions.Keys.ToArray());
         _keywordRecognizer.OnPhraseRecognized += args =>
@@ -1071,6 +1050,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     {
         OnConfirmProgress?.Invoke(0f, false);
         OnConfirmStatus?.Invoke("");
+        DrainPendingSubmitTriggers();
         ResetConfirmState();
         RestoreAllPracticeTargetRotations();
 
@@ -1107,5 +1087,58 @@ public class ToolRotationTaskManager : MonoBehaviour
             return _active.tool;
 
         return null;
+    }
+
+    private bool TryConsumeVoiceSubmit(string context)
+    {
+        if (_voiceSubmitRequested)
+        {
+            _voiceSubmitRequested = false;
+            _ = context;
+            return true;
+        }
+
+        if (enableTripleTapSubmit && phoneRouter != null && phoneRouter.TryConsumeTripleTap())
+        {
+            if (ShouldBlockTripleTapSubmit())
+            {
+                NotifyBlockedTripleTapSubmit();
+                return false;
+            }
+            _ = context;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void DrainPendingSubmitTriggers()
+    {
+        _voiceSubmitRequested = false;
+
+        if (!enableTripleTapSubmit || phoneRouter == null)
+            return;
+
+        int guard = 0;
+        while (phoneRouter.TryConsumeTripleTap() && guard < 8)
+            guard++;
+    }
+
+    private bool ShouldBlockTripleTapSubmit()
+    {
+        return blockTripleTapSubmitWhenHandNearGrabbable &&
+               grabber != null &&
+               grabber.IsHoldingOrHasAttachCandidateNow;
+    }
+
+    private void NotifyBlockedTripleTapSubmit()
+    {
+        _blockedTripleTapStatusUntil = Time.unscaledTime + Mathf.Max(0.05f, blockedTripleTapStatusSeconds);
+        OnConfirmStatus?.Invoke(blockedTripleTapStatus);
+    }
+
+    private bool IsBlockedTripleTapStatusActive()
+    {
+        return Time.unscaledTime < _blockedTripleTapStatusUntil;
     }
 }

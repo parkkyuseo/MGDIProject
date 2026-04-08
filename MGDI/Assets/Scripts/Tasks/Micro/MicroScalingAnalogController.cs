@@ -80,17 +80,25 @@ public class MicroScalingAnalogController : MonoBehaviour
             return;
         }
 
-        // On first active frame, start from current cmd (or 1.0). Here it resets to 1 for predictability.
+        // On first active frame, continue from current task scale to avoid jump-to-baseline.
         if (!_prevActive)
         {
-            _factor = 1f;
-            scalingTask.ApplyScaleFactor(_factor);
+            float minClamp = ResolveMinFactor();
+            float maxClamp = ResolveMaxFactor(minClamp);
+            float current = scalingTask.ActiveCurrentFactor;
+            if (float.IsNaN(current) || float.IsInfinity(current))
+                current = scalingTask.GetScaleFactorCmd();
+            if (float.IsNaN(current) || float.IsInfinity(current))
+                current = 1f;
+            _factor = Mathf.Clamp(current, minClamp, maxClamp);
             _prevActive = true;
         }
 
         // factor *= exp((rate * gain) * y * dt)
         _factor *= Mathf.Exp((scaleRatePerSec * _gain) * a.y * dt);
-        _factor = Mathf.Clamp(_factor, minFactor, maxFactor);
+        float minF = ResolveMinFactor();
+        float maxF = ResolveMaxFactor(minF);
+        _factor = Mathf.Clamp(_factor, minF, maxF);
 
         scalingTask.SetExternalDriving(true);
         scalingTask.ApplyScaleFactor(_factor);
@@ -122,5 +130,19 @@ public class MicroScalingAnalogController : MonoBehaviour
 
         float t = 1f - Mathf.Exp(-gainLerp * dt);
         _gain = Mathf.Lerp(_gain, targetGain, t);
+    }
+
+    private float ResolveMinFactor()
+    {
+        if (scalingTask != null)
+            return Mathf.Max(0.01f, scalingTask.EffectiveMinScaleFactor);
+        return Mathf.Max(0.01f, minFactor);
+    }
+
+    private float ResolveMaxFactor(float minResolved)
+    {
+        if (scalingTask != null)
+            return Mathf.Max(minResolved, scalingTask.EffectiveMaxScaleFactor);
+        return Mathf.Max(minResolved, maxFactor);
     }
 }

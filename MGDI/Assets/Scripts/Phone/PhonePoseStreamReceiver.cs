@@ -26,6 +26,7 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         public bool hold;        // macro
         public bool toggle;      // micro grab toggle state
         public int modeToggleId; // micro placement plane toggle (event id)
+        public int tripleTapId;  // micro triple-tap event id
 
         public float ax;
         public float ay;
@@ -36,16 +37,21 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
     private bool _hasPhonePose;
     private Pose _phonePose;
+    private bool _hasPrevPhonePose;
+    private Pose _prevPhonePose;
+    private double _cumulativePathLengthMeters;
 
     private bool _hold;
     private bool _toggle;
     private int _modeToggleId;
+    private int _tripleTapId;
     private float _ax;
     private float _ay;
     private bool _drag;
 
     // ---- thread-safe monotonic timestamp ----
     private long _lastRxStamp; // Stopwatch ticks
+    private long _prevRxStamp; // Stopwatch ticks
     private static readonly double _invStopwatchFreq = 1.0 / Stopwatch.Frequency;
 
     private UdpClient _udp;
@@ -57,11 +63,13 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
     public bool HasPhonePose { get { lock (_lock) return _hasPhonePose; } }
     public Pose LatestPhonePose { get { lock (_lock) return _phonePose; } }
+    public double CumulativePathLengthMeters { get { lock (_lock) return _cumulativePathLengthMeters; } }
 
     public bool LatestHold { get { lock (_lock) return _hold; } }
     public bool LatestToggle { get { lock (_lock) return _toggle; } }
 
     public int LatestModeToggleId { get { lock (_lock) return _modeToggleId; } }
+    public int LatestTripleTapId { get { lock (_lock) return _tripleTapId; } }
 
     public float LatestAx { get { lock (_lock) return _ax; } }
     public float LatestAy { get { lock (_lock) return _ay; } }
@@ -78,6 +86,52 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                 double dtSec = dtTicks * _invStopwatchFreq;
                 return (float)Math.Max(0.0, dtSec);
             }
+        }
+    }
+
+    public bool TryGetPhoneMotionEstimate(
+        out Pose latestPose,
+        out Vector3 linearVelocityMetersPerSec,
+        out Vector3 angularVelocityDegPerSec,
+        out float ageSec)
+    {
+        lock (_lock)
+        {
+            latestPose = _phonePose;
+            linearVelocityMetersPerSec = Vector3.zero;
+            angularVelocityDegPerSec = Vector3.zero;
+
+            if (_lastRxStamp == 0)
+            {
+                ageSec = float.PositiveInfinity;
+                return false;
+            }
+
+            long dtTicks = Stopwatch.GetTimestamp() - _lastRxStamp;
+            ageSec = (float)Math.Max(0.0, dtTicks * _invStopwatchFreq);
+
+            if (!_hasPhonePose || !_hasPrevPhonePose || _prevRxStamp == 0)
+                return _hasPhonePose;
+
+            double sampleDtSec = (_lastRxStamp - _prevRxStamp) * _invStopwatchFreq;
+            if (sampleDtSec <= 1e-4)
+                return true;
+
+            float dt = (float)sampleDtSec;
+            linearVelocityMetersPerSec = (_phonePose.position - _prevPhonePose.position) / dt;
+
+            Quaternion dq = _phonePose.rotation * Quaternion.Inverse(_prevPhonePose.rotation);
+            dq.ToAngleAxis(out float angDeg, out Vector3 axis);
+            if (float.IsNaN(axis.x) || float.IsNaN(axis.y) || float.IsNaN(axis.z))
+                return true;
+
+            if (angDeg > 180f)
+                angDeg -= 360f;
+
+            if (Mathf.Abs(angDeg) > 1e-4f && axis.sqrMagnitude > 1e-6f)
+                angularVelocityDegPerSec = axis.normalized * (angDeg / dt);
+
+            return true;
         }
     }
 
@@ -129,21 +183,45 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                 string json = Encoding.UTF8.GetString(data);
                 PosePacket pkt = JsonUtility.FromJson<PosePacket>(json);
 
+                Quaternion q = new Quaternion(pkt.qx, pkt.qy, pkt.qz, pkt.qw);
+                float qMag = Mathf.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+                if (qMag > 1e-6f)
+                {
+                    float inv = 1f / qMag;
+                    q = new Quaternion(q.x * inv, q.y * inv, q.z * inv, q.w * inv);
+                }
+                else
+                {
+                    q = Quaternion.identity;
+                }
+
+                if (float.IsNaN(q.x) || float.IsNaN(q.y) || float.IsNaN(q.z) || float.IsNaN(q.w))
+                    continue;
+
                 Pose phonePose = new Pose(
                     new Vector3(pkt.px, pkt.py, pkt.pz),
-                    new Quaternion(pkt.qx, pkt.qy, pkt.qz, pkt.qw)
+                    q
                 );
 
                 long nowStamp = Stopwatch.GetTimestamp();
 
                 lock (_lock)
                 {
+                    if (_hasPhonePose)
+                    {
+                        _cumulativePathLengthMeters += Vector3.Distance(_phonePose.position, phonePose.position);
+                        _prevPhonePose = _phonePose;
+                        _prevRxStamp = _lastRxStamp;
+                        _hasPrevPhonePose = true;
+                    }
+
                     _phonePose = phonePose;
                     _hasPhonePose = true;
 
                     _hold = pkt.hold;
                     _toggle = pkt.toggle;
                     _modeToggleId = pkt.modeToggleId;
+                    _tripleTapId = pkt.tripleTapId;
 
                     _ax = pkt.ax;
                     _ay = pkt.ay;

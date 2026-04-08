@@ -27,6 +27,7 @@ public class StudyFlowController_V2 : MonoBehaviour
 
     [SerializeField] private PhoneTechniqueGate phoneTechniqueGate;
     [SerializeField] private PhoneInputRouter phoneRouter;
+    [SerializeField] private PhoneProxyHandRootDriver phoneMacroPoseDriver;
     [SerializeField] private ConditionBlockController conditionBlockController;
 
     [SerializeField] private TaskContextHUD taskContextHUD;
@@ -38,13 +39,29 @@ public class StudyFlowController_V2 : MonoBehaviour
     [SerializeField] private float instructionSeconds = 10f;
     [SerializeField] private float workspaceReadyDelaySeconds = 0.75f;
     [SerializeField] private float goShowSeconds = 0.25f;
+    [SerializeField] private bool showMainTaskCountdown = false;
+
+    [Header("Pre-Block Grip Calibration")]
+    [SerializeField] private bool requireGripNeutralizationBeforeBlockStart = true;
+    [TextArea(2, 4)]
+    [SerializeField] private string gripCalibratingText = "Adjust phone to a comfortable grip.\nHold still while calibrating.";
+    [SerializeField] private float gripCalibratingMessageSeconds = 1.2f;
+    [SerializeField] private int gripCalibratingCountdownSeconds = 5;
+    [SerializeField] private bool forceCompleteGripNeutralizationAfterCountdown = true;
+    [Tooltip("<=0 means no timeout.")]
+    [SerializeField] private float gripGateMaxWaitSeconds = 0f;
+    [SerializeField] private bool logGripCalibrationGate = false;
 
     [Header("Practice Trials")]
     [SerializeField] private int practiceTrialsPerBlock = 2;
     [SerializeField] private string practiceToolId = "hammer";
     [TextArea(2, 5)]
-    [SerializeField] private string practiceIntroTextTemplate = "Practice ({count} trials) - Tool: {tool}\nLogging disabled";
+    [SerializeField] private string practiceIntroTextTemplate = "Practice ({count} successful trials)\nTool: {tool}";
     [SerializeField] private float practiceIntroSeconds = 2f;
+    [TextArea(2, 6)]
+    [SerializeField] private string practiceDetailTextTemplate = "Practice: {task}\n{technique}\n{controlInstruction}";
+    [SerializeField] private float practiceDetailSeconds = 2.5f;
+    [SerializeField] private float practiceIntroPanelGapSeconds = 0.08f;
     [SerializeField] private float minPracticeIntroRepeatInterval = 1.0f;
     [SerializeField] private bool showPracticeCompleteMessage = false;
     [SerializeField] private string practiceCompleteMessage = "Main task starts now";
@@ -62,14 +79,10 @@ public class StudyFlowController_V2 : MonoBehaviour
     [SerializeField] private float hudUpdateHz = 10f; // 초당 10번
     [SerializeField] private bool logTaskContextUpdates = false;
     private float _nextHudTime = 0f;
-    private string _lastConditionText = null;
     private string _lastToolText = null;
+    private string _lastHintText = null;
 
     private bool _studyStarted = false;
-    private bool shownPlacementIntro = false;
-    private bool shownRotationIntro = false;
-    private bool shownScalingIntro = false;
-
     private bool _hasPendingStep = false;
     private WorkflowProgressionController.Phase _pendingPhase;
     private int _pendingToolIndex;
@@ -78,6 +91,9 @@ public class StudyFlowController_V2 : MonoBehaviour
     private Coroutine _workspaceGateCoroutine;
     private Coroutine _blockIntroCoroutine;
     private Coroutine _practiceCoroutine;
+    private Coroutine _phaseEntryGateCoroutine;
+    private int _phaseEntryGateToken = 0;
+    private bool _gripCalibrationCompletedInSession = false;
 
     private static readonly float WaitingInstructionDurationSec = float.PositiveInfinity;
 
@@ -95,6 +111,11 @@ public class StudyFlowController_V2 : MonoBehaviour
     private bool _practiceIntroShownThisSession = false;
     private float _lastPracticeIntroShownAt = -999f;
     private string _lastPracticeIntroShownText = null;
+    private bool _hasLastRealIntroContext = false;
+    private WorkflowProgressionController.Phase _lastRealIntroPhase;
+    private string _lastRealIntroConditionKey = null;
+    private MicroPlacementAnalogController _microPlacementAnalogController;
+    private MicroRotationAnalogController _microRotationAnalogController;
 
     void Awake() => Debug.Log("[SFC_V2] Awake");
 
@@ -138,6 +159,8 @@ public class StudyFlowController_V2 : MonoBehaviour
             conditionBlockController = FindFirstObjectByType<ConditionBlockController>();
         if (logger == null)
             logger = FindFirstObjectByType<StudyLogger>();
+        if (phoneMacroPoseDriver == null)
+            phoneMacroPoseDriver = FindFirstObjectByType<PhoneProxyHandRootDriver>();
 
         if (qrLock == null)
             qrLock = FindFirstObjectByType<QRWorkspaceLock_OpenXR>();
@@ -152,7 +175,7 @@ public class StudyFlowController_V2 : MonoBehaviour
 
         if (taskContextHUD == null) taskContextHUD = FindFirstObjectByType<TaskContextHUD>();
         if (instructionHUD == null) instructionHUD = FindFirstObjectByType<InstructionHUD>();
-        if (taskContextHUD != null) { taskContextHUD.SetVisible(true); taskContextHUD.Clear(); taskContextHUD.SetPracticeText(""); }
+        if (taskContextHUD != null) { taskContextHUD.SetVisible(false); taskContextHUD.Clear(); taskContextHUD.SetPracticeText(""); }
         if (instructionHUD != null) instructionHUD.Show("Scan the QR code to begin.", WaitingInstructionDurationSec);
 
         DisableAllTasks();
@@ -184,25 +207,60 @@ public class StudyFlowController_V2 : MonoBehaviour
         return $"{technique} - Near Head";
     }
 
+    public int GetConditionIndex1Based()
+    {
+        if (conditionBlockController != null && conditionBlockController.HasCurrentCondition)
+            return conditionBlockController.CurrentConditionIndex1Based;
+        return -1;
+    }
+
+    public int GetConditionCount()
+    {
+        if (conditionBlockController != null)
+            return conditionBlockController.ConditionCount;
+        return 0;
+    }
+
+    public string GetConditionOrderLabel()
+    {
+        if (conditionBlockController != null)
+            return conditionBlockController.GetConditionOrderLabel();
+        return string.Empty;
+    }
+
+    public int GetConditionSequenceIndex1Based()
+    {
+        if (conditionBlockController != null)
+            return conditionBlockController.SelectedSequenceIndex1Based;
+        return -1;
+    }
+
+    public int GetConditionSequenceCount()
+    {
+        if (conditionBlockController != null)
+            return conditionBlockController.SelectedSequenceCount;
+        return 0;
+    }
+
     private void UpdateTaskContextHUD()
     {
         if (taskContextHUD == null) return;
 
-        string condition = GetConditionLabel();
-        if (_lastConditionText != condition)
-        {
-            taskContextHUD.SetCondition(condition);
-            _lastConditionText = condition;
-            if (logTaskContextUpdates) Debug.Log("[SFC_V2] HUD Condition=" + condition);
-        }
-
         string toolLabel = GetActiveToolLabel();
-        string toolText = "Tool: " + toolLabel;
+        string toolText = BuildTaskContextActionText(toolLabel);
         if (_lastToolText != toolText)
         {
             taskContextHUD.SetTrialText(toolText);
             _lastToolText = toolText;
             if (logTaskContextUpdates) Debug.Log("[SFC_V2] HUD Tool=" + toolText);
+        }
+
+        string hintText = BuildTaskContextHintText();
+        if (_lastHintText != hintText)
+        {
+            taskContextHUD.SetHintText(hintText);
+            _lastHintText = hintText;
+            if (logTaskContextUpdates) Debug.Log("[SFC_V2] HUD Hint=" + hintText);
         }
     }
 
@@ -258,11 +316,100 @@ public class StudyFlowController_V2 : MonoBehaviour
         return toolTransform.name;
     }
 
+    private string BuildTaskContextActionText(string toolLabel)
+    {
+        string displayTool = FormatTaskContextToolName(toolLabel);
+        string highlightedTool = $"<color=#FFD166>{displayTool}</color>";
+
+        if (placementTask != null && placementTask.IsTrialRunning)
+            return $"Place {highlightedTool}";
+
+        if (rotationTask != null && rotationTask.IsTrialRunning)
+            return $"Rotate {highlightedTool}";
+
+        if (scalingTask != null && scalingTask.IsTrialRunning)
+            return $"Scale {highlightedTool}";
+
+        return string.Empty;
+    }
+
+    private string BuildTaskContextHintText()
+    {
+        if (!IsCurrentTechniqueMicro())
+            return string.Empty;
+
+        switch (GetActivePhaseForContextHint())
+        {
+            case WorkflowProgressionController.Phase.Placement:
+                return BuildMicroPlacementHint();
+            case WorkflowProgressionController.Phase.Rotation:
+                return BuildMicroRotationHint();
+            case WorkflowProgressionController.Phase.Scaling:
+                return "Swipe up: smaller\nSwipe down: bigger";
+            default:
+                return string.Empty;
+        }
+    }
+
+    private WorkflowProgressionController.Phase GetActivePhaseForContextHint()
+    {
+        if (placementTask != null && placementTask.IsTrialRunning)
+            return WorkflowProgressionController.Phase.Placement;
+
+        if (rotationTask != null && rotationTask.IsTrialRunning)
+            return WorkflowProgressionController.Phase.Rotation;
+
+        if (scalingTask != null && scalingTask.IsTrialRunning)
+            return WorkflowProgressionController.Phase.Scaling;
+
+        if (inPractice)
+            return _practicePhase;
+
+        return workflow != null ? workflow.CurrentPhase : WorkflowProgressionController.Phase.Placement;
+    }
+
+    private string BuildMicroPlacementHint()
+    {
+        if (_microPlacementAnalogController == null)
+            _microPlacementAnalogController = FindFirstObjectByType<MicroPlacementAnalogController>();
+
+        bool depthMode = _microPlacementAnalogController != null && _microPlacementAnalogController.IsDepthMode;
+        if (depthMode)
+            return "Tap: grab / tap again: release\nSwipe L/R: left-right\nSwipe U/D: front-back\nDouble tap: switch U/D back to up-down";
+
+        return "Tap: grab / tap again: release\nSwipe L/R: left-right\nSwipe U/D: up-down\nDouble tap: switch U/D to front-back";
+    }
+
+    private string BuildMicroRotationHint()
+    {
+        if (_microRotationAnalogController == null)
+            _microRotationAnalogController = FindFirstObjectByType<MicroRotationAnalogController>();
+
+        bool pitchMode = _microRotationAnalogController != null && _microRotationAnalogController.IsPitchMode;
+        if (pitchMode)
+            return "Swipe L/R: yaw\nSwipe U/D: pitch\nDouble tap: switch U/D back to roll";
+
+        return "Swipe L/R: yaw\nSwipe U/D: roll\nDouble tap: switch U/D to pitch";
+    }
+
+    private static string FormatTaskContextToolName(string toolLabel)
+    {
+        if (string.IsNullOrWhiteSpace(toolLabel) || toolLabel == "-")
+            return "tool";
+
+        string value = toolLabel.Trim();
+        value = value.Replace("_", " ");
+        value = System.Text.RegularExpressions.Regex.Replace(value, "([a-z])([A-Z])", "$1 $2");
+        value = System.Text.RegularExpressions.Regex.Replace(value, "\\s+", " ");
+        return value.ToLowerInvariant();
+    }
+
     private void OnDestroy()
     {
         if (_workspaceGateCoroutine != null) StopCoroutine(_workspaceGateCoroutine);
         if (_blockIntroCoroutine != null) StopCoroutine(_blockIntroCoroutine);
         if (_practiceCoroutine != null) StopCoroutine(_practiceCoroutine);
+        if (_phaseEntryGateCoroutine != null) StopCoroutine(_phaseEntryGateCoroutine);
 
         if (workflow != null)
             workflow.OnStepChanged -= OnWorkflowStepChanged;
@@ -458,6 +605,9 @@ public class StudyFlowController_V2 : MonoBehaviour
             yield return null;
         }
 
+        while (conditionBlockController != null && !conditionBlockController.IsInitialConditionReady)
+            yield return null;
+
         yield return new WaitForSeconds(Mathf.Max(0f, workspaceReadyDelaySeconds));
 
         _studyStarted = true;
@@ -479,6 +629,8 @@ public class StudyFlowController_V2 : MonoBehaviour
         // ToolId from tool root (your current structure)
         if (tool == null)
         {
+            if (!inPractice && taskContextHUD != null)
+                taskContextHUD.SetPracticeText("");
             DisableAllTasks();
             return;
         }
@@ -517,6 +669,9 @@ public class StudyFlowController_V2 : MonoBehaviour
             _blockIntroCoroutine = null;
         }
 
+        if (!inPractice && taskContextHUD != null)
+            taskContextHUD.SetPracticeText("");
+
         switch (phase)
         {
             case WorkflowProgressionController.Phase.Placement:
@@ -528,7 +683,7 @@ public class StudyFlowController_V2 : MonoBehaviour
 
                 ApplyGrabberMode(placementGrabberMode);
                 ApplyForcedIdToTasks(id);
-                StartPhaseEntryWithPracticeAndIntro(phase);
+                StartPhaseEntryWithGripGate(phase);
                 break;
 
             case WorkflowProgressionController.Phase.Rotation:
@@ -539,7 +694,7 @@ public class StudyFlowController_V2 : MonoBehaviour
                 if (taskContextHUD != null) taskContextHUD.SetTaskLabel("Rotation");
                 ApplyGrabberMode(rotationGrabberMode);
                 ApplyForcedIdToTasks(id);
-                StartPhaseEntryWithPracticeAndIntro(phase);
+                StartPhaseEntryWithGripGate(phase);
                 break;
 
             case WorkflowProgressionController.Phase.Scaling:
@@ -551,14 +706,91 @@ public class StudyFlowController_V2 : MonoBehaviour
 
                 ApplyGrabberMode(scalingGrabberMode);
 
-                // Freeze position+rotation during scaling; allow scale changes (freezeScale=false)
                 if (grabber != null)
                     grabber.SetFreezeHeld(true, true, false);
 
                 ApplyForcedIdToTasks(id);
-                StartPhaseEntryWithPracticeAndIntro(phase);
+                StartPhaseEntryWithGripGate(phase);
                 break;
         }
+    }
+
+    private void StartPhaseEntryWithGripGate(WorkflowProgressionController.Phase phase)
+    {
+        _phaseEntryGateToken++;
+        int token = _phaseEntryGateToken;
+
+        if (_phaseEntryGateCoroutine != null)
+        {
+            StopCoroutine(_phaseEntryGateCoroutine);
+            _phaseEntryGateCoroutine = null;
+        }
+
+        if (!inPractice && taskContextHUD != null)
+            taskContextHUD.SetPracticeText("");
+
+        _phaseEntryGateCoroutine = StartCoroutine(WaitGripThenStartPhaseEntry(phase, token));
+    }
+
+    private IEnumerator WaitGripThenStartPhaseEntry(WorkflowProgressionController.Phase phase, int token)
+    {
+        bool runGate = requireGripNeutralizationBeforeBlockStart && phoneMacroPoseDriver != null && !_gripCalibrationCompletedInSession;
+        float startedAt = Time.unscaledTime;
+
+        if (runGate)
+        {
+            phoneMacroPoseDriver.BeginTaskStartNeutralization();
+
+            if (instructionHUD != null && !string.IsNullOrWhiteSpace(gripCalibratingText))
+            {
+                float msgSeconds = Mathf.Max(0f, gripCalibratingMessageSeconds);
+                float shown = instructionHUD.Show(gripCalibratingText, msgSeconds);
+                if (shown > 0f)
+                    yield return new WaitForSeconds(shown);
+
+                int countdown = Mathf.Max(0, gripCalibratingCountdownSeconds);
+                for (int sec = countdown; sec >= 1; sec--)
+                {
+                    if (token != _phaseEntryGateToken)
+                        yield break;
+                    float shownCount = instructionHUD.Show(sec.ToString(), 1f);
+                    yield return new WaitForSeconds(Mathf.Max(0.05f, shownCount > 0f ? shownCount : 1f));
+                }
+            }
+            else
+            {
+                float wait = Mathf.Max(0f, gripCalibratingMessageSeconds) + Mathf.Max(0, gripCalibratingCountdownSeconds);
+                if (wait > 0f)
+                    yield return new WaitForSeconds(wait);
+            }
+
+            if (forceCompleteGripNeutralizationAfterCountdown && !phoneMacroPoseDriver.IsGripNeutralizationReady)
+                phoneMacroPoseDriver.CompleteGripNeutralizationNow();
+
+            while (token == _phaseEntryGateToken && !phoneMacroPoseDriver.IsGripNeutralizationReady)
+            {
+                if (gripGateMaxWaitSeconds > 0f &&
+                    (Time.unscaledTime - startedAt) >= gripGateMaxWaitSeconds)
+                {
+                    if (logGripCalibrationGate)
+                        Debug.LogWarning("[SFC_V2] Grip calibration gate timed out. Proceeding.");
+                    phoneMacroPoseDriver.CompleteGripNeutralizationNow();
+                    break;
+                }
+                yield return null;
+            }
+
+            if (instructionHUD != null)
+                instructionHUD.HideImmediate();
+
+            _gripCalibrationCompletedInSession = true;
+        }
+
+        if (token != _phaseEntryGateToken)
+            yield break;
+
+        StartPhaseEntryWithPracticeAndIntro(phase);
+        _phaseEntryGateCoroutine = null;
     }
 
     private void StartPhaseEntryWithPracticeAndIntro(WorkflowProgressionController.Phase phase)
@@ -577,33 +809,16 @@ public class StudyFlowController_V2 : MonoBehaviour
 
     private void StartRealBlockWithIntroGate(WorkflowProgressionController.Phase phase)
     {
-        bool shouldShowIntro =
-            (phase == WorkflowProgressionController.Phase.Placement && !shownPlacementIntro) ||
-            (phase == WorkflowProgressionController.Phase.Rotation && !shownRotationIntro) ||
-            (phase == WorkflowProgressionController.Phase.Scaling && !shownScalingIntro);
-
-        if (!shouldShowIntro)
-        {
-            StartRealBlockForPhase(phase);
-            return;
-        }
-
-        switch (phase)
-        {
-            case WorkflowProgressionController.Phase.Placement:
-                shownPlacementIntro = true;
-                break;
-            case WorkflowProgressionController.Phase.Rotation:
-                shownRotationIntro = true;
-                break;
-            case WorkflowProgressionController.Phase.Scaling:
-                shownScalingIntro = true;
-                break;
-        }
-
         if (_blockIntroCoroutine != null)
+        {
             StopCoroutine(_blockIntroCoroutine);
-        _blockIntroCoroutine = StartCoroutine(ShowInstructionThenCountdownThenStartBlock(phase));
+            _blockIntroCoroutine = null;
+        }
+
+        if (instructionHUD != null)
+            instructionHUD.HideImmediate();
+
+        StartRealBlockForPhase(phase);
     }
 
     private IEnumerator ShowInstructionThenCountdownThenStartBlock(WorkflowProgressionController.Phase blockType)
@@ -611,22 +826,25 @@ public class StudyFlowController_V2 : MonoBehaviour
         string text = GetBlockInstructionText(blockType);
         float introSec = Mathf.Max(0f, instructionSeconds);
 
-        if (instructionHUD != null)
-            instructionHUD.Show(text, introSec);
-
-        float waitBeforeCountdown = Mathf.Max(0f, introSec - 3f);
-        if (waitBeforeCountdown > 0f)
-            yield return new WaitForSeconds(waitBeforeCountdown);
-
-        if (instructionHUD != null)
+        if (!showMainTaskCountdown)
         {
-            instructionHUD.Show("3", 1f);
-            yield return new WaitForSeconds(1f);
-            instructionHUD.Show("2", 1f);
-            yield return new WaitForSeconds(1f);
-            instructionHUD.Show("1", 1f);
-            yield return new WaitForSeconds(1f);
-            instructionHUD.Show("Go", Mathf.Max(0.05f, goShowSeconds));
+            yield return ShowInstructionAndWaitForTaskGate(text, introSec);
+        }
+        else
+        {
+            float waitBeforeCountdown = Mathf.Max(0f, introSec - 3f);
+            yield return ShowInstructionAndWaitForTaskGate(text, waitBeforeCountdown);
+
+            if (instructionHUD != null)
+            {
+                instructionHUD.Show("3", 1f);
+                yield return new WaitForSeconds(1f);
+                instructionHUD.Show("2", 1f);
+                yield return new WaitForSeconds(1f);
+                instructionHUD.Show("1", 1f);
+                yield return new WaitForSeconds(1f);
+                instructionHUD.Show("Go", Mathf.Max(0.05f, goShowSeconds));
+            }
         }
 
         StartRealBlockForPhase(blockType);
@@ -634,19 +852,33 @@ public class StudyFlowController_V2 : MonoBehaviour
         _blockIntroCoroutine = null;
     }
 
+    private IEnumerator ShowInstructionAndWaitForTaskGate(string text, float fallbackSeconds)
+    {
+        float wait = Mathf.Max(0f, fallbackSeconds);
+
+        if (instructionHUD == null)
+        {
+            if (wait > 0f)
+                yield return new WaitForSeconds(wait);
+            yield break;
+        }
+
+        instructionHUD.Show(text, wait);
+        yield return instructionHUD.WaitForTaskGate(text, wait);
+        instructionHUD.HideImmediate();
+    }
+
     private string GetBlockInstructionText(WorkflowProgressionController.Phase blockType)
     {
-        switch (blockType)
-        {
-            case WorkflowProgressionController.Phase.Placement:
-                return "Move the tool to the target position.\nRelease to confirm.";
-            case WorkflowProgressionController.Phase.Rotation:
-                return "Match the target orientation.\nRelease to confirm.";
-            case WorkflowProgressionController.Phase.Scaling:
-                return "Match the target size.\nRelease to confirm.";
-            default:
-                return "";
-        }
+        bool isMicro = IsCurrentTechniqueMicro();
+        string taskInstruction = BuildTaskInstruction(blockType);
+        if (string.IsNullOrEmpty(taskInstruction))
+            return "";
+
+        if (!isMicro)
+            return $"{taskInstruction}\nTriple tap to submit\nyour current attempt.";
+
+        return $"{taskInstruction}\n{BuildMicroControlHint(blockType)}\nTriple tap to submit\nyour current attempt.";
     }
 
     private void AbortPracticeState()
@@ -724,11 +956,7 @@ public class StudyFlowController_V2 : MonoBehaviour
 
     private IEnumerator BeginPracticeAfterIntro()
     {
-        ShowPracticeIntroIfNeeded();
-
-        float wait = Mathf.Max(0f, practiceIntroSeconds);
-        if (wait > 0f)
-            yield return new WaitForSeconds(wait);
+        yield return StartCoroutine(ShowPracticeIntroIfNeeded());
 
         if (!inPractice)
         {
@@ -744,6 +972,9 @@ public class StudyFlowController_V2 : MonoBehaviour
     {
         if (!inPractice)
             return;
+
+        if (grabber != null)
+            grabber.ForceRelease();
 
         ApplyForcedIdForPhase(_practicePhase, GetPracticeToolIdNormalized());
         StartRealBlockForPhase(_practicePhase);
@@ -814,23 +1045,26 @@ public class StudyFlowController_V2 : MonoBehaviour
         if (logger != null)
             logger.LoggingEnabled = true;
 
-        float wait = 0f;
+        if (taskContextHUD != null)
+        {
+            taskContextHUD.SetPracticeText("");
+            taskContextHUD.SetVisible(false);
+        }
+
+        float wait = showPracticeCompleteMessage ? Mathf.Max(0f, practiceCompleteSeconds) : 0f;
         if (showPracticeCompleteMessage &&
             instructionHUD != null &&
             !string.IsNullOrWhiteSpace(practiceCompleteMessage))
         {
-            wait = Mathf.Max(0f, practiceCompleteSeconds);
-            if (wait > 0f)
-                instructionHUD.Show(practiceCompleteMessage, wait);
-            else
-                instructionHUD.Show(practiceCompleteMessage, 0.05f);
+            float gateWait = wait > 0f ? wait : 0.05f;
+            instructionHUD.Show(practiceCompleteMessage, gateWait);
+            yield return instructionHUD.WaitForTaskGate(practiceCompleteMessage, gateWait);
+            instructionHUD.HideImmediate();
         }
-
-        if (wait > 0f)
+        else if (wait > 0f)
+        {
             yield return new WaitForSeconds(wait);
-
-        if (taskContextHUD != null)
-            taskContextHUD.SetPracticeText("");
+        }
 
         RestoreCurrentWorkflowToolForcedId();
         StartRealBlockWithIntroGate(finishedPhase);
@@ -839,45 +1073,122 @@ public class StudyFlowController_V2 : MonoBehaviour
 
     private string BuildPracticeIntroText()
     {
-        string toolLabel = GetPracticeToolIdNormalized();
-        if (string.IsNullOrEmpty(toolLabel))
-            toolLabel = "-";
-        if (toolLabel.Length > 0)
-            toolLabel = char.ToUpperInvariant(toolLabel[0]) + toolLabel.Substring(1);
-
-        string template = string.IsNullOrEmpty(practiceIntroTextTemplate)
-            ? "Practice ({count} trials) - Tool: {tool}\nLogging disabled"
-            : practiceIntroTextTemplate;
-
-        return template
-            .Replace("{count}", practiceTargetCount.ToString())
-            .Replace("{tool}", toolLabel);
+        return "This is practice time.\nTry the task freely\nbefore the main trials.";
     }
 
-    private void ShowPracticeIntroIfNeeded()
+    private string BuildPracticeDetailText(WorkflowProgressionController.Phase phase)
+    {
+        bool isMicro = IsCurrentTechniqueMicro();
+        return BuildPracticeControlInstruction(phase, isMicro);
+    }
+
+    private static string GetPracticeTaskLabel(WorkflowProgressionController.Phase phase)
+    {
+        switch (phase)
+        {
+            case WorkflowProgressionController.Phase.Placement:
+                return "Placement";
+            case WorkflowProgressionController.Phase.Rotation:
+                return "Rotation";
+            case WorkflowProgressionController.Phase.Scaling:
+                return "Scaling";
+            default:
+                return "Task";
+        }
+    }
+
+    private bool IsCurrentTechniqueMicro()
+    {
+        if (conditionBlockController != null && conditionBlockController.HasCurrentCondition)
+            return conditionBlockController.CurrentTechnique == ConditionBlockController.Technique.Micro;
+
+        return phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro;
+    }
+
+    private static string BuildPracticeControlInstruction(WorkflowProgressionController.Phase phase, bool isMicro)
+    {
+        string taskInstruction = BuildTaskInstruction(phase);
+        if (string.IsNullOrEmpty(taskInstruction))
+            taskInstruction = "Practice the task.";
+
+        if (isMicro)
+            return $"{taskInstruction}\n{BuildMicroControlHint(phase)}\nWhen you're done with the current\npractice round, triple tap.";
+
+        return $"{taskInstruction}\nMove the arm\nto practice.\nWhen you're done with the current\npractice round, triple tap.";
+    }
+
+    private static string BuildTaskInstruction(WorkflowProgressionController.Phase phase)
+    {
+        switch (phase)
+        {
+            case WorkflowProgressionController.Phase.Placement:
+                return "Place the tool as close to\nthe target as possible.";
+            case WorkflowProgressionController.Phase.Rotation:
+                return "Match the tool to the\ntarget rotation as closely\nas possible.";
+            case WorkflowProgressionController.Phase.Scaling:
+                return "Match the tool to the\ntarget size as closely\nas possible.";
+            default:
+                return "";
+        }
+    }
+
+    private static string BuildMicroControlHint(WorkflowProgressionController.Phase phase)
+    {
+        switch (phase)
+        {
+            case WorkflowProgressionController.Phase.Placement:
+                return "Keep your arm as still\nas possible.\nUse phone swipes to adjust\nthe proxy hand.";
+            case WorkflowProgressionController.Phase.Rotation:
+            case WorkflowProgressionController.Phase.Scaling:
+                return "Keep your arm as still\nas possible.\nUse phone swipes to adjust\nthe tool.";
+            default:
+                return "Keep your arm as still\nas possible.\nUse phone swipes to practice.";
+        }
+    }
+
+    private IEnumerator ShowPracticeIntroIfNeeded()
     {
         if (instructionHUD == null)
-            return;
+            yield break;
 
         if (_practiceIntroShownThisSession)
-            return;
+            yield break;
 
         string text = BuildPracticeIntroText();
+        string detailText = BuildPracticeDetailText(_practicePhase);
+        string sequenceKey = text + "\n---\n" + detailText;
         float now = Time.unscaledTime;
         float minInterval = Mathf.Max(0f, minPracticeIntroRepeatInterval);
 
         bool isRapidDuplicate =
             !string.IsNullOrEmpty(_lastPracticeIntroShownText) &&
-            string.Equals(_lastPracticeIntroShownText, text, StringComparison.Ordinal) &&
+            string.Equals(_lastPracticeIntroShownText, sequenceKey, StringComparison.Ordinal) &&
             (now - _lastPracticeIntroShownAt) < minInterval;
 
         if (isRapidDuplicate)
-            return;
+            yield break;
 
-        instructionHUD.Show(text, Mathf.Max(0f, practiceIntroSeconds));
+        float firstDuration = instructionHUD.Show(text, Mathf.Max(0f, practiceIntroSeconds));
         _practiceIntroShownThisSession = true;
-        _lastPracticeIntroShownText = text;
+        _lastPracticeIntroShownText = sequenceKey;
         _lastPracticeIntroShownAt = now;
+
+        if (firstDuration > 0f)
+            yield return new WaitForSeconds(firstDuration);
+
+        if (!inPractice)
+            yield break;
+
+        float panelGap = Mathf.Max(0f, practiceIntroPanelGapSeconds);
+        if (panelGap > 0f)
+            yield return new WaitForSeconds(panelGap);
+
+        if (!inPractice)
+            yield break;
+
+        float secondDuration = instructionHUD.Show(detailText, Mathf.Max(0f, practiceDetailSeconds));
+        if (secondDuration > 0f)
+            yield return new WaitForSeconds(secondDuration);
     }
 
     private void UpdatePracticeText()
@@ -1010,17 +1321,27 @@ public class StudyFlowController_V2 : MonoBehaviour
         if (placementTask != null) placementTask.enabled = false;
         if (rotationTask != null)  rotationTask.enabled  = false;
         if (scalingTask != null)   scalingTask.enabled   = false;
+        if (taskContextHUD != null) taskContextHUD.SetVisible(false);
     }
 
     private void StartPlacement()
     {
         if (placementTask == null) { Debug.LogError("[SFC_V2] placementTask is NULL"); return; }
+        if (taskContextHUD != null) taskContextHUD.SetVisible(true);
+        if (phoneTechniqueGate != null)
+            phoneTechniqueGate.SetInputFrozen(false, recenterOnUnfreeze: false);
+        if (phoneRouter != null)
+            phoneRouter.SetInputSuppressed(false);
         if (inPractice && _practicePhase == WorkflowProgressionController.Phase.Placement)
             ApplyForcedIdForPhase(WorkflowProgressionController.Phase.Placement, GetPracticeToolIdNormalized());
+        else
+            ApplyWorkflowForcedIdForPhase(WorkflowProgressionController.Phase.Placement);
         _carryRotationPoseIntoScaling = false;
         if (rotationTask != null)
             rotationTask.ClearCapturedCarryPose();
         if (!inPractice && taskContextHUD != null) taskContextHUD.SetPracticeText("");
+        if (grabber != null)
+            grabber.ForceRelease();
         Debug.Log($"[SFC_V2] StartPlacement calling StartBlock() enabled={placementTask.enabled} activeInHierarchy={placementTask.gameObject.activeInHierarchy}");
         ApplyGhostRotations_BaselineForPlacement();
         placementTask.enabled = true;
@@ -1030,11 +1351,20 @@ public class StudyFlowController_V2 : MonoBehaviour
     private void StartRotation()
     {
         if (rotationTask == null) return;
+        if (taskContextHUD != null) taskContextHUD.SetVisible(true);
+        if (phoneTechniqueGate != null)
+            phoneTechniqueGate.SetInputFrozen(false, recenterOnUnfreeze: false);
+        if (phoneRouter != null)
+            phoneRouter.SetInputSuppressed(false);
         if (inPractice && _practicePhase == WorkflowProgressionController.Phase.Rotation)
             ApplyForcedIdForPhase(WorkflowProgressionController.Phase.Rotation, GetPracticeToolIdNormalized());
+        else
+            ApplyWorkflowForcedIdForPhase(WorkflowProgressionController.Phase.Rotation);
         _carryRotationPoseIntoScaling = false;
         rotationTask.PreserveSolvedPoseForNextPhase = !inPractice;
         if (!inPractice && taskContextHUD != null) taskContextHUD.SetPracticeText("");
+        if (grabber != null)
+            grabber.ForceRelease();
         ApplyGhostRotations_GoalForRotation();
         rotationTask.enabled = true;
         rotationTask.StartBlock();
@@ -1043,8 +1373,15 @@ public class StudyFlowController_V2 : MonoBehaviour
     private void StartScaling()
     {
         if (scalingTask == null) return;
+        if (taskContextHUD != null) taskContextHUD.SetVisible(true);
+        if (phoneTechniqueGate != null)
+            phoneTechniqueGate.SetInputFrozen(false, recenterOnUnfreeze: false);
+        if (phoneRouter != null)
+            phoneRouter.SetInputSuppressed(false);
         if (inPractice && _practicePhase == WorkflowProgressionController.Phase.Scaling)
             ApplyForcedIdForPhase(WorkflowProgressionController.Phase.Scaling, GetPracticeToolIdNormalized());
+        else
+            ApplyWorkflowForcedIdForPhase(WorkflowProgressionController.Phase.Scaling);
         if (!inPractice && taskContextHUD != null) taskContextHUD.SetPracticeText("");
         bool keepRotPose = !inPractice && _carryRotationPoseIntoScaling;
         if (!keepRotPose)
@@ -1055,6 +1392,8 @@ public class StudyFlowController_V2 : MonoBehaviour
             if (tid != null && !string.IsNullOrEmpty(tid.id))
                 rotationTask.ApplyCapturedPoseForId(tid.id);
         }
+        if (grabber != null)
+            grabber.ForceRelease();
         scalingTask.enabled = true;
         scalingTask.StartBlock();
     }
@@ -1073,6 +1412,8 @@ public class StudyFlowController_V2 : MonoBehaviour
 
         _conditionStateKey = now;
         _carryRotationPoseIntoScaling = false;
+        _hasLastRealIntroContext = false;
+        _lastRealIntroConditionKey = null;
 
         if (rotationTask != null)
         {
@@ -1084,23 +1425,33 @@ public class StudyFlowController_V2 : MonoBehaviour
 
     private string BuildPracticePhaseKey(WorkflowProgressionController.Phase phase)
     {
-        return $"{GetPracticeProfileKey()}|{phase}";
+        return $"{GetPracticeProfileKey(phase)}|{phase}";
     }
 
-    private string GetPracticeProfileKey()
+    private string GetPracticeProfileKey(WorkflowProgressionController.Phase phase)
     {
         if (conditionBlockController != null && conditionBlockController.HasCurrentCondition)
         {
             if (conditionBlockController.CurrentTechnique == ConditionBlockController.Technique.Micro)
                 return "micro";
 
-            return conditionBlockController.CurrentHandLocation == ConditionBlockController.HandLocation.Side
-                ? "macro_side"
-                : "macro_near";
+            if (phase == WorkflowProgressionController.Phase.Placement)
+            {
+                return conditionBlockController.CurrentHandLocation == ConditionBlockController.HandLocation.Side
+                    ? "macro_side"
+                    : "macro_near";
+            }
+
+            return "macro_shared";
         }
 
         bool isMicro = phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro;
-        return isMicro ? "micro" : "macro_near";
+        if (isMicro)
+            return "micro";
+
+        return phase == WorkflowProgressionController.Phase.Placement
+            ? "macro_near"
+            : "macro_shared";
     }
 
     private string GetConditionStateKey()
@@ -1120,6 +1471,27 @@ public class StudyFlowController_V2 : MonoBehaviour
     private static string NormalizeToolId(string id)
     {
         return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
+    }
+
+    private void ApplyWorkflowForcedIdForPhase(WorkflowProgressionController.Phase phase)
+    {
+        string workflowId = GetWorkflowCurrentToolId();
+        if (string.IsNullOrEmpty(workflowId))
+            return;
+
+        ApplyForcedIdForPhase(phase, workflowId);
+    }
+
+    private string GetWorkflowCurrentToolId()
+    {
+        if (workflow == null || workflow.CurrentTool == null)
+            return null;
+
+        ToolId tid = workflow.CurrentTool.GetComponent<ToolId>();
+        if (tid == null)
+            return null;
+
+        return NormalizeToolId(tid.id);
     }
 
     private void ApplyGrabberMode(ProxyHandGrabber.HeldRotationMode mode)

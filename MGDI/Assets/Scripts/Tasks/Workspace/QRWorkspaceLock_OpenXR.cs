@@ -5,18 +5,26 @@ using Microsoft.MixedReality.OpenXR;
 
 public class QRWorkspaceLock_OpenXR : MonoBehaviour
 {
+    public enum MarkerYawAxisMode
+    {
+        AutoBestHorizontal = 0,
+        Forward = 1,
+        Right = 2,
+        Up = 3
+    }
+
     public bool IsWorkspaceReady { get; private set; } = false;
     public event Action OnWorkspaceReady;
 
     [Header("Refs")]
     public ARMarkerManager markerManager;
-    public Transform workshopEnvironment; // WorkshopEnvironment 루트
+    public Transform workshopEnvironment; // WorkshopEnvironment root
 
     [Header("Lock")]
     public bool lockOnce = true;
     public bool applyRotation = true;
-    public bool zeroOutPitchRoll = true;  // 테이블 수평 가정이면 추천
-    public Vector3 localOffset = Vector3.zero; // QR 중심에서 오프셋(미터)
+    public bool zeroOutPitchRoll = true;
+    public Vector3 localOffset = Vector3.zero;
 
     [Header("Stabilize (sample & average before locking)")]
     [Tooltip("Samples are collected for this duration, then averaged.")]
@@ -25,20 +33,30 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
     [Tooltip("Minimum samples required to lock.")]
     public int minSamples = 10;
 
-    [Tooltip("If true, uses only UPDATED markers for samples (more stable than ADDED).")]
+    [Tooltip("If true, uses UPDATED markers first. Added markers are used as fallback.")]
     public bool preferUpdatedSamples = true;
+
+    [Tooltip("If true, lock is allowed only after reaching minSamples.")]
+    public bool requireMinSamplesForLock = false;
+
+    [Tooltip("If true, timeout lock with fewer samples is allowed when requireMinSamplesForLock is false.")]
+    public bool allowTimeoutLockWithFewSamples = true;
 
     [Header("Optional")]
     public RemoteHandRuntime remoteHandRuntime;
 
     [Header("Yaw Override")]
-    public bool forceYawToCamera = true;     // 켜면 QR yaw 무시하고 카메라 yaw로 고정
-    public float yawOffsetDeg = 0f;          // 필요하면 몇 도 보정(±)
+    public bool forceYawToCamera = true;
+    [Tooltip("If true, marker-derived yaw is preferred even when forceYawToCamera is enabled.")]
+    public bool preferMarkerYawWhenAvailable = true;
+    [Tooltip("Marker axis used to derive yaw. Auto picks the most horizontal axis each sample.")]
+    public MarkerYawAxisMode markerYawAxisMode = MarkerYawAxisMode.Right;
+    public float yawOffsetDeg = 0f;
 
     private bool _locked = false;
     private bool _workspaceReadyFired = false;
 
-    // sampling state
+    // Sampling state
     private bool _sampling = false;
     private float _sampleEndTime = -1f;
     private readonly List<Vector3> _posSamples = new List<Vector3>(128);
@@ -66,62 +84,46 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
         if (markerManager != null) markerManager.markersChanged -= OnMarkersChanged;
     }
 
+    void Update()
+    {
+        // Complete lock even if marker callbacks pause after initial detection.
+        if (!_sampling) return;
+        if (_locked && lockOnce) return;
+        if (workshopEnvironment == null) return;
+
+        TryFinishSamplingWindow();
+    }
+
     private void OnMarkersChanged(ARMarkersChangedEventArgs args)
     {
         if (_locked && lockOnce) return;
         if (workshopEnvironment == null) return;
 
-        // Sampling flow:
-        // 1) When a marker is seen, start sampling window.
-        // 2) Keep accumulating samples from UPDATED (preferred) or ADDED+UPDATED.
-        // 3) When window ends and enough samples exist, lock once using averaged pose.
         if (!_sampling)
         {
-            // trigger sampling only when any marker is visible
-            if ((args.updated != null && args.updated.Count > 0) || (args.added != null && args.added.Count > 0))
+            bool hasAny =
+                (args.updated != null && args.updated.Count > 0) ||
+                (args.added != null && args.added.Count > 0);
+
+            if (hasAny)
                 StartSampling();
         }
 
         if (!_sampling) return;
 
-        // collect samples
         if (preferUpdatedSamples)
         {
-            TrySampleFromList(args.updated);
+            if (!TrySampleFromList(args.updated))
+                TrySampleFromList(args.added);
         }
         else
         {
-            // if updated is empty early, allow added too
             if (!TrySampleFromList(args.updated))
                 TrySampleFromList(args.added);
         }
 
-        // finish sampling -> lock
-/*         if (Time.unscaledTime >= _sampleEndTime && _posSamples.Count >= minSamples)
- *         {
- *             ApplyAveragedWorkspacePose();
- *             _locked = true;
- *             _sampling = false;
- *
- *             Log("[Workspace] locked (averaged)");
- *
- *             HandleRemoteHandAfterWorkspaceJump();
- *         } */
-        // 기존: 시간이 끝나고 + 샘플 충분할 때만 lock
-        // above
-        // 개선: 시간이 끝났거나, 샘플이 충분하면 즉시 lock
-        if ((_posSamples.Count >= minSamples) || (Time.unscaledTime >= _sampleEndTime))
-        {
-            if (_posSamples.Count >= 1) // 최소 1개는 있어야
-            {
-                ApplyAveragedWorkspacePose();
-                _locked = true;
-                _sampling = false;
-                Log("[Workspace] locked (averaged)");
-                HandleRemoteHandAfterWorkspaceJump();
-                NotifyWorkspaceReadyOnce();
-            }
-        }
+        // Early lock when enough samples arrive before timeout.
+        TryFinishSamplingWindow();
     }
 
     private void StartSampling()
@@ -133,16 +135,44 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
         Log("[Workspace] sampling...");
     }
 
+    private void TryFinishSamplingWindow()
+    {
+        int needed = Mathf.Max(1, minSamples);
+        bool enoughSamples = _posSamples.Count >= needed;
+        bool timedOut = Time.unscaledTime >= _sampleEndTime;
+
+        bool canLock = false;
+        if (enoughSamples)
+        {
+            canLock = true;
+        }
+        else if (timedOut)
+        {
+            if (!requireMinSamplesForLock && allowTimeoutLockWithFewSamples && _posSamples.Count > 0)
+                canLock = true;
+        }
+
+        if (!canLock)
+            return;
+
+        ApplyAveragedWorkspacePose();
+        _locked = true;
+        _sampling = false;
+
+        Log($"[Workspace] locked (averaged) samples={_posSamples.Count}");
+        HandleRemoteHandAfterWorkspaceJump();
+        NotifyWorkspaceReadyOnce();
+    }
+
     private bool TrySampleFromList(IReadOnlyList<ARMarker> list)
     {
         if (list == null || list.Count == 0) return false;
 
-        // Single QR assumption: use the first marker in the list
-        var m = list[0];
-        if (m == null) return false;
+        var marker = list[0];
+        if (marker == null) return false;
 
-        Vector3 pos = m.transform.position;
-        Quaternion rot = m.transform.rotation;
+        Vector3 pos = marker.transform.position;
+        Quaternion rot = marker.transform.rotation;
 
         float yawDeg = ExtractYawDeg(rot);
         _posSamples.Add(pos);
@@ -153,34 +183,86 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
 
     private float ExtractYawDeg(Quaternion rot)
     {
-        if (!applyRotation) return workshopEnvironment != null ? workshopEnvironment.rotation.eulerAngles.y : 0f;
+        if (!applyRotation)
+            return workshopEnvironment != null ? workshopEnvironment.rotation.eulerAngles.y : 0f;
 
-        if (!zeroOutPitchRoll)
+        if (!TryExtractMarkerYawDeg(rot, out float yawDeg))
+            return workshopEnvironment != null ? workshopEnvironment.rotation.eulerAngles.y : 0f;
+
+        return yawDeg;
+    }
+
+    private bool TryExtractMarkerYawDeg(Quaternion rot, out float yawDeg)
+    {
+        switch (markerYawAxisMode)
         {
-            // full rotation requested; still store yaw from full rot for averaging yaw-only lock
-            Vector3 fwd = rot * Vector3.forward;
-            fwd.y = 0f;
-            if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
-            return Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+            case MarkerYawAxisMode.Forward:
+                return TryExtractYawFromAxis(rot * Vector3.forward, out yawDeg);
+            case MarkerYawAxisMode.Right:
+                return TryExtractYawFromAxis(rot * Vector3.right, out yawDeg);
+            case MarkerYawAxisMode.Up:
+                return TryExtractYawFromAxis(rot * Vector3.up, out yawDeg);
+            default:
+                return TryExtractBestHorizontalYaw(rot, out yawDeg);
+        }
+    }
+
+    private static bool TryExtractBestHorizontalYaw(Quaternion rot, out float yawDeg)
+    {
+        Vector3[] candidates =
+        {
+            rot * Vector3.forward,
+            rot * Vector3.right,
+            rot * Vector3.up
+        };
+
+        Vector3 best = Vector3.zero;
+        float bestMag = 0f;
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            Vector3 p = candidates[i];
+            p.y = 0f;
+            float mag = p.sqrMagnitude;
+            if (mag > bestMag)
+            {
+                best = p;
+                bestMag = mag;
+            }
         }
 
-        // yaw-only from marker forward projected onto horizontal plane
-        Vector3 f = rot * Vector3.forward;
-        f.y = 0f;
-        if (f.sqrMagnitude < 1e-6f) f = Vector3.forward;
-        f.Normalize();
-        return Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
+        if (bestMag < 1e-6f)
+        {
+            yawDeg = 0f;
+            return false;
+        }
+
+        return TryExtractYawFromAxis(best, out yawDeg);
+    }
+
+    private static bool TryExtractYawFromAxis(Vector3 axisWorld, out float yawDeg)
+    {
+        axisWorld.y = 0f;
+        if (axisWorld.sqrMagnitude < 1e-6f)
+        {
+            yawDeg = 0f;
+            return false;
+        }
+
+        axisWorld.Normalize();
+        yawDeg = Mathf.Atan2(axisWorld.x, axisWorld.z) * Mathf.Rad2Deg;
+        return true;
     }
 
     private void ApplyAveragedWorkspacePose()
     {
-        // average position
         Vector3 posAvg = Vector3.zero;
-        for (int i = 0; i < _posSamples.Count; i++) posAvg += _posSamples[i];
+        for (int i = 0; i < _posSamples.Count; i++)
+            posAvg += _posSamples[i];
         posAvg /= Mathf.Max(1, _posSamples.Count);
 
-        // circular mean yaw (handles wrap-around)
-        float sumSin = 0f, sumCos = 0f;
+        float sumSin = 0f;
+        float sumCos = 0f;
         for (int i = 0; i < _yawSamplesDeg.Count; i++)
         {
             float rad = _yawSamplesDeg[i] * Mathf.Deg2Rad;
@@ -189,14 +271,13 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
         }
 
         float meanRad = Mathf.Atan2(sumSin, sumCos);
-        float meanYawDeg = meanRad * Mathf.Rad2Deg;
+        float yawDeg = meanRad * Mathf.Rad2Deg;
 
-        // choose yaw
-        float yawDeg = meanYawDeg;
+        bool useCameraYaw = applyRotation && forceYawToCamera && Camera.main != null;
+        bool allowCameraYawOverride = useCameraYaw && !preferMarkerYawWhenAvailable;
 
-        if (applyRotation && forceYawToCamera && Camera.main != null)
+        if (allowCameraYawOverride)
         {
-            // IMPORTANT: use -camera.forward so the environment faces the user (not the same direction as the camera)
             Vector3 fwd = -Camera.main.transform.forward;
             fwd.y = 0f;
             if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
@@ -208,43 +289,11 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
 
         Quaternion rotAvg = workshopEnvironment.rotation;
         if (applyRotation)
-        {
-            // yaw-only (pitch/roll removed)
             rotAvg = Quaternion.Euler(0f, yawDeg, 0f);
-        }
 
         Vector3 worldOffset = rotAvg * localOffset;
         workshopEnvironment.SetPositionAndRotation(posAvg + worldOffset, rotAvg);
     }
-/*     private void ApplyAveragedWorkspacePose()
- *     {
- *         // average position
- *         Vector3 posAvg = Vector3.zero;
- *         for (int i = 0; i < _posSamples.Count; i++) posAvg += _posSamples[i];
- *         posAvg /= Mathf.Max(1, _posSamples.Count);
- *
- *         // circular mean yaw (handles wrap-around)
- *         float sumSin = 0f, sumCos = 0f;
- *         for (int i = 0; i < _yawSamplesDeg.Count; i++)
- *         {
- *             float rad = _yawSamplesDeg[i] * Mathf.Deg2Rad;
- *             sumSin += Mathf.Sin(rad);
- *             sumCos += Mathf.Cos(rad);
- *         }
- *
- *         float meanRad = Mathf.Atan2(sumSin, sumCos);
- *         float meanYawDeg = meanRad * Mathf.Rad2Deg;
- *
- *         Quaternion rotAvg = workshopEnvironment.rotation;
- *         if (applyRotation)
- *         {
- *             // yaw-only lock (pitch/roll removed)
- *             rotAvg = Quaternion.Euler(0f, meanYawDeg, 0f);
- *         }
- *
- *         Vector3 worldOffset = rotAvg * localOffset;
- *         workshopEnvironment.SetPositionAndRotation(posAvg + worldOffset, rotAvg);
- *     } */
 
     private void HandleRemoteHandAfterWorkspaceJump()
     {
@@ -261,6 +310,7 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
     private void NotifyWorkspaceReadyOnce()
     {
         if (_workspaceReadyFired) return;
+
         _workspaceReadyFired = true;
         IsWorkspaceReady = true;
         try { OnWorkspaceReady?.Invoke(); } catch { }
@@ -268,7 +318,8 @@ public class QRWorkspaceLock_OpenXR : MonoBehaviour
 
     void Log(string msg)
     {
-        Debug.Log("[QRWorkspace] " + msg);
-        try { Debug.Log("[QRWorkspace] " + msg); } catch { }
+        string line = "[QRWorkspace] " + msg;
+        Debug.Log(line);
+        try { DebugHUD.Log(line); } catch { }
     }
 }

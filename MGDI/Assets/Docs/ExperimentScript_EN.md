@@ -20,6 +20,39 @@ Important note:
 - If the Latin square order is tied to `Participant ID`, the ID should include a number such as `P01`, `P12`, or `P24`.
 - In the current code, the numeric part of the `Participant ID` is what can be used to determine the sequence.
 
+### Condition order lookup by Participant ID
+
+This lookup assumes the base order is:
+
+- `A = Macro Near`
+- `B = Macro Side`
+- `C = Micro Near`
+- `D = Micro Side`
+
+The code uses the numeric part of the participant ID.
+
+Examples:
+
+- `P01` uses `1`
+- `P15` uses `15`
+- `P24` uses `24`
+
+For 4 conditions, the sequence repeats every 4 participant numbers.
+
+| Participant number | Sequence | Condition order |
+| --- | --- | --- |
+| `1, 5, 9, 13, 17, ...` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
+| `2, 6, 10, 14, 18, ...` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+| `3, 7, 11, 15, 19, ...` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
+| `4, 8, 12, 16, 20, ...` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
+
+Quick example:
+
+- `P15` uses participant number `15`
+- `15` falls in the `3, 7, 11, 15, 19, ...` group
+- so `P15` uses `C -> B -> D -> A`
+- that means `Micro Near -> Macro Side -> Micro Side -> Macro Near`
+
 ## 2. Facilitator Summary
 
 Each participant completes all four conditions.

@@ -36,6 +36,8 @@ public class MicroRotationAnalogController : MonoBehaviour
 
     private float _gain = 1f;
 
+    public bool IsPitchMode => secondaryAxisMode == SecondaryAxisMode.Pitch;
+
     void Awake()
     {
         if (router == null) router = FindFirstObjectByType<PhoneInputRouter>();

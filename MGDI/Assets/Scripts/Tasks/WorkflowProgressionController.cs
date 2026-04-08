@@ -61,6 +61,10 @@ public class WorkflowProgressionController : MonoBehaviour
         if (tools == null || tools.Count == 0) return;
         if (CurrentToolIndex < 0) CurrentToolIndex = 0;
 
+        int blockToolCount = tools.Count;
+        if (toolsPerBlock > 0)
+            blockToolCount = Mathf.Clamp(toolsPerBlock, 1, tools.Count);
+
         if (mode == ProgressionMode.ToolByTool)
         {
             if (CurrentPhase != Phase.Scaling)
@@ -72,38 +76,44 @@ public class WorkflowProgressionController : MonoBehaviour
                 CurrentToolIndex++;
                 CurrentPhase = Phase.Placement;
             }
+
+            if (CurrentToolIndex >= blockToolCount)
+            {
+                CompleteBlock(blockToolCount);
+                return;
+            }
         }
         else // PhaseByPhase
         {
             CurrentToolIndex++;
-            if (CurrentToolIndex >= tools.Count)
+            if (CurrentToolIndex >= blockToolCount)
             {
                 CurrentToolIndex = 0;
                 if (CurrentPhase != Phase.Scaling)
+                {
                     CurrentPhase = (Phase)((int)CurrentPhase + 1);
+                }
+                else
+                {
+                    CompleteBlock(blockToolCount);
+                    return;
+                }
             }
-        }
-
-        // --- Demo/block end condition ---
-        int blockToolCount = tools.Count;
-        if (toolsPerBlock > 0)
-            blockToolCount = Mathf.Clamp(toolsPerBlock, 1, tools.Count);
-
-        // End condition (block complete)
-        if (mode == ProgressionMode.ToolByTool && CurrentToolIndex >= blockToolCount)
-        {
-
-            CurrentToolIndex = 0;
-            CurrentPhase = Phase.Placement;
-
-            DeactivateAll();
-            if (debugLog) Debug.Log($"[Workflow] Block completed (toolsPerBlock={toolsPerBlock}, blockToolCount={blockToolCount}).");
-            OnAllCompleted?.Invoke();
-            return;
         }
 
         ApplyActiveTool();
         EmitStepChanged("Advance");
+    }
+
+    private void CompleteBlock(int blockToolCount)
+    {
+        CurrentToolIndex = 0;
+        CurrentPhase = Phase.Placement;
+
+        DeactivateAll();
+        if (debugLog)
+            Debug.Log($"[Workflow] Block completed (mode={mode}, toolsPerBlock={toolsPerBlock}, blockToolCount={blockToolCount}).");
+        OnAllCompleted?.Invoke();
     }
 
     public void SetMode(ProgressionMode newMode)

@@ -14,6 +14,11 @@ public class BasketToolResetter : MonoBehaviour
 
     private Dictionary<string, Transform> _spawnById;
 
+    public Transform ToolSpawnPointsRoot => toolSpawnPointsRoot;
+    public Transform ToolsRuntimeRoot => toolsRuntimeRoot;
+    public Transform MacroSideStartReferenceTransform =>
+        toolSpawnPointsRoot != null ? toolSpawnPointsRoot : toolsRuntimeRoot;
+
     public void RebuildSpawnMap()
     {
         _spawnById = new Dictionary<string, Transform>();

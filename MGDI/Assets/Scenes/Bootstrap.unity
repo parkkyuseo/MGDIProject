@@ -930,8 +930,8 @@ MonoBehaviour:
   startWithPrefixTemplate: 1
   allowEmptyContinue: 1
   autoContinueOnKeyboardDone: 1
-  showKeyboardOpenHint: 1
-  keyboardOpenHint: Type the ID and press Enter or Continue.
+  showKeyboardOpenHint: 0
+  keyboardOpenHint: 
   useButtonFeedback: 1
   buttonFeedbackScale: 1.06
   buttonFeedbackDuration: 0.1

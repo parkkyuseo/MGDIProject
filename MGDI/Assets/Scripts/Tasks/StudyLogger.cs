@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using UnityEngine;
 
 public class StudyLogger : MonoBehaviour
@@ -20,6 +23,7 @@ public class StudyLogger : MonoBehaviour
     [SerializeField] private ToolRotationTaskManager rotationTask;
     [SerializeField] private ToolScalingTaskManager scalingTask;
     [SerializeField] private PhoneInputRouter router;
+    [SerializeField] private PhonePoseStreamReceiver phonePoseReceiver;
 
     [Header("Effort Source (Macro)")]
     [Tooltip("If unset, active tool transform is used while a trial is running.")]
@@ -27,6 +31,18 @@ public class StudyLogger : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
+
+    [Header("Mirror To Laptop (Optional)")]
+    [SerializeField] private bool enableMirrorSend = false;
+    [SerializeField] private string mirrorHost = "192.168.50.56";
+    [SerializeField] private int mirrorPort = 19620;
+    [SerializeField] private bool mirrorRequireAck = true;
+    [SerializeField] private int mirrorConnectTimeoutMs = 1200;
+    [SerializeField] private int mirrorAckTimeoutMs = 1500;
+    [SerializeField] private float mirrorRetryIntervalSeconds = 1.5f;
+    [SerializeField] private int mirrorMaxSendsPerUpdate = 1;
+    [SerializeField] private int mirrorQueueHardLimit = 5000;
+    [SerializeField] private bool mirrorSendOnBackgroundThread = true;
 
     private enum TaskKind
     {
@@ -43,13 +59,37 @@ public class StudyLogger : MonoBehaviour
         Micro = 2
     }
 
+    [Serializable]
+    private class MirrorRowEnvelope
+    {
+        public string type = "trial_row";
+        public string protocol = "study_logger_mirror_v1";
+        public string row_id;
+        public string session_timestamp;
+        public string participant_id;
+        public string csv_header;
+        public string csv_row;
+        public string csv_path;
+        public long created_unix_ms;
+    }
+
+    [Serializable]
+    private class MirrorAckEnvelope
+    {
+        public string type;
+        public string row_id;
+        public bool ok;
+        public string status;
+        public string error;
+    }
+
     private const string CsvHeader =
-        "session_timestamp,participant_id,task,technique,trial_index," +
+        "session_timestamp,participant_id,task,technique,hand_location,condition_label,condition_index,condition_total,condition_order,condition_sequence_index,condition_sequence_total,tool_id," +
         "completion_time_s," +
         "translation_error_cm,rotation_error_deg,scaling_error_pct," +
         "time_to_first_within_tol_s,eligible_breaks," +
         "micro_axis_active_duration_s,micro_axis_integral," +
-        "macro_path_length_m," +
+        "macro_path_length_m,phone_path_length_m," +
         "mode_switch_count";
 
     private StreamWriter _writer;
@@ -65,7 +105,14 @@ public class StudyLogger : MonoBehaviour
     private bool _trialActive;
     private TaskKind _trialTask = TaskKind.None;
     private TechniqueKind _trialTechnique = TechniqueKind.Unknown;
-    private int _trialIndex = -1;
+    private string _trialHandLocation = "Unknown";
+    private string _trialConditionLabel = "Unknown";
+    private int _trialConditionIndex = -1;
+    private int _trialConditionTotal = -1;
+    private string _trialConditionOrder = string.Empty;
+    private int _trialConditionSequenceIndex = -1;
+    private int _trialConditionSequenceTotal = -1;
+    private string _trialToolId = "Unknown";
     private float _trialStartTime;
 
     private float _firstWithinTolTime = -1f;
@@ -76,6 +123,8 @@ public class StudyLogger : MonoBehaviour
     private float _microAxisActiveDuration;
     private float _microAxisIntegral;
     private float _macroPathLength;
+    private double _trialPhonePathLengthBaselineMeters;
+    private bool _hasTrialPhonePathLengthBaseline;
     private int _modeSwitchCount;
 
     private bool _hasPrevMacroPos;
@@ -84,13 +133,26 @@ public class StudyLogger : MonoBehaviour
     private bool _warnedMissingWriter;
     private bool _warnedMissingMicroRouter;
     private bool _warnedMissingMacroEffortTransform;
+    private bool _warnedMissingPhonePoseReceiver;
     private bool _warnedMissingTasks;
+    private bool _warnedMirrorConfig;
     private bool EffectiveLoggingEnabled => enableLogging && LoggingEnabled;
+
+    private readonly List<MirrorRowEnvelope> _mirrorQueue = new List<MirrorRowEnvelope>();
+    private bool _mirrorOutboxLoaded;
+    private string _mirrorOutboxPath;
+    private float _nextMirrorAttemptAt;
+    private readonly object _mirrorSendStateLock = new object();
+    private bool _mirrorSendInFlight;
+    private bool _mirrorSendResultReady;
+    private bool _mirrorSendResultOk;
+    private string _mirrorSendResultRowId;
 
     private void Awake()
     {
         ResolveRefs();
         _participantId = ResolveParticipantId();
+        EnsureMirrorOutboxLoaded();
         if (EffectiveLoggingEnabled)
             InitCsv();
     }
@@ -105,10 +167,12 @@ public class StudyLogger : MonoBehaviour
     private void OnDisable()
     {
         UnsubscribeRouter();
+        SaveMirrorOutbox();
     }
 
     private void OnDestroy()
     {
+        SaveMirrorOutbox();
         CloseWriter();
     }
 
@@ -121,6 +185,7 @@ public class StudyLogger : MonoBehaviour
 
             UnsubscribeRouter();
             _trialActive = false;
+            ProcessMirrorQueue();
             return;
         }
 
@@ -166,6 +231,8 @@ public class StudyLogger : MonoBehaviour
         _prevPlacementRunning = placementRunning;
         _prevRotationRunning = rotationRunning;
         _prevScalingRunning = scalingRunning;
+
+        ProcessMirrorQueue();
     }
 
     private void ResolveRefs()
@@ -178,6 +245,11 @@ public class StudyLogger : MonoBehaviour
         if (router == null)
         {
             router = FindFirstObjectByType<PhoneInputRouter>();
+        }
+
+        if (phonePoseReceiver == null)
+        {
+            phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
         }
     }
 
@@ -230,7 +302,14 @@ public class StudyLogger : MonoBehaviour
         _trialActive = true;
         _trialTask = task;
         _trialTechnique = GetCurrentTechnique();
-        _trialIndex = GetCurrentTrialIndex(task);
+        _trialConditionLabel = GetCurrentConditionLabel();
+        _trialHandLocation = ExtractHandLocationFromCondition(_trialConditionLabel);
+        _trialConditionIndex = GetCurrentConditionIndex1Based();
+        _trialConditionTotal = GetCurrentConditionCount();
+        _trialConditionOrder = GetCurrentConditionOrderLabel();
+        _trialConditionSequenceIndex = GetCurrentConditionSequenceIndex1Based();
+        _trialConditionSequenceTotal = GetCurrentConditionSequenceCount();
+        _trialToolId = GetCurrentToolId(task);
         _trialStartTime = Time.time;
 
         _firstWithinTolTime = -1f;
@@ -241,7 +320,15 @@ public class StudyLogger : MonoBehaviour
         _microAxisActiveDuration = 0f;
         _microAxisIntegral = 0f;
         _macroPathLength = 0f;
+        _trialPhonePathLengthBaselineMeters = 0.0;
+        _hasTrialPhonePathLengthBaseline = false;
         _modeSwitchCount = 0;
+
+        if (phonePoseReceiver != null)
+        {
+            _trialPhonePathLengthBaselineMeters = phonePoseReceiver.CumulativePathLengthMeters;
+            _hasTrialPhonePathLengthBaseline = true;
+        }
 
         _hasPrevMacroPos = false;
         Transform eff = ResolveMacroEffortTransform();
@@ -253,7 +340,7 @@ public class StudyLogger : MonoBehaviour
 
         if (logDebug)
         {
-            Debug.Log($"[StudyLogger] Trial start task={TaskToCsv(task)} tech={TechniqueToCsv(_trialTechnique)} idx={_trialIndex}");
+            Debug.Log($"[StudyLogger] Trial start task={TaskToCsv(task)} tech={TechniqueToCsv(_trialTechnique)} hand={_trialHandLocation} tool={_trialToolId}");
         }
     }
 
@@ -359,7 +446,13 @@ public class StudyLogger : MonoBehaviour
             }
             case TaskKind.Rotation:
             {
-                float errDeg = rotationTask != null ? rotationTask.ActiveRotationErrorDeg : float.NaN;
+                float errDeg = float.NaN;
+                if (rotationTask != null)
+                {
+                    errDeg = rotationTask.LastSubmittedErrorDeg;
+                    if (!IsFinite(errDeg))
+                        errDeg = rotationTask.ActiveRotationErrorDeg;
+                }
                 if (IsFinite(errDeg)) rotationErrorDeg = errDeg;
                 break;
             }
@@ -375,6 +468,18 @@ public class StudyLogger : MonoBehaviour
         float? microActiveDur = _trialTechnique == TechniqueKind.Micro ? _microAxisActiveDuration : (float?)null;
         float? microIntegral = _trialTechnique == TechniqueKind.Micro ? _microAxisIntegral : (float?)null;
         float? macroPath = _trialTechnique == TechniqueKind.Macro ? _macroPathLength : (float?)null;
+        float? phonePath = null;
+        if (_hasTrialPhonePathLengthBaseline && phonePoseReceiver != null)
+        {
+            double rawPhonePath = phonePoseReceiver.CumulativePathLengthMeters - _trialPhonePathLengthBaselineMeters;
+            if (!double.IsNaN(rawPhonePath) && !double.IsInfinity(rawPhonePath))
+                phonePath = (float)Math.Max(0.0, rawPhonePath);
+        }
+        else if (!_warnedMissingPhonePoseReceiver)
+        {
+            _warnedMissingPhonePoseReceiver = true;
+            Debug.LogWarning("[StudyLogger] PhonePoseStreamReceiver reference is missing. Raw phone path length is skipped.");
+        }
         int modeSwitch = _trialTechnique == TechniqueKind.Micro ? _modeSwitchCount : 0;
 
         string row = string.Join(",",
@@ -382,7 +487,14 @@ public class StudyLogger : MonoBehaviour
             EscapeCsv(_participantId),
             EscapeCsv(TaskToCsv(_trialTask)),
             EscapeCsv(TechniqueToCsv(_trialTechnique)),
-            _trialIndex > 0 ? _trialIndex.ToString(CultureInfo.InvariantCulture) : "",
+            EscapeCsv(_trialHandLocation),
+            EscapeCsv(_trialConditionLabel),
+            _trialConditionIndex > 0 ? _trialConditionIndex.ToString(CultureInfo.InvariantCulture) : "",
+            _trialConditionTotal > 0 ? _trialConditionTotal.ToString(CultureInfo.InvariantCulture) : "",
+            EscapeCsv(_trialConditionOrder),
+            _trialConditionSequenceIndex > 0 ? _trialConditionSequenceIndex.ToString(CultureInfo.InvariantCulture) : "",
+            _trialConditionSequenceTotal > 0 ? _trialConditionSequenceTotal.ToString(CultureInfo.InvariantCulture) : "",
+            EscapeCsv(_trialToolId),
             FormatFloat(completionTime),
             FormatNullableFloat(translationErrorCm),
             FormatNullableFloat(rotationErrorDeg),
@@ -392,18 +504,31 @@ public class StudyLogger : MonoBehaviour
             FormatNullableFloat(microActiveDur),
             FormatNullableFloat(microIntegral),
             FormatNullableFloat(macroPath),
+            FormatNullableFloat(phonePath),
             modeSwitch.ToString(CultureInfo.InvariantCulture));
 
-        WriteCsvRow(row);
+        bool wrote = WriteCsvRow(row);
+        if (wrote)
+            EnqueueMirrorRow(row);
 
         if (logDebug)
         {
-            Debug.Log($"[StudyLogger] Trial end task={TaskToCsv(_trialTask)} tech={TechniqueToCsv(_trialTechnique)} idx={_trialIndex} t={completionTime:F3}s");
+            Debug.Log($"[StudyLogger] Trial end task={TaskToCsv(_trialTask)} tech={TechniqueToCsv(_trialTechnique)} hand={_trialHandLocation} tool={_trialToolId} t={completionTime:F3}s");
         }
 
         _trialActive = false;
         _trialTask = TaskKind.None;
         _trialTechnique = TechniqueKind.Unknown;
+        _trialHandLocation = "Unknown";
+        _trialConditionLabel = "Unknown";
+        _trialConditionIndex = -1;
+        _trialConditionTotal = -1;
+        _trialConditionOrder = string.Empty;
+        _trialConditionSequenceIndex = -1;
+        _trialConditionSequenceTotal = -1;
+        _trialToolId = "Unknown";
+        _trialPhonePathLengthBaselineMeters = 0.0;
+        _hasTrialPhonePathLengthBaseline = false;
     }
 
     private bool TryGetCurrentErrorAndTolerance(TaskKind task, out float err, out float tol)
@@ -442,15 +567,114 @@ public class StudyLogger : MonoBehaviour
         return router.CurrentMode == PhoneInputRouter.Mode.Micro ? TechniqueKind.Micro : TechniqueKind.Macro;
     }
 
-    private int GetCurrentTrialIndex(TaskKind task)
+    private string GetCurrentConditionLabel()
+    {
+        if (flow != null)
+        {
+            string fromFlow = flow.GetConditionLabel();
+            if (!string.IsNullOrWhiteSpace(fromFlow))
+                return fromFlow.Trim();
+        }
+
+        TechniqueKind tech = GetCurrentTechnique();
+        string techLabel = TechniqueToCsv(tech);
+        if (string.IsNullOrEmpty(techLabel) || techLabel == "Unknown")
+            techLabel = "Unknown";
+        return $"{techLabel} - Near Head";
+    }
+
+    private static string ExtractHandLocationFromCondition(string conditionLabel)
+    {
+        if (string.IsNullOrWhiteSpace(conditionLabel))
+            return "Unknown";
+
+        string lower = conditionLabel.ToLowerInvariant();
+        if (lower.Contains("side"))
+            return "SideOfBody";
+        if (lower.Contains("near"))
+            return "NearHead";
+        return "Unknown";
+    }
+
+    private string GetCurrentToolId(TaskKind task)
     {
         switch (task)
         {
-            case TaskKind.Placement: return placementTask != null ? placementTask.CurrentTrialIndex1Based : -1;
-            case TaskKind.Rotation: return rotationTask != null ? rotationTask.CurrentTrialIndex1Based : -1;
-            case TaskKind.Scaling: return scalingTask != null ? scalingTask.CurrentTrialIndex1Based : -1;
-            default: return -1;
+            case TaskKind.Placement:
+                if (placementTask != null && !string.IsNullOrWhiteSpace(placementTask.ActiveToolId))
+                    return placementTask.ActiveToolId.Trim();
+                if (placementTask != null && placementTask.ActiveToolTransform != null)
+                    return ExtractToolIdFromTransform(placementTask.ActiveToolTransform);
+                break;
+
+            case TaskKind.Rotation:
+                if (rotationTask != null && !string.IsNullOrWhiteSpace(rotationTask.ActiveToolId))
+                    return rotationTask.ActiveToolId.Trim();
+                if (rotationTask != null && rotationTask.ActiveToolTransform != null)
+                    return ExtractToolIdFromTransform(rotationTask.ActiveToolTransform);
+                break;
+
+            case TaskKind.Scaling:
+                if (scalingTask != null && !string.IsNullOrWhiteSpace(scalingTask.ActiveId))
+                    return scalingTask.ActiveId.Trim();
+                if (scalingTask != null && scalingTask.ActiveToolTransform != null)
+                    return ExtractToolIdFromTransform(scalingTask.ActiveToolTransform);
+                break;
         }
+
+        return "Unknown";
+    }
+
+    private static string ExtractToolIdFromTransform(Transform toolTransform)
+    {
+        if (toolTransform == null)
+            return "Unknown";
+
+        ToolId tid = toolTransform.GetComponent<ToolId>();
+        if (tid != null && !string.IsNullOrWhiteSpace(tid.id))
+            return tid.id.Trim();
+
+        return string.IsNullOrWhiteSpace(toolTransform.name) ? "Unknown" : toolTransform.name.Trim();
+    }
+
+    private int GetCurrentConditionIndex1Based()
+    {
+        if (flow != null)
+            return flow.GetConditionIndex1Based();
+        return -1;
+    }
+
+    private int GetCurrentConditionCount()
+    {
+        if (flow != null)
+            return flow.GetConditionCount();
+        return 0;
+    }
+
+    private string GetCurrentConditionOrderLabel()
+    {
+        if (flow != null)
+        {
+            string v = flow.GetConditionOrderLabel();
+            if (!string.IsNullOrWhiteSpace(v))
+                return v.Trim();
+        }
+
+        return string.Empty;
+    }
+
+    private int GetCurrentConditionSequenceIndex1Based()
+    {
+        if (flow != null)
+            return flow.GetConditionSequenceIndex1Based();
+        return -1;
+    }
+
+    private int GetCurrentConditionSequenceCount()
+    {
+        if (flow != null)
+            return flow.GetConditionSequenceCount();
+        return 0;
     }
 
     private Transform ResolveMacroEffortTransform()
@@ -525,9 +749,407 @@ public class StudyLogger : MonoBehaviour
         return Path.Combine(folder, $"Study1_{safePid}_{stamp}_{Guid.NewGuid().ToString("N").Substring(0, 8)}.csv");
     }
 
-    private void WriteCsvRow(string row)
+    private void EnsureMirrorOutboxLoaded()
     {
-        if (!EffectiveLoggingEnabled) return;
+        if (_mirrorOutboxLoaded)
+            return;
+
+        try
+        {
+            string folder = Path.Combine(Application.persistentDataPath, "StudyLogs");
+            Directory.CreateDirectory(folder);
+            _mirrorOutboxPath = Path.Combine(folder, "mirror_outbox.jsonl");
+            _mirrorOutboxLoaded = true;
+
+            if (!File.Exists(_mirrorOutboxPath))
+                return;
+
+            string[] lines = File.ReadAllLines(_mirrorOutboxPath, Encoding.UTF8);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                MirrorRowEnvelope env = null;
+                try
+                {
+                    env = JsonUtility.FromJson<MirrorRowEnvelope>(line);
+                }
+                catch
+                {
+                    env = null;
+                }
+
+                if (env == null || string.IsNullOrEmpty(env.row_id) || string.IsNullOrEmpty(env.csv_row))
+                    continue;
+
+                _mirrorQueue.Add(env);
+            }
+
+            if (logDebug && _mirrorQueue.Count > 0)
+                Debug.Log($"[StudyLogger] Loaded {_mirrorQueue.Count} pending mirror row(s) from outbox.");
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[StudyLogger] Failed to load mirror outbox: {e.Message}");
+            _mirrorOutboxLoaded = true;
+        }
+    }
+
+    private void SaveMirrorOutbox()
+    {
+        if (!_mirrorOutboxLoaded)
+            return;
+
+        if (string.IsNullOrEmpty(_mirrorOutboxPath))
+            return;
+
+        try
+        {
+            if (_mirrorQueue.Count <= 0)
+            {
+                if (File.Exists(_mirrorOutboxPath))
+                    File.Delete(_mirrorOutboxPath);
+                return;
+            }
+
+            var sb = new StringBuilder(_mirrorQueue.Count * 256);
+            for (int i = 0; i < _mirrorQueue.Count; i++)
+            {
+                sb.Append(JsonUtility.ToJson(_mirrorQueue[i]));
+                sb.Append('\n');
+            }
+
+            string tmpPath = _mirrorOutboxPath + ".tmp";
+            File.WriteAllText(tmpPath, sb.ToString(), Encoding.UTF8);
+            File.Copy(tmpPath, _mirrorOutboxPath, overwrite: true);
+            File.Delete(tmpPath);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[StudyLogger] Failed to save mirror outbox: {e.Message}");
+        }
+    }
+
+    private void EnqueueMirrorRow(string csvRow)
+    {
+        if (!enableMirrorSend)
+            return;
+
+        EnsureMirrorOutboxLoaded();
+
+        int hardLimit = Mathf.Max(100, mirrorQueueHardLimit);
+        if (_mirrorQueue.Count >= hardLimit)
+        {
+            int removeCount = Mathf.Max(1, _mirrorQueue.Count - hardLimit + 1);
+            _mirrorQueue.RemoveRange(0, removeCount);
+            Debug.LogWarning($"[StudyLogger] Mirror queue limit reached. Dropped {removeCount} oldest row(s).");
+        }
+
+        _mirrorQueue.Add(new MirrorRowEnvelope
+        {
+            row_id = Guid.NewGuid().ToString("N"),
+            session_timestamp = _sessionTimestamp,
+            participant_id = _participantId,
+            csv_header = CsvHeader,
+            csv_row = csvRow,
+            csv_path = _filePath,
+            created_unix_ms = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
+
+        SaveMirrorOutbox();
+        _nextMirrorAttemptAt = Mathf.Min(_nextMirrorAttemptAt, Time.unscaledTime);
+    }
+
+    private void ProcessMirrorQueue()
+    {
+        if (!enableMirrorSend)
+            return;
+
+        EnsureMirrorOutboxLoaded();
+        FinalizeMirrorSendResultOnMainThread();
+
+        if (_mirrorQueue.Count == 0)
+            return;
+
+        if (IsMirrorSendInFlight())
+            return;
+
+        if (Time.unscaledTime < _nextMirrorAttemptAt)
+            return;
+
+        if (string.IsNullOrWhiteSpace(mirrorHost) || mirrorPort <= 0 || mirrorPort > 65535)
+        {
+            if (!_warnedMirrorConfig)
+            {
+                _warnedMirrorConfig = true;
+                Debug.LogWarning("[StudyLogger] Mirror send is enabled but mirrorHost/mirrorPort is invalid.");
+            }
+            _nextMirrorAttemptAt = Time.unscaledTime + Mathf.Max(0.5f, mirrorRetryIntervalSeconds);
+            return;
+        }
+
+        int budget = Mathf.Clamp(mirrorMaxSendsPerUpdate, 1, 16);
+        for (int i = 0; i < budget && _mirrorQueue.Count > 0; i++)
+        {
+            MirrorRowEnvelope entry = _mirrorQueue[0];
+
+            if (mirrorSendOnBackgroundThread)
+            {
+                StartMirrorSendAsync(entry);
+                return;
+            }
+
+            if (!TrySendMirrorEntry(entry))
+            {
+                _nextMirrorAttemptAt = Time.unscaledTime + Mathf.Max(0.1f, mirrorRetryIntervalSeconds);
+                return;
+            }
+
+            _mirrorQueue.RemoveAt(0);
+            SaveMirrorOutbox();
+        }
+
+        if (_mirrorQueue.Count > 0)
+            _nextMirrorAttemptAt = Time.unscaledTime + 0.01f;
+    }
+
+    private void StartMirrorSendAsync(MirrorRowEnvelope entry)
+    {
+        if (entry == null || string.IsNullOrEmpty(entry.row_id))
+        {
+            _nextMirrorAttemptAt = Time.unscaledTime + Mathf.Max(0.1f, mirrorRetryIntervalSeconds);
+            return;
+        }
+
+        lock (_mirrorSendStateLock)
+        {
+            if (_mirrorSendInFlight)
+                return;
+
+            _mirrorSendInFlight = true;
+            _mirrorSendResultReady = false;
+            _mirrorSendResultOk = false;
+            _mirrorSendResultRowId = entry.row_id;
+        }
+
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            bool ok = false;
+            try
+            {
+                ok = TrySendMirrorEntry(entry);
+            }
+            catch
+            {
+                ok = false;
+            }
+
+            lock (_mirrorSendStateLock)
+            {
+                _mirrorSendResultOk = ok;
+                _mirrorSendResultReady = true;
+                _mirrorSendInFlight = false;
+            }
+        });
+    }
+
+    private bool IsMirrorSendInFlight()
+    {
+        lock (_mirrorSendStateLock)
+            return _mirrorSendInFlight;
+    }
+
+    private void FinalizeMirrorSendResultOnMainThread()
+    {
+        bool ready;
+        bool ok;
+        string rowId;
+
+        lock (_mirrorSendStateLock)
+        {
+            ready = _mirrorSendResultReady;
+            if (!ready)
+                return;
+
+            ok = _mirrorSendResultOk;
+            rowId = _mirrorSendResultRowId;
+            _mirrorSendResultReady = false;
+            _mirrorSendResultRowId = null;
+        }
+
+        if (ok)
+        {
+            int idx = FindMirrorQueueIndexByRowId(rowId);
+            if (idx >= 0)
+            {
+                _mirrorQueue.RemoveAt(idx);
+                SaveMirrorOutbox();
+            }
+
+            _nextMirrorAttemptAt = Time.unscaledTime + 0.01f;
+        }
+        else
+        {
+            _nextMirrorAttemptAt = Time.unscaledTime + Mathf.Max(0.1f, mirrorRetryIntervalSeconds);
+        }
+    }
+
+    private int FindMirrorQueueIndexByRowId(string rowId)
+    {
+        if (string.IsNullOrEmpty(rowId))
+            return -1;
+
+        for (int i = 0; i < _mirrorQueue.Count; i++)
+        {
+            MirrorRowEnvelope env = _mirrorQueue[i];
+            if (env == null) continue;
+            if (string.Equals(env.row_id, rowId, StringComparison.Ordinal))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private bool TrySendMirrorEntry(MirrorRowEnvelope entry)
+    {
+        if (entry == null)
+            return false;
+
+        TcpClient client = null;
+        try
+        {
+            client = new TcpClient();
+            int connectTimeout = Mathf.Max(1, mirrorConnectTimeoutMs);
+            if (!TryConnectWithTimeout(client, mirrorHost, mirrorPort, connectTimeout))
+                return false;
+
+            using (NetworkStream stream = client.GetStream())
+            {
+                int ackTimeout = Mathf.Max(1, mirrorAckTimeoutMs);
+                stream.WriteTimeout = ackTimeout;
+                stream.ReadTimeout = ackTimeout;
+
+                string payload = JsonUtility.ToJson(entry) + "\n";
+                byte[] bytes = Encoding.UTF8.GetBytes(payload);
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush();
+
+                if (!mirrorRequireAck)
+                    return true;
+
+                string ackLine = ReadLineFromStream(stream, ackTimeout);
+                if (string.IsNullOrWhiteSpace(ackLine))
+                    return false;
+
+                MirrorAckEnvelope ack = null;
+                try
+                {
+                    ack = JsonUtility.FromJson<MirrorAckEnvelope>(ackLine);
+                }
+                catch
+                {
+                    ack = null;
+                }
+
+                if (ack != null)
+                {
+                    bool ackOk = ack.ok ||
+                                 string.Equals(ack.status, "ok", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(ack.type, "ack", StringComparison.OrdinalIgnoreCase);
+
+                    if (!string.IsNullOrEmpty(ack.row_id) &&
+                        !string.Equals(ack.row_id, entry.row_id, StringComparison.Ordinal))
+                    {
+                        ackOk = false;
+                    }
+
+                    return ackOk;
+                }
+
+                string lower = ackLine.Trim().ToLowerInvariant();
+                if (lower == "ok" || lower == "ack")
+                    return true;
+
+                return lower.Contains(entry.row_id.ToLowerInvariant()) && lower.Contains("ok");
+            }
+        }
+        catch (Exception e)
+        {
+            if (logDebug && !mirrorSendOnBackgroundThread)
+                Debug.Log($"[StudyLogger] Mirror send failed: {e.Message}");
+            return false;
+        }
+        finally
+        {
+            if (client != null)
+                client.Close();
+        }
+    }
+
+    private static bool TryConnectWithTimeout(TcpClient client, string host, int port, int timeoutMs)
+    {
+        IAsyncResult ar = null;
+        try
+        {
+            ar = client.BeginConnect(host, port, null, null);
+            if (!ar.AsyncWaitHandle.WaitOne(Mathf.Max(1, timeoutMs)))
+                return false;
+
+            client.EndConnect(ar);
+            return client.Connected;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            if (ar != null)
+                ar.AsyncWaitHandle.Close();
+        }
+    }
+
+    private static string ReadLineFromStream(NetworkStream stream, int timeoutMs)
+    {
+        if (stream == null)
+            return null;
+
+        stream.ReadTimeout = Mathf.Max(1, timeoutMs);
+        var sb = new StringBuilder(256);
+        const int maxChars = 8192;
+        int count = 0;
+
+        try
+        {
+            while (count < maxChars)
+            {
+                int b = stream.ReadByte();
+                if (b < 0)
+                    break;
+
+                count++;
+                char ch = (char)b;
+                if (ch == '\n')
+                    break;
+                if (ch == '\r')
+                    continue;
+
+                sb.Append(ch);
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        return sb.ToString();
+    }
+
+    private bool WriteCsvRow(string row)
+    {
+        if (!EffectiveLoggingEnabled) return false;
 
         if (_writer == null)
         {
@@ -536,11 +1158,12 @@ public class StudyLogger : MonoBehaviour
                 _warnedMissingWriter = true;
                 Debug.LogWarning("[StudyLogger] CSV writer is unavailable. Trial row was not recorded.");
             }
-            return;
+            return false;
         }
 
         _writer.WriteLine(row);
         _writer.Flush();
+        return true;
     }
 
     private void CloseWriter()

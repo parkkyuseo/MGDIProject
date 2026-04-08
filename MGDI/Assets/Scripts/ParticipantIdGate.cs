@@ -42,10 +42,13 @@ public class ParticipantIdGate : MonoBehaviour
     [Header("Behavior")]
     [SerializeField] private bool allowEmptyContinue = true;
     [SerializeField] private bool autoContinueOnKeyboardDone = true;
+    [SerializeField] private bool autoOpenKeyboardOnStart = true;
+    [SerializeField] private float autoOpenKeyboardDelaySeconds = 0.15f;
+    [SerializeField] private bool hideButtonsInAutoKeyboardFlow = true;
 
     [Header("Keyboard Hint")]
-    [SerializeField] private bool showKeyboardOpenHint = true;
-    [SerializeField] private string keyboardOpenHint = "Type the ID and press Enter or Continue.";
+    [SerializeField] private bool showKeyboardOpenHint = false;
+    [SerializeField] private string keyboardOpenHint = "";
 
     [Header("Button Feedback")]
     [SerializeField] private bool useButtonFeedback = true;
@@ -72,6 +75,13 @@ public class ParticipantIdGate : MonoBehaviour
     [SerializeField] private Vector2 continueButtonAnchoredPos = new Vector2(150f, -58f);
     [SerializeField] private Vector2 buttonSize = new Vector2(220f, 68f);
 
+    [Header("Button Hit Area Tuning")]
+    [SerializeField] private Vector2 buttonGraphicRaycastPadding = new Vector2(24f, 16f);
+    [SerializeField] private Vector2 buttonHitZonePadding = new Vector2(34f, 24f);
+    [SerializeField] private Vector2 directPressRectPadding = new Vector2(28f, 20f);
+    [SerializeField] private bool disablePassiveTextRaycast = true;
+    [SerializeField] private bool disableButtonLabelRaycast = true;
+
     [Header("Spawn In Front (Once)")]
     [SerializeField] private bool placeInFrontOnStart = true;
     [SerializeField] private bool detachFromParentOnStart = true;
@@ -79,6 +89,7 @@ public class ParticipantIdGate : MonoBehaviour
     [SerializeField] private float verticalOffsetMeters = -0.05f;
     [SerializeField] private bool faceTowardCameraOnStart = true;
     [SerializeField] private bool invertFacingForWorldCanvas = true;
+    [SerializeField] private bool followCameraDuringSpawn = false;
     [SerializeField] private float followCameraSecondsOnStart = 2.0f;
     [SerializeField] private int cameraFindMaxFrames = 120;
 
@@ -87,7 +98,9 @@ public class ParticipantIdGate : MonoBehaviour
 
     [Header("Direct Finger Press Fallback")]
     [SerializeField] private bool enableDirectFingerPress = true;
-    [SerializeField] private float directPressDepthMeters = 0.06f;
+    [SerializeField] private bool includePointerRayInDirectPress = false;
+    [SerializeField] private float directPressDepthMeters = 0.10f;
+    [SerializeField] private float directPressHoldSeconds = 0.04f;
     [SerializeField] private float directPressCooldownSeconds = 0.2f;
 
     public const string ParticipantPrefKey = "participant_id";
@@ -117,6 +130,8 @@ public class ParticipantIdGate : MonoBehaviour
         public bool anyInside;
         public bool leftInside;
         public bool rightInside;
+        public bool invokedWhileInside;
+        public float insideTime;
         public float cooldown;
     }
 
@@ -131,9 +146,10 @@ public class ParticipantIdGate : MonoBehaviour
 
     private void Start()
     {
+        ApplyAutoUiLayout();
+        ApplyHitAreaTuning();
         EnsureUiInputCompatibility();
         EnsureCanvasRaycastCompatibility();
-        ApplyAutoUiLayout();
 
         if (placeInFrontOnStart)
             StartCoroutine(PlaceInFrontWhenCameraReady());
@@ -152,6 +168,10 @@ public class ParticipantIdGate : MonoBehaviour
         RefreshInstructionText();
         RefreshIdDisplay();
         UpdateContinueInteractable();
+        ApplyAutoKeyboardFlowState();
+
+        if (autoOpenKeyboardOnStart)
+            StartCoroutine(AutoOpenKeyboardAfterDelay());
     }
 
     private void Update()
@@ -174,8 +194,15 @@ public class ParticipantIdGate : MonoBehaviour
 
     public void OnEditButton()
     {
-        PlayButtonFeedback(editButton);
-        ShowTransientInstructionStatus(editPressedStatus, statusMessageSeconds);
+        OpenKeyboard(showStatus: true);
+    }
+
+    private void OpenKeyboard(bool showStatus)
+    {
+        if (editButton != null && editButton.gameObject.activeInHierarchy)
+            PlayButtonFeedback(editButton);
+        if (showStatus)
+            ShowTransientInstructionStatus(editPressedStatus, statusMessageSeconds);
 
         if (logDebug)
             Debug.Log("[ParticipantIdGate] Edit button pressed.");
@@ -205,10 +232,13 @@ public class ParticipantIdGate : MonoBehaviour
         if (_isLoadingRuntimeScene)
             return;
 
-        PlayButtonFeedback(continueButton);
+        if (continueButton != null && continueButton.gameObject.activeInHierarchy)
+            PlayButtonFeedback(continueButton);
         ShowTransientInstructionStatus(continuePressedStatus, statusMessageSeconds);
 
         string id = NormalizeParticipantInput(_participantId);
+        if (IsPrefixOnlyId(id))
+            id = "";
         if (string.IsNullOrEmpty(id))
             id = NormalizeBasicId(emptyIdFallback);
         if (string.IsNullOrEmpty(id))
@@ -372,6 +402,8 @@ public class ParticipantIdGate : MonoBehaviour
             _isKeyboardActive = false;
             RefreshInstructionText();
             RefreshIdDisplay();
+            if (autoContinueOnKeyboardDone)
+                OnContinueButton();
             return;
         }
 
@@ -541,6 +573,29 @@ public class ParticipantIdGate : MonoBehaviour
         continueButton.interactable = allowEmptyContinue || !string.IsNullOrEmpty(_participantId);
     }
 
+    private void ApplyAutoKeyboardFlowState()
+    {
+        bool hideButtons = autoOpenKeyboardOnStart && hideButtonsInAutoKeyboardFlow;
+
+        if (editButton != null)
+            editButton.gameObject.SetActive(!hideButtons);
+
+        if (continueButton != null)
+            continueButton.gameObject.SetActive(!hideButtons);
+    }
+
+    private IEnumerator AutoOpenKeyboardAfterDelay()
+    {
+        float wait = Mathf.Max(0f, autoOpenKeyboardDelaySeconds);
+        if (wait > 0f)
+            yield return new WaitForSecondsRealtime(wait);
+
+        if (_isLoadingRuntimeScene || _isKeyboardActive)
+            yield break;
+
+        OpenKeyboard(showStatus: false);
+    }
+
     private string NormalizeParticipantInput(string raw)
     {
         string prefix = NormalizeBasicId(participantIdPrefix);
@@ -574,6 +629,22 @@ public class ParticipantIdGate : MonoBehaviour
         }
 
         return prefix + sb.ToString();
+    }
+
+    private bool IsPrefixOnlyId(string id)
+    {
+        string normalized = NormalizeBasicId(id);
+        if (string.IsNullOrEmpty(normalized))
+            return true;
+
+        string prefix = NormalizeBasicId(participantIdPrefix);
+        if (string.IsNullOrEmpty(prefix))
+            return false;
+
+        if (!digitsOnlyAfterPrefix)
+            return false;
+
+        return string.Equals(normalized, prefix, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeBasicId(string id)
@@ -661,6 +732,103 @@ public class ParticipantIdGate : MonoBehaviour
         rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = anchoredPos;
         rect.sizeDelta = size;
+    }
+
+    private void ApplyHitAreaTuning()
+    {
+        if (disablePassiveTextRaycast)
+        {
+            SetGraphicRaycastTarget(instructionText, false);
+            SetGraphicRaycastTarget(idDisplayText, false);
+            SetGraphicRaycastTarget(instructionTextUGUI, false);
+            SetGraphicRaycastTarget(idDisplayTextUGUI, false);
+        }
+
+        ConfigureButtonHitArea(editButton);
+        ConfigureButtonHitArea(continueButton);
+    }
+
+    private void ConfigureButtonHitArea(Button button)
+    {
+        if (button == null)
+            return;
+
+        if (button.targetGraphic != null)
+        {
+            Vector4 padding = new Vector4(
+                Mathf.Max(0f, buttonGraphicRaycastPadding.x),
+                Mathf.Max(0f, buttonGraphicRaycastPadding.y),
+                Mathf.Max(0f, buttonGraphicRaycastPadding.x),
+                Mathf.Max(0f, buttonGraphicRaycastPadding.y));
+
+            button.targetGraphic.raycastPadding = padding;
+        }
+
+        if (!disableButtonLabelRaycast)
+        {
+            EnsureExpandedHitZone(button);
+            return;
+        }
+
+        Graphic[] graphics = button.GetComponentsInChildren<Graphic>(true);
+        for (int i = 0; i < graphics.Length; i++)
+        {
+            Graphic graphic = graphics[i];
+            if (graphic == null || graphic == button.targetGraphic)
+                continue;
+
+            graphic.raycastTarget = false;
+        }
+
+        EnsureExpandedHitZone(button);
+    }
+
+    private static void SetGraphicRaycastTarget(Graphic graphic, bool enabled)
+    {
+        if (graphic == null)
+            return;
+
+        graphic.raycastTarget = enabled;
+    }
+
+    private void EnsureExpandedHitZone(Button button)
+    {
+        if (button == null)
+            return;
+
+        RectTransform buttonRect = button.transform as RectTransform;
+        if (buttonRect == null)
+            return;
+
+        const string hitZoneName = "__ExpandedHitZone";
+        Transform existing = button.transform.Find(hitZoneName);
+        GameObject hitZoneObject = existing != null ? existing.gameObject : new GameObject(hitZoneName, typeof(RectTransform), typeof(Image));
+        if (existing == null)
+        {
+            hitZoneObject.transform.SetParent(button.transform, false);
+            hitZoneObject.transform.SetAsLastSibling();
+        }
+
+        RectTransform hitZoneRect = hitZoneObject.transform as RectTransform;
+        if (hitZoneRect == null)
+            return;
+
+        float padX = Mathf.Max(0f, buttonHitZonePadding.x);
+        float padY = Mathf.Max(0f, buttonHitZonePadding.y);
+
+        hitZoneRect.anchorMin = new Vector2(0.5f, 0.5f);
+        hitZoneRect.anchorMax = new Vector2(0.5f, 0.5f);
+        hitZoneRect.pivot = new Vector2(0.5f, 0.5f);
+        hitZoneRect.anchoredPosition = Vector2.zero;
+        hitZoneRect.sizeDelta = buttonRect.rect.size + new Vector2(padX * 2f, padY * 2f);
+
+        Image hitZoneImage = hitZoneObject.GetComponent<Image>();
+        if (hitZoneImage == null)
+            return;
+
+        hitZoneImage.color = new Color(1f, 1f, 1f, 0.001f);
+        hitZoneImage.raycastTarget = true;
+        hitZoneImage.maskable = false;
     }
 
     private void PlayButtonFeedback(Button button)
@@ -808,11 +976,11 @@ public class ParticipantIdGate : MonoBehaviour
             Debug.LogWarning("[ParticipantIdGate] MRTK MixedRealityInputModule type was not found. UI click may be limited on device.");
         }
 
-        EnsureNearTouchable(editButton);
-        EnsureNearTouchable(continueButton);
+        RemoveButtonNearTouchable(editButton);
+        RemoveButtonNearTouchable(continueButton);
     }
 
-    private static void EnsureNearTouchable(Button button)
+    private static void RemoveButtonNearTouchable(Button button)
     {
         if (button == null)
             return;
@@ -821,8 +989,9 @@ public class ParticipantIdGate : MonoBehaviour
         if (nearTouchableType == null)
             return;
 
-        if (button.gameObject.GetComponent(nearTouchableType) == null)
-            button.gameObject.AddComponent(nearTouchableType);
+        Component nearTouchable = button.gameObject.GetComponent(nearTouchableType);
+        if (nearTouchable != null)
+            UnityEngine.Object.Destroy(nearTouchable);
     }
 
     private void EnsureCanvasRaycastCompatibility()
@@ -854,19 +1023,14 @@ public class ParticipantIdGate : MonoBehaviour
             if (c != null) canvases.Add(c);
         }
 
-        Camera cam = ResolveCamera();
         Type canvasUtilityType = FindTypeByName("Microsoft.MixedReality.Toolkit.Input.Utilities.CanvasUtility");
+        Type nearTouchableType = FindTypeByName("Microsoft.MixedReality.Toolkit.Input.NearInteractionTouchableUnityUI");
+        Camera cam = canvasUtilityType == null ? ResolveCamera() : null;
 
         foreach (Canvas canvas in canvases)
         {
             if (canvas == null)
                 continue;
-
-            if (canvas.renderMode == RenderMode.WorldSpace && cam != null)
-            {
-                // Keep camera bound for reliable graphic raycasting on device.
-                canvas.worldCamera = cam;
-            }
 
             GraphicRaycaster raycaster = canvas.GetComponent<GraphicRaycaster>();
             if (raycaster != null)
@@ -875,9 +1039,22 @@ public class ParticipantIdGate : MonoBehaviour
                 raycaster.ignoreReversedGraphics = false;
             }
 
-            if (canvasUtilityType != null && canvas.GetComponent(canvasUtilityType) == null)
+            if (canvasUtilityType != null)
             {
-                canvas.gameObject.AddComponent(canvasUtilityType);
+                if (canvas.renderMode == RenderMode.WorldSpace)
+                    canvas.worldCamera = null;
+
+                if (canvas.GetComponent(canvasUtilityType) == null)
+                    canvas.gameObject.AddComponent(canvasUtilityType);
+            }
+            else if (canvas.renderMode == RenderMode.WorldSpace && cam != null)
+            {
+                canvas.worldCamera = cam;
+            }
+
+            if (nearTouchableType != null && canvas.GetComponentInChildren(nearTouchableType, true) == null)
+            {
+                canvas.gameObject.AddComponent(nearTouchableType);
             }
         }
     }
@@ -921,7 +1098,7 @@ public class ParticipantIdGate : MonoBehaviour
         if (detachFromParentOnStart && transform.parent != null)
             transform.SetParent(null, true);
 
-        float followSec = Mathf.Max(0f, followCameraSecondsOnStart);
+        float followSec = followCameraDuringSpawn ? Mathf.Max(0f, followCameraSecondsOnStart) : 0f;
         float endTime = Time.unscaledTime + followSec;
 
         do
@@ -1039,17 +1216,35 @@ public class ParticipantIdGate : MonoBehaviour
         bool leftInside = IsFingerInsideButton(rect, Handedness.Left);
         bool rightInside = IsFingerInsideButton(rect, Handedness.Right);
 
-        bool pointerInside = IsAnyHandPointerInsideButton(rect);
+        bool pointerInside = includePointerRayInDirectPress && IsAnyHandPointerInsideButton(rect);
         bool anyInside = leftInside || rightInside || pointerInside;
         bool pressedNow = anyInside && !state.anyInside;
+        bool releasedNow = !anyInside && state.anyInside;
 
-        if (pressedNow && state.cooldown <= 0f)
+        if (anyInside)
+        {
+            state.insideTime = state.anyInside ? state.insideTime + dt : dt;
+        }
+        else
+        {
+            state.insideTime = 0f;
+        }
+
+        float holdSeconds = Mathf.Max(0.01f, directPressHoldSeconds);
+        bool holdTriggered = anyInside && !state.invokedWhileInside && state.insideTime >= holdSeconds;
+
+        if ((pressedNow || holdTriggered) && state.cooldown <= 0f)
         {
             button.onClick?.Invoke();
             state.cooldown = Mathf.Max(0.05f, directPressCooldownSeconds);
+            state.invokedWhileInside = true;
 
             if (logDebug)
-                Debug.Log($"[ParticipantIdGate] Direct finger press invoked: {button.gameObject.name}");
+                Debug.Log($"[ParticipantIdGate] Direct finger press invoked: {button.gameObject.name} (pressedNow={pressedNow}, holdTriggered={holdTriggered})");
+        }
+        else if (releasedNow)
+        {
+            state.invokedWhileInside = false;
         }
 
         state.anyInside = anyInside;
@@ -1064,7 +1259,7 @@ public class ParticipantIdGate : MonoBehaviour
             return false;
 
         Vector3 local = rect.InverseTransformPoint(pose.Position);
-        Rect r = rect.rect;
+        Rect r = GetExpandedButtonRect(rect.rect);
 
         bool inRect =
             local.x >= r.xMin && local.x <= r.xMax &&
@@ -1116,7 +1311,7 @@ public class ParticipantIdGate : MonoBehaviour
     private bool IsWorldPointInsideButton(RectTransform rect, Vector3 worldPoint)
     {
         Vector3 local = rect.InverseTransformPoint(worldPoint);
-        Rect r = rect.rect;
+        Rect r = GetExpandedButtonRect(rect.rect);
 
         bool inRect =
             local.x >= r.xMin && local.x <= r.xMax &&
@@ -1125,5 +1320,12 @@ public class ParticipantIdGate : MonoBehaviour
         float depth = Mathf.Max(0.005f, directPressDepthMeters);
         bool inDepth = local.z >= -depth && local.z <= depth;
         return inRect && inDepth;
+    }
+
+    private Rect GetExpandedButtonRect(Rect rect)
+    {
+        float padX = Mathf.Max(0f, directPressRectPadding.x);
+        float padY = Mathf.Max(0f, directPressRectPadding.y);
+        return Rect.MinMaxRect(rect.xMin - padX, rect.yMin - padY, rect.xMax + padX, rect.yMax + padY);
     }
 }
