@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Study Logging Fields</title>
+<style>
+@page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  color: #1b1f23;
+  line-height: 1.42;
+  font-size: 11pt;
+}
+main { max-width: 760px; margin: 0 auto; }
+h1 { font-size: 22pt; margin: 0 0 14px; color: #12314a; }
+h2 { font-size: 16pt; margin: 22px 0 10px; color: #12314a; border-bottom: 1px solid #d6e0e8; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; margin: 16px 0 8px; color: #214f73; }
+p, li { margin: 0 0 7px; }
+ul { margin: 0 0 10px 22px; padding: 0; }
+code {
+  font-family: Consolas, "Courier New", monospace;
+  background: #f3f6f8;
+  border: 1px solid #d9e3ea;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 0.95em;
+}
+</style>
+</head>
+<body>
+<main>
+<h1>Study Logging Fields</h1>
+<p>This document summarizes the trial-level data written by <code>StudyLogger.cs</code>.</p>
+
+<h2>Overview</h2>
+<ul>
+<li>One CSV row is written for each completed trial.</li>
+<li>The log file is stored under <code>Application.persistentDataPath/StudyLogs</code>.</li>
+<li>Some fields are task-specific. If a field does not apply to the current task or technique, it may be left blank.</li>
+</ul>
+
+<h2>CSV Columns</h2>
+
+<h3>Session and participant</h3>
+<ul>
+<li><code>session_timestamp</code><br>Session start timestamp used for the log file.</li>
+<li><code>participant_id</code><br>Participant ID used for this session.</li>
+</ul>
+
+<h3>Task and condition</h3>
+<ul>
+<li><code>task</code><br>Task type for the row: <code>Placement</code>, <code>Rotation</code>, or <code>Scaling</code>.</li>
+<li><code>technique</code><br>Interaction technique: <code>Macro</code> or <code>Micro</code>.</li>
+<li><code>hand_location</code><br>Hand-location condition, such as <code>NearHead</code> or <code>SideOfBody</code>.</li>
+<li><code>condition_label</code><br>Human-readable condition label, for example <code>Macro - Near Head</code>.</li>
+<li><code>condition_index</code><br>Current condition index within the condition sequence, using 1-based numbering.</li>
+<li><code>condition_total</code><br>Total number of conditions in the study sequence.</li>
+<li><code>condition_order</code><br>Full condition order label for the current session, written as a single string.</li>
+<li><code>condition_sequence_index</code><br>Selected Latin-square sequence index for this participant, using 1-based numbering.</li>
+<li><code>condition_sequence_total</code><br>Total number of possible Latin-square sequences for the current condition set.</li>
+<li><code>tool_id</code><br>Identifier of the active tool for the row. This is the tool ID assigned in the task setup and is more useful than an internal trial counter when analyzing tool-specific effects.</li>
+</ul>
+
+<h3>Performance</h3>
+<ul>
+<li><code>completion_time_s</code><br>Time from trial start to submission, in seconds.</li>
+<li><code>translation_error_cm</code><br>Final placement error at submission, in centimeters. Used for placement trials.</li>
+<li><code>rotation_error_deg</code><br>Final rotation error at submission, in degrees. Used for rotation trials.</li>
+<li><code>scaling_error_pct</code><br>Final scaling error at submission, in percent. Used for scaling trials.</li>
+<li><code>time_to_first_within_tol_s</code><br>Time from trial start until the first moment the tool entered the success tolerance.</li>
+<li><code>eligible_breaks</code><br>Number of times the tool entered the tolerance and then left it again before submission.</li>
+</ul>
+
+<h3>Effort and interaction</h3>
+<ul>
+<li><code>micro_axis_active_duration_s</code><br>Total time, in seconds, during which Micro analog input was actively being dragged.</li>
+<li><code>micro_axis_integral</code><br>Accumulated Micro input magnitude over time. This is computed as <code>|Axis| * dt</code>, summed across the trial.</li>
+<li><code>macro_path_length_m</code><br>Estimated Macro movement distance, in meters, based on the tracked Macro effort transform during the trial. In the current scene setup, this reflects the movement path of the proxy wrist/hand transform rather than the raw phone pose itself. This is a cumulative path length, not a straight-line displacement from start to end.</li>
+<li><code>phone_path_length_m</code><br>Total raw phone translation distance, in meters, accumulated from incoming phone pose samples during the trial. This applies to both Macro and Micro trials and reflects how much the participant physically moved the phone itself. This is also a cumulative path length, not a straight-line displacement from start to end.</li>
+<li><code>mode_switch_count</code><br>Number of Micro mode switches recorded during the trial, such as axis-mode toggles.</li>
+</ul>
+
+<h2>Notes</h2>
+<ul>
+<li>Placement, rotation, and scaling rows share the same CSV header for consistency.</li>
+<li>Only the error column relevant to the current task is expected to contain a value.</li>
+<li><code>condition_order</code> is useful for reconstructing the participant-specific task order during analysis.</li>
+<li><code>macro_path_length_m</code> and <code>phone_path_length_m</code> are intentionally different measures.</li>
+<li><code>macro_path_length_m</code> is based on the in-system control transform and may differ from raw phone movement because gains, remapping, offsets, smoothing, and rotation coupling can affect the proxy wrist path.</li>
+<li><code>phone_path_length_m</code> is the better field to use when analyzing how much the participant physically moved the phone in either Macro or Micro.</li>
+</ul>
+</main>
+</body>
+</html>
