@@ -1,0 +1,403 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Experiment Script</title>
+<style>
+@page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  color: #1b1f23;
+  line-height: 1.42;
+  font-size: 11pt;
+}
+main { max-width: 760px; margin: 0 auto; }
+h1 { font-size: 22pt; margin: 0 0 14px; color: #12314a; }
+h2 { font-size: 16pt; margin: 22px 0 10px; color: #12314a; border-bottom: 1px solid #d6e0e8; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; margin: 16px 0 8px; color: #214f73; }
+p, li { margin: 0 0 7px; }
+ul { margin: 0 0 10px 22px; padding: 0; }
+blockquote {
+  margin: 8px 0 12px;
+  padding: 10px 14px;
+  border-left: 4px solid #c2d2df;
+  background: #f7fafc;
+}
+blockquote p:last-child { margin-bottom: 0; }
+code {
+  font-family: Consolas, "Courier New", monospace;
+  background: #f3f6f8;
+  border: 1px solid #d9e3ea;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 0.95em;
+}
+</style>
+</head>
+<body>
+<main>
+
+<h1>Experiment Script</h1>
+<h2>1. Purpose</h2>
+<p>This document is a facilitator guide with participant-facing spoken lines.</p>
+<p>It is written in simple, easy-to-read English so the facilitator can read most lines directly to the participant.</p>
+<p>This script assumes:</p>
+<ul>
+<li>a within-subject study</li>
+<li>4 conditions per participant</li>
+<li>condition order is counterbalanced with a Latin square</li>
+<li>the base order for counterbalancing is <code>Macro Near -&gt; Macro Side -&gt; Micro Near -&gt; Micro Side</code></li>
+<li>each condition includes <code>Placement</code>, <code>Rotation</code>, and <code>Scaling</code></li>
+<li>each phase currently uses <code>2 tools</code> in the workflow</li>
+</ul>
+<p>Important note:</p>
+<ul>
+<li>If the Latin square order is tied to <code>Participant ID</code>, the ID should include a number such as <code>P01</code>, <code>P12</code>, or <code>P24</code>.</li>
+<li>In the current code, the numeric part of the <code>Participant ID</code> is what can be used to determine the sequence.</li>
+</ul>
+<h2>2. Facilitator Summary</h2>
+<p>Each participant completes all four conditions.</p>
+<p>For each condition:</p>
+<ul>
+<li>the participant matches the required posture</li>
+<li>the participant triple taps to begin the condition</li>
+<li>the system may show a short practice before a task phase</li>
+<li>the participant completes <code>Placement</code>, <code>Rotation</code>, and <code>Scaling</code></li>
+<li>each phase is completed for <code>2 tools</code> in the current workflow</li>
+<li>the participant then completes a short between-condition questionnaire</li>
+</ul>
+<p>Core participant rules:</p>
+<ul>
+<li><code>Triple tap</code> submits the current attempt.</li>
+<li>In <code>Macro</code>, the participant mainly uses larger arm and hand movements.</li>
+<li>In <code>Micro</code>, the participant should keep the arm as still as possible and use phone swipes.</li>
+<li>After the participant triple taps to begin a condition, the system briefly checks phone connection and stillness before the task starts.</li>
+</ul>
+<h2>3. Before The Session</h2>
+<h3>Facilitator checklist</h3>
+<ul>
+<li>Prepare the headset, phone, and study computer.</li>
+<li>Prepare the consent form.</li>
+<li>Prepare the demographic questionnaire.</li>
+<li>Prepare the between-condition questionnaire.</li>
+<li>Prepare the final questionnaire.</li>
+<li>Prepare the debrief sheet.</li>
+<li>Prepare the participant compensation form, if needed.</li>
+<li>Confirm the participant&#x27;s counterbalanced condition order.</li>
+<li>Assign a <code>Participant ID</code> with a numeric part.</li>
+<li>Confirm that the phone app is available and the QR workspace setup is ready.</li>
+<li>Check the basket and tool locations in the workspace.</li>
+<li>Confirm that the session starts from the participant ID screen.</li>
+</ul>
+<h3>Suggested system check</h3>
+<p>Before the participant arrives, confirm:</p>
+<ul>
+<li>the start screen asks for <code>Participant ID</code></li>
+<li>the runtime begins after QR scanning</li>
+<li>the phone connects correctly</li>
+<li>the posture example images are visible</li>
+<li>the phone can detect <code>triple tap</code></li>
+</ul>
+<h2>4. Welcome And Consent</h2>
+<h3>Facilitator</h3>
+<ul>
+<li>Welcome the participant.</li>
+<li>Confirm their name and appointment.</li>
+<li>Ask whether they are comfortable continuing.</li>
+<li>Give the consent form.</li>
+</ul>
+<h3>Say</h3>
+<blockquote>
+<p>Hello, thanks for coming in today.</p>
+<p>In this study, you will use a mixed reality system and a phone-based input method to complete object manipulation tasks.</p>
+<p>Before we begin, please read this consent form carefully.</p>
+<p>Feel free to ask questions at any time.</p>
+<p>If you are happy to participate, please sign the form.</p>
+</blockquote>
+<h3>After consent</h3>
+<h3>Say</h3>
+<blockquote>
+<p>Thank you.</p>
+<p>Next, I will ask you to complete a short background questionnaire.</p>
+</blockquote>
+<h2>5. Demographic Questionnaire</h2>
+<h3>Facilitator</h3>
+<ul>
+<li>Give the demographic questionnaire.</li>
+<li>Wait until it is completed.</li>
+<li>Answer procedural questions, but do not explain the study hypotheses.</li>
+</ul>
+<h3>Say</h3>
+<blockquote>
+<p>Please complete this short background questionnaire.</p>
+<p>Just let me know when you are done.</p>
+</blockquote>
+<h2>6. Study Overview</h2>
+<h3>Say</h3>
+<blockquote>
+<p>In this study, you will complete the same types of tasks in several different conditions.</p>
+<p>The conditions change how you control the system and where you keep your hand.</p>
+<p>In every condition, your goal is to match the target as closely as possible.</p>
+<p>When you are ready, you will submit your current attempt with a triple tap.</p>
+<p>This is a within-subject study, so you will try all of the conditions.</p>
+<p>The order is counterbalanced across participants.</p>
+</blockquote>
+<h3>Short version</h3>
+<blockquote>
+<p>You will do the same tasks in several conditions.</p>
+<p>Please try to be as accurate as you can in every condition.</p>
+<p>When you are ready to submit your current attempt, triple tap.</p>
+</blockquote>
+<h2>7. Device Setup</h2>
+<h3>Facilitator</h3>
+<ul>
+<li>Hand the phone to the participant.</li>
+<li>Confirm that the participant can hold it comfortably.</li>
+<li>Explain how to launch the phone app, if needed.</li>
+<li>Enter or confirm the assigned <code>Participant ID</code>.</li>
+</ul>
+<h3>Say</h3>
+<blockquote>
+<p>I will now give you the phone we use in the study.</p>
+<p>Please hold it in a comfortable way.</p>
+<p>We will start by entering your participant ID.</p>
+</blockquote>
+<h3>Facilitator note</h3>
+<p>On the start screen:</p>
+<ul>
+<li>the participant enters the assigned <code>Participant ID</code></li>
+<li>the screen then continues to the runtime scene</li>
+<li>the runtime scene shows <code>Scan the QR code to begin.</code></li>
+</ul>
+<h2>8. Start Of Runtime</h2>
+<h3>Facilitator</h3>
+<ul>
+<li>Ask the participant to scan the QR code when the runtime instruction appears.</li>
+<li>Confirm that the workspace is aligned correctly.</li>
+</ul>
+<h3>Say</h3>
+<blockquote>
+<p>Please scan the QR code to begin.</p>
+<p>Once the workspace is ready, we will start the study conditions.</p>
+</blockquote>
+<h2>9. General Task Rules</h2>
+<h3>Say</h3>
+<blockquote>
+<p>In every task, please try to match the target as closely as possible before you submit.</p>
+<p>There is no separate start button for each task. Once the task begins, you can start right away.</p>
+<p>When you are ready to submit your current attempt, please triple tap.</p>
+<p>If a short practice appears, just follow the instruction on the screen. The practice is only for familiarization.</p>
+</blockquote>
+<h3>Say</h3>
+<blockquote>
+<p>Between conditions, you will have a short break and a short questionnaire.</p>
+<p>If anything feels wrong, confusing, or uncomfortable, please tell me right away.</p>
+</blockquote>
+<h2>10. Condition Introduction</h2>
+<h3>Facilitator</h3>
+<ul>
+<li>Before each condition, remind the participant that the posture image on the screen is the reference.</li>
+<li>Do not rush the participant during posture matching.</li>
+<li>After the participant triple taps to begin the condition, wait for the system to complete the phone connection and stillness check.</li>
+</ul>
+<h3>Say</h3>
+<blockquote>
+<p>At the start of each condition, please match the posture shown in the image.</p>
+<p>When your posture matches the instruction, triple tap to start.</p>
+<p>After that, please hold still for a moment until the system is ready.</p>
+</blockquote>
+<h2>11. Condition Explanation Script</h2>
+<p>Use the relevant explanation before the participant starts each condition.</p>
+<h3>11.1 Macro Near</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In this condition, you will use macro control near your head.</p>
+<p>Please keep your hand near your head, as shown in the image.</p>
+<p>In macro control, you will mainly use larger arm and hand movements.</p>
+</blockquote>
+<h3>11.2 Macro Side</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In this condition, you will use macro control at the side of your body.</p>
+<p>Please keep your hand at the side of your body, as shown in the image.</p>
+<p>In macro control, you will mainly use larger arm and hand movements.</p>
+<p>In this side condition, the movement mapping changes.</p>
+<p>Up and down movement is remapped with forward and backward movement.</p>
+</blockquote>
+<h3>11.3 Micro Near</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In this condition, you will use micro control near your head.</p>
+<p>Please keep your hand near your head, as shown in the image.</p>
+<p>In micro control, try to keep your arm as still as possible and use phone input for fine adjustment.</p>
+</blockquote>
+<h3>11.4 Micro Side</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In this condition, you will use micro control at the side of your body.</p>
+<p>Please keep your hand at the side of your body, as shown in the image.</p>
+<p>In micro control, try to keep your arm as still as possible and use phone input for fine adjustment.</p>
+</blockquote>
+<h2>12. Task Explanation Script</h2>
+<p>Use these explanations before the participant begins the main experiment, and repeat them only if needed.</p>
+<h3>12.1 Placement</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In placement, move the tool so it is as close to the target position as possible.</p>
+<p>Then triple tap to submit your current attempt.</p>
+</blockquote>
+<h3>Micro placement add-on</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In micro placement, tap once to grab and tap again to release.</p>
+<p>Swipe left and right to move left and right.</p>
+<p>Swipe up and down to move the tool.</p>
+<p>You can double tap to switch the up-and-down swipe control between up-and-down movement and front-and-back movement.</p>
+</blockquote>
+<h3>12.2 Rotation</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In rotation, match the tool to the target rotation as closely as possible.</p>
+<p>Then triple tap to submit your current attempt.</p>
+</blockquote>
+<h3>Micro rotation add-on</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In micro rotation, swipe left and right to adjust yaw.</p>
+<p>Swipe up and down to adjust roll.</p>
+<p>You can double tap to switch the up-and-down swipe control from roll to pitch.</p>
+</blockquote>
+<h3>12.3 Scaling</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In scaling, match the tool to the target size as closely as possible.</p>
+<p>Then triple tap to submit your current attempt.</p>
+</blockquote>
+<h3>Micro scaling add-on</h3>
+<h3>Say</h3>
+<blockquote>
+<p>In micro scaling, swipe up to make the tool smaller.</p>
+<p>Swipe down to make the tool bigger.</p>
+</blockquote>
+<h2>13. Practice Script</h2>
+<h3>Facilitator</h3>
+<ul>
+<li>Let the participant follow the on-screen practice instruction.</li>
+<li>Do not over-explain unless the participant is confused.</li>
+<li>Remind the participant that practice is only for getting familiar with the control.</li>
+</ul>
+<h3>Say</h3>
+<blockquote>
+<p>You may see a short practice round before a task phase.</p>
+<p>During practice, just get familiar with the control.</p>
+<p>When you are done with the current practice round, triple tap.</p>
+</blockquote>
+<h3>When practice ends</h3>
+<h3>Say</h3>
+<blockquote>
+<p>The main task starts now.</p>
+</blockquote>
+<h2>14. Main Trial Script</h2>
+<h3>Say</h3>
+<blockquote>
+<p>Please do your best to match the target as closely as possible.</p>
+<p>When you are ready to submit your current attempt, triple tap.</p>
+</blockquote>
+<h3>If the participant submits too early</h3>
+<h3>Say</h3>
+<blockquote>
+<p>Please try to get as close as you can before you triple tap.</p>
+</blockquote>
+<h3>If the participant seems unsure about the goal</h3>
+<h3>Say</h3>
+<blockquote>
+<p>The goal is not just to get close enough.</p>
+<p>Please try to match the target as accurately as you can, then triple tap when you are ready to submit.</p>
+</blockquote>
+<h2>15. Between-Condition Questionnaire</h2>
+<h3>Facilitator</h3>
+<ul>
+<li>At the end of each condition, give the participant the between-condition questionnaire.</li>
+<li>Keep the wording consistent across conditions.</li>
+<li>Do not compare the current condition to later conditions out loud.</li>
+</ul>
+<h3>Say</h3>
+<blockquote>
+<p>That condition is now finished.</p>
+<p>Please take a short break.</p>
+<p>While you rest, please complete this short questionnaire about the condition you just used.</p>
+</blockquote>
+<h3>If needed</h3>
+<h3>Say</h3>
+<blockquote>
+<p>Please answer based only on the condition you just completed.</p>
+</blockquote>
+<h2>16. Final Questionnaire</h2>
+<h3>Facilitator</h3>
+<ul>
+<li>After all four conditions are complete, give the final questionnaire.</li>
+<li>Ask for overall preference, comfort, workload, confidence, and any open comments.</li>
+</ul>
+<h3>Say</h3>
+<blockquote>
+<p>You have now completed all of the study conditions.</p>
+<p>Please complete this final questionnaire about your overall experience.</p>
+<p>You can also share any comments about what felt easy, difficult, comfortable, or confusing.</p>
+</blockquote>
+<h2>17. Debrief</h2>
+<h3>Say</h3>
+<blockquote>
+<p>Thank you for completing the study.</p>
+<p>This study compares different input conditions for object manipulation tasks in mixed reality.</p>
+<p>We are interested in how the different conditions affect performance and user experience.</p>
+<p>If you have any final comments or questions, I would be happy to hear them now.</p>
+</blockquote>
+<h2>18. End Of Session</h2>
+<h3>Facilitator</h3>
+<ul>
+<li>Collect the phone and any study materials.</li>
+<li>Confirm that all forms are complete.</li>
+<li>Confirm that the data was saved.</li>
+<li>Provide compensation, if applicable.</li>
+<li>Thank the participant.</li>
+</ul>
+<h3>Say</h3>
+<blockquote>
+<p>Thank you again for your time and participation.</p>
+</blockquote>
+<h2>19. Troubleshooting Lines</h2>
+<p>Use these only when needed.</p>
+<h3>If QR scanning does not work</h3>
+<blockquote>
+<p>Please give me one moment while I reset the workspace alignment.</p>
+</blockquote>
+<h3>If the participant forgets the condition start step</h3>
+<blockquote>
+<p>Please match the posture shown in the image, then triple tap to start the condition.</p>
+</blockquote>
+<h3>If the participant moves too much right after the start triple tap</h3>
+<blockquote>
+<p>After you triple tap to start, please hold still for a moment until the system is ready.</p>
+</blockquote>
+<h3>If the participant asks when to triple tap during a task</h3>
+<blockquote>
+<p>Triple tap when you feel your current attempt is as close to the target as you can make it.</p>
+</blockquote>
+<h3>If the participant asks whether the practice counts</h3>
+<blockquote>
+<p>No. The practice is only for familiarization. The main task comes after the practice.</p>
+</blockquote>
+<h2>20. Facilitator Quick Reference</h2>
+<ul>
+<li>Study type: <code>within-subject</code></li>
+<li>Base order for counterbalancing: <code>Macro Near -&gt; Macro Side -&gt; Micro Near -&gt; Micro Side</code></li>
+<li>Condition start: match posture image, then <code>triple tap to start</code></li>
+<li>After condition start: participant should hold still briefly</li>
+<li>Main submit action: <code>triple tap</code></li>
+<li>Current workflow per condition: <code>Placement -&gt; Rotation -&gt; Scaling</code>, with <code>2 tools</code> per phase</li>
+<li><code>Participant ID</code> should include a number if the Latin square sequence is linked to the participant ID</li>
+</ul>
+</main>
+</body>
+</html>
