@@ -210,8 +210,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PhonePoseSender
   targetIp: 192.168.50.212
   targetPort: 5555
-  arCamera: {fileID: 2039601955}
+  arCamera: {fileID: 1106612072}
   sendHz: 60
+  markerTracker: {fileID: 0}
+  tapMaxDuration: 0.5
+  tapMaxMovePixels: 100
 --- !u!4 &246329370
 Transform:
   m_ObjectHideFlags: 0
@@ -687,6 +690,8 @@ GameObject:
   m_Component:
   - component: {fileID: 2039601955}
   - component: {fileID: 2039601954}
+  - component: {fileID: 2039601956}
+  - component: {fileID: 2039601957}
   m_Layer: 0
   m_Name: XR Origin
   m_TagString: Untagged
@@ -727,6 +732,37 @@ Transform:
   - {fileID: 1709639550}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2039601956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2039601953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dea56a9eaadd1c439095de4f9a371cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.ARFoundation::UnityEngine.XR.ARFoundation.ARTrackedImageManager
+  <trackablesChanged>k__BackingField:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SerializedLibrary: {fileID: 11400000, guid: 64d510de00f2a4843baf83aeffcf79bc, type: 2}
+  m_MaxNumberOfMovingImages: 1
+  m_TrackedImagePrefab: {fileID: 0}
+--- !u!114 &2039601957
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2039601953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d48718b95cff4497ead27cd1749f416d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PhoneMarkerTracker
+  trackedImageManager: {fileID: 2039601956}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -734,5 +770,5 @@ SceneRoots:
   - {fileID: 963194228}
   - {fileID: 705507995}
   - {fileID: 75448905}
-  - {fileID: 2039601955}
   - {fileID: 246329370}
+  - {fileID: 2039601955}
