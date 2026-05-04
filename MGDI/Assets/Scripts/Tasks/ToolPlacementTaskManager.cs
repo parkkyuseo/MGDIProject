@@ -116,8 +116,11 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
     [Header("Triple Tap Submit Safety")]
     [SerializeField] private bool blockTripleTapSubmitWhenHandNearGrabbable = true;
+    [SerializeField] private bool blockTripleTapSubmitWhenTooFarFromTarget = true;
+    [SerializeField] private float tripleTapSubmitToleranceMultiplier = 2.5f;
     [SerializeField] private float blockedTripleTapStatusSeconds = 1.0f;
-    [SerializeField] private string blockedTripleTapStatus = "Move hand away,\nthen triple tap.";
+    [SerializeField] private string blockedTripleTapStatus = "Move the proxy hand away\nfrom the tool.";
+    [SerializeField] private string blockedTripleTapDistanceStatus = "Move tool closer to target,\nthen triple tap.";
 
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
@@ -147,6 +150,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
     private Dictionary<string, Action> keywordActions;
     private bool _voiceSubmitRequested = false;
     private float _blockedTripleTapStatusUntil = -1f;
+    private string _blockedTripleTapStatusText = "";
 
     // Tools/Targets registry
     [Serializable]
@@ -612,7 +616,7 @@ public class ToolPlacementTaskManager : MonoBehaviour
         _ = toleranceMeters;
         if (IsBlockedTripleTapStatusActive())
         {
-            OnConfirmStatus?.Invoke(blockedTripleTapStatus);
+            OnConfirmStatus?.Invoke(_blockedTripleTapStatusText);
             return;
         }
         OnConfirmStatus?.Invoke("");
@@ -953,9 +957,9 @@ public class ToolPlacementTaskManager : MonoBehaviour
 
         if (enableTripleTapSubmit && phoneRouter != null && phoneRouter.TryConsumeTripleTap())
         {
-            if (ShouldBlockTripleTapSubmit())
+            if (ShouldBlockTripleTapSubmit(out string blockedStatus))
             {
-                NotifyBlockedTripleTapSubmit();
+                NotifyBlockedTripleTapSubmit(blockedStatus);
                 return false;
             }
             _ = context;
@@ -977,17 +981,46 @@ public class ToolPlacementTaskManager : MonoBehaviour
             guard++;
     }
 
-    private bool ShouldBlockTripleTapSubmit()
+    private bool ShouldBlockTripleTapSubmit(out string blockedStatus)
     {
-        return blockTripleTapSubmitWhenHandNearGrabbable &&
-               grabber != null &&
-               grabber.IsHoldingOrHasAttachCandidateNow;
+        float errorMeters = float.MaxValue;
+        float maxSubmitDistance = float.MaxValue;
+        bool hasActiveDistance = false;
+
+        if (_active != null)
+        {
+            float tolerance = Mathf.Max(0.0001f, _active.tolerance);
+            maxSubmitDistance = tolerance * Mathf.Max(1f, tripleTapSubmitToleranceMultiplier);
+            errorMeters = ComputeErrorMeters(_active);
+            _active.lastErr = errorMeters;
+            hasActiveDistance = true;
+
+            if (blockTripleTapSubmitWhenTooFarFromTarget &&
+                errorMeters > maxSubmitDistance)
+            {
+                blockedStatus = blockedTripleTapDistanceStatus;
+                return true;
+            }
+        }
+
+        if (blockTripleTapSubmitWhenHandNearGrabbable &&
+            grabber != null &&
+            grabber.IsHoldingOrHasAttachCandidateNow &&
+            (!hasActiveDistance || errorMeters <= maxSubmitDistance))
+        {
+            blockedStatus = blockedTripleTapStatus;
+            return true;
+        }
+
+        blockedStatus = string.Empty;
+        return false;
     }
 
-    private void NotifyBlockedTripleTapSubmit()
+    private void NotifyBlockedTripleTapSubmit(string statusText)
     {
+        _blockedTripleTapStatusText = string.IsNullOrWhiteSpace(statusText) ? blockedTripleTapStatus : statusText;
         _blockedTripleTapStatusUntil = Time.unscaledTime + Mathf.Max(0.05f, blockedTripleTapStatusSeconds);
-        OnConfirmStatus?.Invoke(blockedTripleTapStatus);
+        OnConfirmStatus?.Invoke(_blockedTripleTapStatusText);
     }
 
     private bool IsBlockedTripleTapStatusActive()

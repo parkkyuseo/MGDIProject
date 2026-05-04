@@ -1077,7 +1077,7 @@ MonoBehaviour:
   activeLayerName: Grabbable
   inactiveLayerName: ToolInactive
   toggleColliders: 1
-  toolsPerBlock: 2
+  toolsPerBlock: 5
   debugLog: 0
   autoStart: 1
 --- !u!114 &73713665
@@ -1437,8 +1437,13 @@ MonoBehaviour:
   submitKeyword: next
   enableTripleTapSubmit: 1
   blockTripleTapSubmitWhenHandNearGrabbable: 1
+  blockTripleTapSubmitWhenTooFarFromTarget: 1
+  tripleTapSubmitToleranceMultiplier: 2.5
   blockedTripleTapStatusSeconds: 1
   blockedTripleTapStatus: 'Move hand away,
+
+    then triple tap.'
+  blockedTripleTapDistanceStatus: 'Move tool closer to target,
 
     then triple tap.'
   logDebug: 1
@@ -2958,6 +2963,7 @@ MonoBehaviour:
   applyRotation: 1
   posLerp: 20
   rotLerp: 20
+  useGripPivotForPositionSolve: 0
   useAppliedRotationForPositionSolve: 0
   driveInLateUpdate: 1
   maxRotDegPerSec: 360
@@ -2993,8 +2999,7 @@ MonoBehaviour:
   translationYawOffsetDeg: 90
   swapAlignedPlanarTranslationAxes: 1
   invertMappedPlanarForwardBack: 1
-  recaptureTranslationYawOnInputRecenter: 0
-  useFixedWorkspaceYawForMacroSide: 0
+  recaptureTranslationYawOnInputRecenter: 1
   skipAlignedPlanarAxisMappingWhenUsingLegacySideRemap: 1
   useLegacySideAxisRemap: 1
   swapLegacySideLateralAndVerticalOutputs: 1
@@ -3613,8 +3618,8 @@ MonoBehaviour:
   blockedTripleTapStatus: 'Move hand away,
 
     then triple tap.'
-  bringTargetNearActiveTool: 0
-  targetOffsetLocal: {x: 0.18, y: 0.03, z: 0}
+  bringTargetNearActiveTool: 1
+  targetOffsetLocal: {x: 0.22, y: 0.04, z: 0}
   offsetInCameraFrame: 1
   finishBlockAfterOneSuccessWhenForced: 1
   logDebug: 0
@@ -4409,6 +4414,9 @@ MonoBehaviour:
   toolsDynamicRoot: {fileID: 481013419}
   slotsTargetsRoot: {fileID: 1997792891}
   showTargetGhostScale: 1
+  bringTargetGhostNearActiveTool: 1
+  targetGhostOffsetLocal: {x: 0.22, y: 0.04, z: 0}
+  targetGhostOffsetInCameraFrame: 1
   grabber: {fileID: 4217352218302390359}
   remoteHand: {fileID: 1722393066}
   phoneRouter: {fileID: 0}
@@ -4424,7 +4432,7 @@ MonoBehaviour:
   stableRotSpeedDegPerSec: 8
   stableWarmupSeconds: 0.25
   scaleFactorTolerance: 0.08
-  targetFactorMin: 0.2
+  targetFactorMin: 0.35
   targetFactorMax: 2
   avoidNearOne: 0.3
   minSideBandWidth: 0.05
@@ -6039,7 +6047,9 @@ MonoBehaviour:
   hintRowHeight: 86
   expandedMaxPanelHeightWithHint: 380
   tmpLineAlignment: 514
+  tmpHintAlignment: 257
   uguiLineAlignment: 4
+  uguiHintAlignment: 0
 --- !u!1 &814804971
 GameObject:
   m_ObjectHideFlags: 0
@@ -6398,7 +6408,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 963194228}
-  - {fileID: 2147000101}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &890535195
@@ -6816,7 +6825,7 @@ MonoBehaviour:
   snapDuringMacroTrials: 0
   snapDuringMicroTrials: 1
   useConditionEntryPostureGate: 1
-  useFastTestTiming: 1
+  useFastTestTiming: 0
   fastPhoneAppReadyMessageSeconds: 1
   fastConditionBreakSeconds: 5
   showPhoneAppReadyMessageOnFirstStart: 1
@@ -8056,6 +8065,7 @@ Transform:
   - {fileID: 846372607}
   - {fileID: 781180647}
   - {fileID: 1359733087}
+  - {fileID: 2147000101}
   m_Father: {fileID: 770468291}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1136784223
@@ -9112,7 +9122,7 @@ MonoBehaviour:
   macroEffortTransform: {fileID: 1050038128}
   logDebug: 0
   enableMirrorSend: 1
-  mirrorHost: 192.168.50.161
+  mirrorHost: 10.138.130.118
   mirrorPort: 19620
   mirrorRequireAck: 1
   mirrorConnectTimeoutMs: 1200
@@ -10381,6 +10391,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   router: {fileID: 1282618817}
+  grabber: {fileID: 0}
   macroPoseDriver: {fileID: 345937160}
   microRotationOnlyDriver: {fileID: 1593872810}
   microPlacementController: {fileID: 436304075}
@@ -11312,6 +11323,8 @@ MonoBehaviour:
   showPracticeCompleteMessage: 1
   practiceCompleteMessage: Main task starts now
   practiceCompleteSeconds: 3
+  showSkippedPracticeMicroStartMessage: 1
+  skippedPracticeMicroStartSeconds: 1.5
   showDebugHUD: 0
   hudUpdateHz: 10
   logTaskContextUpdates: 0
@@ -12380,6 +12393,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1638622193}
   - component: {fileID: 1638622194}
+  - component: {fileID: 1638622195}
   m_Layer: 0
   m_Name: FeedbackUIRoot
   m_TagString: Untagged
@@ -12417,12 +12431,33 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   anchorTransform: {fileID: 2147000101}
   cameraTransform: {fileID: 0}
+  anchorRotationOnly: 0
   distance: 1
   heightOffset: -0.1
   rightOffset: 0
   yawOnly: 1
   followLerp: 12
   lockAfterInitialPlacement: 0
+--- !u!114 &1638622195
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1638622192}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e95c8680c174c0d93f1cde4f0c8c6bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  qrLock: {fileID: 1314555558}
+  anchorTransform: {fileID: 2147000101}
+  cameraTransform: {fileID: 0}
+  distance: 1.4
+  heightOffset: 0.12
+  rightOffset: 0
+  yawOnly: 1
+  yawOffsetDeg: 180
 --- !u!1 &1657556525
 GameObject:
   m_ObjectHideFlags: 0
@@ -16079,7 +16114,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 890269650}
+  m_Father: {fileID: 1133025055}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &335776077263810857
 Transform:

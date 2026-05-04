@@ -124,6 +124,7 @@ public class ProxyHandGrabber : MonoBehaviour
     private Renderer[] _proxyHandRenderers;
     private bool[] _proxyHandRendererWasEnabled;
     private bool _proxyHandVisualsCached;
+    private bool _forceHideProxyHandVisuals;
 
     void Start()
     {
@@ -415,6 +416,17 @@ public class ProxyHandGrabber : MonoBehaviour
         SetProxyHandVisualVisible(true);
     }
 
+    public void SetProxyHandVisualForceHidden(bool forceHidden)
+    {
+        _forceHideProxyHandVisuals = forceHidden;
+
+        if (!_proxyHandVisualsCached)
+            CacheProxyHandVisualRenderers();
+
+        bool shouldShow = _heldBody == null && !_forceHideProxyHandVisuals;
+        SetProxyHandVisualVisible(shouldShow);
+    }
+
     private void UpdateHoverCandidate()
     {
         Collider bestCol;
@@ -686,7 +698,8 @@ public class ProxyHandGrabber : MonoBehaviour
             if (renderer == null)
                 continue;
 
-            renderer.enabled = visible ? _proxyHandRendererWasEnabled[i] : false;
+            bool shouldBeVisible = visible && !_forceHideProxyHandVisuals;
+            renderer.enabled = shouldBeVisible ? _proxyHandRendererWasEnabled[i] : false;
         }
     }
 }

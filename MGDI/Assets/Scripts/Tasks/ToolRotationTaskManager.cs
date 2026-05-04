@@ -208,6 +208,10 @@ public class ToolRotationTaskManager : MonoBehaviour
     private Quaternion _capturedCarryTargetRot = Quaternion.identity;
     private Quaternion _capturedCarryTargetEvalRot = Quaternion.identity;
     private float _lastSubmittedErrorDeg = float.NaN;
+    private bool _hasStartPoseOverride = false;
+    private string _startPoseOverrideId = null;
+    private Vector3 _startPoseOverridePos = Vector3.zero;
+    private Quaternion _startPoseOverrideRot = Quaternion.identity;
 
     public bool IsTrialRunning => _trialRunning && !_inTransition;
     public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - _trialTimer);
@@ -325,6 +329,29 @@ public class ToolRotationTaskManager : MonoBehaviour
         _capturedCarryTargetEvalRot = Quaternion.identity;
     }
 
+    public void SetStartPoseOverride(string id, Vector3 position, Quaternion rotation)
+    {
+        id = NormalizeToolId(id);
+        if (string.IsNullOrEmpty(id))
+        {
+            ClearStartPoseOverride();
+            return;
+        }
+
+        _hasStartPoseOverride = true;
+        _startPoseOverrideId = id;
+        _startPoseOverridePos = position;
+        _startPoseOverrideRot = rotation;
+    }
+
+    public void ClearStartPoseOverride()
+    {
+        _hasStartPoseOverride = false;
+        _startPoseOverrideId = null;
+        _startPoseOverridePos = Vector3.zero;
+        _startPoseOverrideRot = Quaternion.identity;
+    }
+
     public void ResetAllTargetsToSceneBaseline()
     {
         if (_items.Count == 0)
@@ -344,6 +371,47 @@ public class ToolRotationTaskManager : MonoBehaviour
                 it.targetEval = eval;
                 eval.rotation = it.targetSceneEvalRot;
             }
+        }
+    }
+
+    public void ResetActiveToolAndTargetToSceneBaseline()
+    {
+        if (_active == null)
+            return;
+
+        ForceReleaseIfPossible();
+        ResetActiveToolToStartPose();
+
+        if (_active.target != null)
+        {
+            _active.target.position = _active.targetScenePos;
+            _active.target.rotation = _active.targetSceneRot;
+        }
+
+        Transform eval = _active.targetEval != null ? _active.targetEval : ResolveTargetEvaluationTransform(_active.target);
+        if (eval != null)
+        {
+            _active.targetEval = eval;
+            eval.rotation = _active.targetSceneEvalRot;
+        }
+    }
+
+    public void RestoreActiveTargetToScenePositionKeepCurrentRotation()
+    {
+        if (_active == null || _active.target == null)
+            return;
+
+        Quaternion targetRot = _active.target.rotation;
+        Transform eval = _active.targetEval != null ? _active.targetEval : ResolveTargetEvaluationTransform(_active.target);
+        Quaternion evalRot = eval != null ? eval.rotation : Quaternion.identity;
+
+        _active.target.position = _active.targetScenePos;
+        _active.target.rotation = targetRot;
+
+        if (eval != null)
+        {
+            _active.targetEval = eval;
+            eval.rotation = evalRot;
         }
     }
 
@@ -460,6 +528,7 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         _active.targetEval = ResolveTargetEvaluationTransform(_active.target);
         EnsureActiveBody();
+        ApplyStartPoseOverrideIfNeeded();
 
         // Reset active tool to its start pose at trial start
         ForceReleaseIfPossible();
@@ -554,7 +623,7 @@ public class ToolRotationTaskManager : MonoBehaviour
         if (!keepSolvedPoseForScaling)
             RestoreTargetPose();
 
-        if (!keepSolvedPoseForScaling && resetToolToStartAfterTrial)
+        if (!keepSolvedPoseForScaling && !finishingForcedSuccess && resetToolToStartAfterTrial)
         {
             ForceReleaseIfPossible();
             ResetActiveToolToStartPose();
@@ -724,6 +793,18 @@ public class ToolRotationTaskManager : MonoBehaviour
             _active.tool.SetParent(_active.startParent, true);
 
         _active.tool.SetPositionAndRotation(_active.startPos, _active.startRot);
+    }
+
+    private void ApplyStartPoseOverrideIfNeeded()
+    {
+        if (!_hasStartPoseOverride || _active == null || _active.tool == null)
+            return;
+
+        if (!string.Equals(_active.id, _startPoseOverrideId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _active.startPos = _startPoseOverridePos;
+        _active.startRot = _startPoseOverrideRot;
     }
 
     private float ComputeRotationErrorDeg()

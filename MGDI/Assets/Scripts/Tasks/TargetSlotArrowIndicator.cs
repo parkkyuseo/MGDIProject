@@ -26,11 +26,13 @@ public class TargetSlotArrowIndicator : MonoBehaviour
     [SerializeField] private float edgeMarkerDistance = 0.85f;
     [SerializeField] private float edgeMarkerScale = 0.40f;
     [SerializeField] private Vector2 edgeViewportMargins = new Vector2(0.12f, 0.16f);
+    [SerializeField] private float edgeTopViewportInset = 0.10f;
     [SerializeField] private float onScreenViewportPadding = 0.04f;
 
     [Header("Tool Edge Indicator")]
     [SerializeField] private bool showToolWorldIndicator = true;
     [SerializeField] private Transform toolWorldMarkerRoot;
+    [SerializeField] private float toolWorldIndicatorVisibleSeconds = 2.0f;
     [SerializeField] private bool showToolEdgeIndicator = true;
     [SerializeField] private Transform toolEdgeMarkerRoot;
     [SerializeField] private float toolEdgeMarkerDistance = 0.78f;
@@ -61,6 +63,9 @@ public class TargetSlotArrowIndicator : MonoBehaviour
     private bool _hasEdgeMarker;
     private bool _hasToolWorldMarker;
     private bool _hasToolEdgeMarker;
+    private bool _toolWorldIndicatorWindowActive;
+    private float _toolWorldIndicatorHideAt = -1f;
+    private Transform _toolWorldIndicatorActiveTool;
     private Transform _toolPreviewHolder;
     private Transform _toolPreviewRoot;
     private TextMesh _toolPreviewLabel;
@@ -118,6 +123,7 @@ public class TargetSlotArrowIndicator : MonoBehaviour
         SetEdgeMarkerVisible(false);
         SetToolWorldMarkerVisible(false);
         SetToolEdgeMarkerVisible(false);
+        ResetToolWorldIndicatorWindow();
     }
 
     private void OnEnable()
@@ -128,6 +134,7 @@ public class TargetSlotArrowIndicator : MonoBehaviour
         SetEdgeMarkerVisible(false);
         SetToolWorldMarkerVisible(false);
         SetToolEdgeMarkerVisible(false);
+        ResetToolWorldIndicatorWindow();
     }
 
     private void Update()
@@ -147,6 +154,7 @@ public class TargetSlotArrowIndicator : MonoBehaviour
             SetEdgeMarkerVisible(false);
             SetToolWorldMarkerVisible(false);
             SetToolEdgeMarkerVisible(false);
+            ResetToolWorldIndicatorWindow();
             return;
         }
 
@@ -191,6 +199,7 @@ public class TargetSlotArrowIndicator : MonoBehaviour
         {
             SetToolWorldMarkerVisible(false);
             SetToolEdgeMarkerVisible(false);
+            ResetToolWorldIndicatorWindow();
             return;
         }
 
@@ -198,14 +207,28 @@ public class TargetSlotArrowIndicator : MonoBehaviour
         bool toolOnScreen = IsTransformOnScreen(cam, activeTool, onScreenViewportPadding);
         if (toolOnScreen)
         {
-            if (_hasToolWorldMarker && showToolWorldIndicator && !IsHandNearTool(activeTool))
+            bool toolWorldIndicatorEligible =
+                _hasToolWorldMarker &&
+                showToolWorldIndicator &&
+                !IsHandNearTool(activeTool);
+
+            if (toolWorldIndicatorEligible)
             {
-                SetToolWorldMarkerVisible(true);
-                UpdateToolWorldMarkerPose(activeTool);
+                UpdateToolWorldIndicatorWindow(activeTool);
+                if (ShouldShowToolWorldIndicatorNow(activeTool))
+                {
+                    SetToolWorldMarkerVisible(true);
+                    UpdateToolWorldMarkerPose(activeTool);
+                }
+                else
+                {
+                    SetToolWorldMarkerVisible(false);
+                }
             }
             else
             {
                 SetToolWorldMarkerVisible(false);
+                ResetToolWorldIndicatorWindow();
             }
 
             SetToolEdgeMarkerVisible(false);
@@ -213,6 +236,7 @@ public class TargetSlotArrowIndicator : MonoBehaviour
         }
 
         SetToolWorldMarkerVisible(false);
+        ResetToolWorldIndicatorWindow();
         if (_hasToolEdgeMarker && showToolEdgeIndicator)
         {
             EnsureToolPreview(activeTool, activeToolId);
@@ -354,6 +378,10 @@ public class TargetSlotArrowIndicator : MonoBehaviour
 
         edgeViewport.x = Mathf.Clamp(edgeViewport.x, edgeViewportMargins.x, 1f - edgeViewportMargins.x);
         edgeViewport.y = Mathf.Clamp(edgeViewport.y, edgeViewportMargins.y, 1f - edgeViewportMargins.y);
+
+        float topEdgeY = 1f - edgeViewportMargins.y;
+        if (edgeViewport.y >= topEdgeY - 0.001f)
+            edgeViewport.y = Mathf.Max(edgeViewportMargins.y, edgeViewport.y - Mathf.Max(0f, edgeTopViewportInset));
 
         Vector3 worldPos = cam.ViewportToWorldPoint(new Vector3(edgeViewport.x, edgeViewport.y, edgeMarkerDistance));
         edgeMarkerRoot.position = worldPos;
@@ -620,6 +648,40 @@ public class TargetSlotArrowIndicator : MonoBehaviour
 
         if (toolWorldMarkerRoot.gameObject.activeSelf != visible)
             toolWorldMarkerRoot.gameObject.SetActive(visible);
+    }
+
+    private void UpdateToolWorldIndicatorWindow(Transform activeTool)
+    {
+        if (activeTool == null)
+        {
+            ResetToolWorldIndicatorWindow();
+            return;
+        }
+
+        if (!_toolWorldIndicatorWindowActive || _toolWorldIndicatorActiveTool != activeTool)
+        {
+            _toolWorldIndicatorWindowActive = true;
+            _toolWorldIndicatorActiveTool = activeTool;
+            _toolWorldIndicatorHideAt = Time.unscaledTime + Mathf.Max(0f, toolWorldIndicatorVisibleSeconds);
+        }
+    }
+
+    private bool ShouldShowToolWorldIndicatorNow(Transform activeTool)
+    {
+        if (!_toolWorldIndicatorWindowActive || activeTool == null)
+            return false;
+
+        if (_toolWorldIndicatorActiveTool != activeTool)
+            return false;
+
+        return Time.unscaledTime <= _toolWorldIndicatorHideAt;
+    }
+
+    private void ResetToolWorldIndicatorWindow()
+    {
+        _toolWorldIndicatorWindowActive = false;
+        _toolWorldIndicatorHideAt = -1f;
+        _toolWorldIndicatorActiveTool = null;
     }
 
     private void SetToolEdgeMarkerVisible(bool visible)

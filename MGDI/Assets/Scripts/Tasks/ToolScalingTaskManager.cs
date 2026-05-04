@@ -24,6 +24,15 @@ public class ToolScalingTaskManager : MonoBehaviour
     [SerializeField] private Transform slotsTargetsRoot; // ContentRoot/Slots_Targets
     [SerializeField] private bool showTargetGhostScale = true;
 
+    [Header("Target ghost positioning (bring near active tool)")]
+    [SerializeField] private bool bringTargetGhostNearActiveTool = false;
+
+    [Tooltip("Offset near the tool when bringing target ghost close. X=right, Y=up, Z=forward (in chosen frame). Meters.")]
+    [SerializeField] private Vector3 targetGhostOffsetLocal = new Vector3(0.18f, 0.03f, 0.00f);
+
+    [Tooltip("If true, offset uses Camera frame (cam.right/up/fwd). If false, uses tool frame (tool.right/up/fwd).")]
+    [SerializeField] private bool targetGhostOffsetInCameraFrame = true;
+
     [Header("Grab / Evaluate")]
     [SerializeField] private ProxyHandGrabber grabber;
 
@@ -141,6 +150,9 @@ public class ToolScalingTaskManager : MonoBehaviour
         public string id;
         public Transform tool;
         public Rigidbody toolBody;
+        public Transform startParent;
+        public Vector3 startPos;
+        public Quaternion startRot;
 
         // "True baseline" captured once from scene registry
         public Vector3 startLocalScale;
@@ -184,9 +196,16 @@ public class ToolScalingTaskManager : MonoBehaviour
     private readonly Dictionary<string, Transform> _ghostById = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
     private Transform _activeGhost;
     private Vector3 _activeGhostBaseScale;
+    private Vector3 _activeGhostBasePos;
+    private Quaternion _activeGhostBaseRot = Quaternion.identity;
+    private bool _activeGhostBasePoseValid = false;
     private bool _practiceGhostRandomizationEnabled = false;
     private float _lastPracticeTargetFactor = 1f;
     private bool _hasLastPracticeTargetFactor = false;
+    private bool _hasStartPoseOverride = false;
+    private string _startPoseOverrideId = null;
+    private Vector3 _startPoseOverridePos = Vector3.zero;
+    private Quaternion _startPoseOverrideRot = Quaternion.identity;
 
     public bool IsTrialRunning => trialRunning && !inTransition;
     public float TrialTimeRemainingSec => Mathf.Max(0f, trialTimeoutSeconds - trialTimer);
@@ -215,6 +234,30 @@ public class ToolScalingTaskManager : MonoBehaviour
     }
 
     public Transform ActiveToolTransform => active != null ? active.tool : null;
+    public string ActiveToolId => active != null ? active.id : null;
+
+    public void SetStartPoseOverride(string id, Vector3 position, Quaternion rotation)
+    {
+        id = NormalizeToolId(id);
+        if (string.IsNullOrEmpty(id))
+        {
+            ClearStartPoseOverride();
+            return;
+        }
+
+        _hasStartPoseOverride = true;
+        _startPoseOverrideId = id;
+        _startPoseOverridePos = position;
+        _startPoseOverrideRot = rotation;
+    }
+
+    public void ClearStartPoseOverride()
+    {
+        _hasStartPoseOverride = false;
+        _startPoseOverrideId = null;
+        _startPoseOverridePos = Vector3.zero;
+        _startPoseOverrideRot = Quaternion.identity;
+    }
 
     // ---------------- Public API for MICRO controllers ----------------
     public void SetExternalDriving(bool driving) => _externalDriving = driving;
@@ -403,6 +446,9 @@ public class ToolScalingTaskManager : MonoBehaviour
             active = items[trialIndex % items.Count];
 
         EnsureActiveBody(active);
+        ApplyStartPoseOverrideIfNeeded();
+        ForceReleaseIfPossible();
+        ResetActiveToolToStartPose();
 
         // Reset per-trial state
         active.axisAccum = 0f;
@@ -423,6 +469,9 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         // ✅ Apply target ghost visual scale (optional)
         ApplyTargetGhostScale(active.id, active.targetFactor);
+
+        if (bringTargetGhostNearActiveTool)
+            MoveTargetGhostNearActiveTool();
 
         trialTimer = 0f;
         dwellTimer = 0f;
@@ -521,6 +570,9 @@ public class ToolScalingTaskManager : MonoBehaviour
                 id = kv.Key,
                 tool = toolTf,
                 toolBody = null,
+                startParent = toolTf.parent,
+                startPos = toolTf.position,
+                startRot = toolTf.rotation,
 
                 // ✅ IMPORTANT: capture baseline ONCE here
                 startLocalScale = toolTf.localScale,
@@ -593,6 +645,9 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         _activeGhost = ghost;
         _activeGhostBaseScale = ghost.localScale;
+        _activeGhostBasePos = ghost.position;
+        _activeGhostBaseRot = ghost.rotation;
+        _activeGhostBasePoseValid = true;
 
         ghost.localScale = _activeGhostBaseScale * targetFactor;
     }
@@ -602,7 +657,66 @@ public class ToolScalingTaskManager : MonoBehaviour
         if (_activeGhost == null) return;
 
         _activeGhost.localScale = _activeGhostBaseScale;
+        if (_activeGhostBasePoseValid)
+        {
+            _activeGhost.position = _activeGhostBasePos;
+            _activeGhost.rotation = _activeGhostBaseRot;
+        }
         _activeGhost = null;
+        _activeGhostBaseScale = Vector3.one;
+        _activeGhostBasePos = Vector3.zero;
+        _activeGhostBaseRot = Quaternion.identity;
+        _activeGhostBasePoseValid = false;
+    }
+
+    private void ResetActiveToolToStartPose()
+    {
+        if (active == null || active.tool == null)
+            return;
+
+        if (active.startParent != null)
+            active.tool.SetParent(active.startParent, true);
+
+        active.tool.SetPositionAndRotation(active.startPos, active.startRot);
+    }
+
+    private void ApplyStartPoseOverrideIfNeeded()
+    {
+        if (!_hasStartPoseOverride || active == null || active.tool == null)
+            return;
+
+        if (!string.Equals(active.id, _startPoseOverrideId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        active.startPos = _startPoseOverridePos;
+        active.startRot = _startPoseOverrideRot;
+    }
+
+    private void MoveTargetGhostNearActiveTool()
+    {
+        if (_activeGhost == null || active == null || active.tool == null) return;
+
+        Transform cam = Camera.main != null ? Camera.main.transform : null;
+
+        Vector3 right, up, fwd;
+        if (targetGhostOffsetInCameraFrame && cam != null)
+        {
+            right = cam.right;
+            up = cam.up;
+            fwd = cam.forward;
+        }
+        else
+        {
+            right = active.tool.right;
+            up = active.tool.up;
+            fwd = active.tool.forward;
+        }
+
+        _activeGhost.position =
+            active.tool.position +
+            right * targetGhostOffsetLocal.x +
+            up * targetGhostOffsetLocal.y +
+            fwd * targetGhostOffsetLocal.z;
     }
 
     // ---------------- Target sampling (improved) ----------------

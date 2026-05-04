@@ -1,7 +1,5 @@
 # Study Logging Fields
 
-이 문서는 `StudyLogger.cs`가 기록하는 trial 단위 데이터를 요약합니다.
-
 ## 개요
 
 - 완료된 각 trial마다 CSV 한 줄이 기록됩니다.

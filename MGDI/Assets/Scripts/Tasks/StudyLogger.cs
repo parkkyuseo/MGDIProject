@@ -34,7 +34,7 @@ public class StudyLogger : MonoBehaviour
 
     [Header("Mirror To Laptop (Optional)")]
     [SerializeField] private bool enableMirrorSend = false;
-    [SerializeField] private string mirrorHost = "192.168.50.56";
+    [SerializeField] private string mirrorHost = "10.138.130.118";
     [SerializeField] private int mirrorPort = 19620;
     [SerializeField] private bool mirrorRequireAck = true;
     [SerializeField] private int mirrorConnectTimeoutMs = 1200;
@@ -1055,17 +1055,16 @@ public class StudyLogger : MonoBehaviour
 
                 if (ack != null)
                 {
-                    bool ackOk = ack.ok ||
-                                 string.Equals(ack.status, "ok", StringComparison.OrdinalIgnoreCase) ||
-                                 string.Equals(ack.type, "ack", StringComparison.OrdinalIgnoreCase);
+                    if (!string.Equals(ack.type, "ack", StringComparison.OrdinalIgnoreCase))
+                        return false;
 
-                    if (!string.IsNullOrEmpty(ack.row_id) &&
+                    if (string.IsNullOrEmpty(ack.row_id) ||
                         !string.Equals(ack.row_id, entry.row_id, StringComparison.Ordinal))
-                    {
-                        ackOk = false;
-                    }
+                        return false;
 
-                    return ackOk;
+                    return ack.ok ||
+                           string.Equals(ack.status, "ok", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(ack.status, "duplicate", StringComparison.OrdinalIgnoreCase);
                 }
 
                 string lower = ackLine.Trim().ToLowerInvariant();

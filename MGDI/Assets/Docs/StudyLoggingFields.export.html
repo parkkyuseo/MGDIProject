@@ -31,7 +31,6 @@ code {
 <body>
 <main>
 <h1>Study Logging Fields</h1>
-<p>This document summarizes the trial-level data written by <code>StudyLogger.cs</code>.</p>
 
 <h2>Overview</h2>
 <ul>
@@ -75,8 +74,8 @@ code {
 <h3>Effort and interaction</h3>
 <ul>
 <li><code>micro_axis_active_duration_s</code><br>Total time, in seconds, during which Micro analog input was actively being dragged.</li>
-<li><code>micro_axis_integral</code><br>Accumulated Micro input magnitude over time. This is computed as <code>|Axis| * dt</code>, summed across the trial.</li>
-<li><code>macro_path_length_m</code><br>Estimated Macro movement distance, in meters, based on the tracked Macro effort transform during the trial. In the current scene setup, this reflects the movement path of the proxy wrist/hand transform rather than the raw phone pose itself. This is a cumulative path length, not a straight-line displacement from start to end.</li>
+<li><code>micro_axis_integral</code><br>Accumulated Micro input magnitude over time. Computed as <code>|Axis| * dt</code>, summed across the trial.</li>
+<li><code>macro_path_length_m</code><br>Estimated Macro movement distance, in meters, based on the tracked Macro effort transform during the trial. In the current scene setup, this reflects the movement path of the proxy wrist/hand transform rather than the raw phone pose itself. Cumulative path length, not straight-line displacement from start to end.</li>
 <li><code>phone_path_length_m</code><br>Total raw phone translation distance, in meters, accumulated from incoming phone pose samples during the trial. This applies to both Macro and Micro trials and reflects how much the participant physically moved the phone itself. This is also a cumulative path length, not a straight-line displacement from start to end.</li>
 <li><code>mode_switch_count</code><br>Number of Micro mode switches recorded during the trial, such as axis-mode toggles.</li>
 </ul>

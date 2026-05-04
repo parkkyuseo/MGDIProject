@@ -1,24 +1,15 @@
 # 실험 스크립트
 
-## 1. 목적
-
-이 문서는 진행자용 가이드이면서, 참가자에게 직접 읽어줄 수 있는 대사까지 함께 포함한 실험 스크립트입니다.
-
-진행자가 그대로 읽기 쉽도록 비교적 단순하고 자연스러운 문장으로 작성했습니다.
-
-이 스크립트는 다음을 전제로 합니다.
+## 1. 설정
 
 - `within-subject` 실험
 - 참가자 1명당 `4개 condition`
 - condition 순서는 `Latin square`로 counterbalancing
 - counterbalancing 기준 순서는 `Macro Near -> Macro Side -> Micro Near -> Micro Side`
 - 각 condition에는 `Placement`, `Rotation`, `Scaling`이 포함됨
-- 현재 workflow에서는 각 phase마다 `2개 tool`을 사용함
+- 현재 workflow에서는 각 phase마다 `5개 tool`을 사용함
 
-중요한 참고:
-
-- Latin square 순서를 `Participant ID`와 연결할 경우, ID에는 `P01`, `P12`, `P24`처럼 숫자가 포함되어야 합니다.
-- 현재 코드에서는 `Participant ID`에 들어 있는 숫자 부분을 sequence 결정에 사용할 수 있습니다.
+`Participant ID`의 숫자 부분으로 sequence를 결정합니다.
 
 ## 2. 진행자 요약
 
@@ -30,7 +21,7 @@
 - 참가자는 condition 시작을 위해 `triple tap` 합니다
 - 시스템은 task phase 전에 짧은 practice를 보여줄 수 있습니다
 - 참가자는 `Placement`, `Rotation`, `Scaling`을 수행합니다
-- 현재 workflow에서는 각 phase를 `2개 tool`로 수행합니다
+- 현재 workflow에서는 각 phase를 `5개 tool`로 수행합니다
 - condition이 끝나면 짧은 설문을 진행합니다
 
 참가자에게 꼭 전달할 핵심 규칙:
@@ -46,10 +37,7 @@
 
 - HMD, phone, study computer를 준비합니다
 - 동의서 준비
-- 인구통계 설문 준비
-- condition 사이 설문 준비
-- 최종 설문 준비
-- debrief 문서 준비
+- 설문을 준비합니다. (컨디션별 설문 준비)
 - 필요하면 보상 관련 문서 준비
 - 참가자별 counterbalanced condition order 확인
 - 숫자가 포함된 `Participant ID` 할당
@@ -138,24 +126,26 @@
 
 ### 진행자
 
-- phone을 참가자에게 건넵니다
-- 편하게 잡을 수 있는지 확인합니다
-- 필요하면 phone app 실행 방법을 설명합니다
-- 할당된 `Participant ID`를 입력하거나 확인합니다
+- app을 켜고 할당된 `Participant ID`를 입력합니다
+- 참가자에게 HoloLens를 전달합니다
+- 그 다음 참가자에게 phone을 전달합니다
+- phone을 편하게 잡을 수 있는지 확인합니다
 
 ### 읽어줄 문구
 
-> 이제 실험에 사용할 phone을 드리겠습니다.
+> 먼저 app을 켜고 participant ID를 입력하겠습니다.
 >
-> 편한 방식으로 잡아 주세요.
+> 그 다음 HoloLens를 전달하겠습니다.
 >
-> 먼저 participant ID를 입력하고 시작하겠습니다.
+> 그 다음 phone을 드리겠습니다.
+>
+> Phone은 편한 방식으로 잡아 주세요.
 
 ### 진행자 메모
 
 시작 화면에서는:
 
-- 참가자가 할당된 `Participant ID`를 입력합니다
+- 제가 할당된 `Participant ID`를 입력합니다
 - 그 다음 runtime scene으로 넘어갑니다
 - runtime scene에는 `Scan the QR code to begin.` 문구가 표시됩니다
 
@@ -284,6 +274,8 @@
 
 > Rotation에서는 tool의 회전을 target과 최대한 비슷하게 맞춰 주세요.
 >
+> Rotation에서는 tool의 위치를 target 위치에 정확히 맞출 필요는 없고, 각도만 조정하면 됩니다.
+>
 > 그 다음 `triple tap`으로 현재 시도를 제출해 주세요.
 
 ### Micro rotation 추가 설명
@@ -354,11 +346,11 @@
 >
 > 가능한 한 정확하게 맞춘 뒤, 제출할 준비가 되면 `triple tap` 해 주세요.
 
-## 15. Condition 사이 설문
+## 15. Condition 후 설문
 
 ### 진행자
 
-- 각 condition이 끝날 때마다 between-condition questionnaire를 제공합니다
+- 각 condition이 끝날 때마다 questionnaire를 제공합니다
 - condition마다 같은 방식으로 안내합니다
 - 방금 끝난 condition을 이후 condition과 비교해서 설명하지 않습니다
 
@@ -389,17 +381,7 @@
 >
 > 쉬웠던 점, 어려웠던 점, 편했던 점, 헷갈렸던 점이 있으면 자유롭게 적어 주셔도 됩니다.
 
-## 17. Debrief
-
-### 읽어줄 문구
-
-> 실험을 완료해 주셔서 감사합니다.
->
-> 이 연구는 mixed reality에서 물체 조작 task를 수행할 때, 서로 다른 입력 condition이 성능과 사용자 경험에 어떤 영향을 주는지 비교하기 위한 것입니다.
->
-> 마지막으로 남기고 싶은 의견이나 질문이 있으면 말씀해 주세요.
-
-## 18. 세션 종료
+## 17. 세션 종료
 
 ### 진행자
 
@@ -413,7 +395,7 @@
 
 > 참여해 주셔서 다시 한 번 감사합니다.
 
-## 19. 문제 발생 시 사용할 문구
+## 18. 문제 발생 시 사용할 문구
 
 필요할 때만 사용합니다.
 
@@ -437,12 +419,11 @@
 
 > 아닙니다. Practice는 control에 익숙해지기 위한 단계이고, 그 다음에 main task가 진행됩니다.
 
-## 20. 진행자 빠른 참고
+## 19. 진행자 빠른 참고
 
 - 실험 유형: `within-subject`
-- Counterbalancing 기준 순서: `Macro Near -> Macro Side -> Micro Near -> Micro Side`
 - Condition 시작: 자세 이미지에 맞춘 뒤 `triple tap to start`
 - Condition 시작 직후: 잠깐 정지 자세 유지
 - Main submit 동작: `triple tap`
-- 현재 workflow: 각 condition에서 `Placement -> Rotation -> Scaling`, 각 phase당 `2 tools`
+- 현재 workflow: 각 condition에서 `Placement -> Rotation -> Scaling`, 각 phase당 `5 tools`
 - Latin square sequence를 `Participant ID`에 연결할 경우 ID에 숫자가 포함되어야 함

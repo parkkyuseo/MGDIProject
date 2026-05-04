@@ -1,114 +1,15 @@
 # Experiment Script
 
-## 1. Purpose
-
-This document is a facilitator guide with participant-facing spoken lines.
-
-It is written in simple, easy-to-read English so the facilitator can read most lines directly to the participant.
-
-This script assumes:
+## 1. Setup
 
 - a within-subject study
 - 4 conditions per participant
 - condition order is counterbalanced with a Latin square
 - the base order for counterbalancing is `Macro Near -> Macro Side -> Micro Near -> Micro Side`
 - each condition includes `Placement`, `Rotation`, and `Scaling`
-- each phase currently uses `2 tools` in the workflow
-
-Important note:
-
+- each phase currently uses `5 tools` in the workflow
 - If the Latin square order is tied to `Participant ID`, the ID should include a number such as `P01`, `P12`, or `P24`.
-- In the current code, the numeric part of the `Participant ID` is what can be used to determine the sequence.
-
-### Condition order lookup by Participant ID
-
-This lookup assumes the base order is:
-
-- `A = Macro Near`
-- `B = Macro Side`
-- `C = Micro Near`
-- `D = Micro Side`
-
-The code uses the numeric part of the participant ID.
-
-Examples:
-
-- `P01` uses `1`
-- `P15` uses `15`
-- `P24` uses `24`
-
-For 4 conditions, the sequence repeats every 4 participant numbers.
-
-| Participant number | Sequence | Condition order |
-| --- | --- | --- |
-| `1, 5, 9, 13, 17, ...` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `2, 6, 10, 14, 18, ...` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `3, 7, 11, 15, 19, ...` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `4, 8, 12, 16, 20, ...` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-
-Quick example:
-
-- `P15` uses participant number `15`
-- `15` falls in the `3, 7, 11, 15, 19, ...` group
-- so `P15` uses `C -> B -> D -> A`
-- that means `Micro Near -> Macro Side -> Micro Side -> Macro Near`
-
-### Participant ID quick lookup (`P01-P50`)
-
-Use this table when you want to know the condition order immediately without doing the modulo calculation by hand.
-
-| Participant ID | Sequence | Condition order |
-| --- | --- | --- |
-| `P01` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P02` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P03` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P04` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P05` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P06` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P07` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P08` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P09` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P10` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P11` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P12` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P13` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P14` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P15` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P16` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P17` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P18` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P19` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P20` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P21` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P22` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P23` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P24` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P25` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P26` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P27` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P28` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P29` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P30` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P31` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P32` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P33` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P34` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P35` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P36` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P37` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P38` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P39` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P40` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P41` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P42` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P43` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P44` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P45` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P46` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
-| `P47` | `C -> B -> D -> A` | `Micro Near -> Macro Side -> Micro Side -> Macro Near` |
-| `P48` | `D -> C -> A -> B` | `Micro Side -> Micro Near -> Macro Near -> Macro Side` |
-| `P49` | `A -> D -> B -> C` | `Macro Near -> Micro Side -> Macro Side -> Micro Near` |
-| `P50` | `B -> A -> C -> D` | `Macro Side -> Macro Near -> Micro Near -> Micro Side` |
+- Use the numeric part of the `Participant ID` to determine the sequence.
 
 ## 2. Facilitator Summary
 
@@ -120,8 +21,8 @@ For each condition:
 - the participant triple taps to begin the condition
 - the system may show a short practice before a task phase
 - the participant completes `Placement`, `Rotation`, and `Scaling`
-- each phase is completed for `2 tools` in the current workflow
-- the participant then completes a short between-condition questionnaire
+- each phase is completed for `5 tools` in the current workflow
+- the participant then completes a short questionnaire
 
 Core participant rules:
 
@@ -136,10 +37,7 @@ Core participant rules:
 
 - Prepare the headset, phone, and study computer.
 - Prepare the consent form.
-- Prepare the demographic questionnaire.
-- Prepare the between-condition questionnaire.
-- Prepare the final questionnaire.
-- Prepare the debrief sheet.
+- Prepare the questionnaires. (including one questionnaire for each condition)
 - Prepare the participant compensation form, if needed.
 - Confirm the participant's counterbalanced condition order.
 - Assign a `Participant ID` with a numeric part.
@@ -228,24 +126,26 @@ Before the participant arrives, confirm:
 
 ### Facilitator
 
-- Hand the phone to the participant.
-- Confirm that the participant can hold it comfortably.
-- Explain how to launch the phone app, if needed.
-- Enter or confirm the assigned `Participant ID`.
+- Open the app and enter the assigned `Participant ID`.
+- Hand the HoloLens to the participant.
+- After that, hand the phone to the participant.
+- Confirm that the participant can hold the phone comfortably.
 
 ### Say
 
-> I will now give you the phone we use in the study.
+> I will first open the app and enter your participant ID.
 >
-> Please hold it in a comfortable way.
+> Then I will hand you the HoloLens.
 >
-> We will start by entering your participant ID.
+> After that, I will give you the phone.
+>
+> Please hold the phone in a comfortable way.
 
 ### Facilitator note
 
 On the start screen:
 
-- the participant enters the assigned `Participant ID`
+- I enter the assigned `Participant ID`
 - the screen then continues to the runtime scene
 - the runtime scene shows `Scan the QR code to begin.`
 
@@ -374,6 +274,8 @@ Use these explanations before the participant begins the main experiment, and re
 
 > In rotation, match the tool to the target rotation as closely as possible.
 >
+> In rotation, you do not need to match the tool to the target position. You only need to adjust the angle.
+>
 > Then triple tap to submit your current attempt.
 
 ### Micro rotation add-on
@@ -446,11 +348,11 @@ Use these explanations before the participant begins the main experiment, and re
 >
 > Please try to match the target as accurately as you can, then triple tap when you are ready to submit.
 
-## 15. Between-Condition Questionnaire
+## 15. Questionnaire After Each Condition
 
 ### Facilitator
 
-- At the end of each condition, give the participant the between-condition questionnaire.
+- At the end of each condition, give the participant the questionnaire.
 - Keep the wording consistent across conditions.
 - Do not compare the current condition to later conditions out loud.
 
@@ -483,19 +385,7 @@ Use these explanations before the participant begins the main experiment, and re
 >
 > You can also share any comments about what felt easy, difficult, comfortable, or confusing.
 
-## 17. Debrief
-
-### Say
-
-> Thank you for completing the study.
->
-> This study compares different input conditions for object manipulation tasks in mixed reality.
->
-> We are interested in how the different conditions affect performance and user experience.
->
-> If you have any final comments or questions, I would be happy to hear them now.
-
-## 18. End Of Session
+## 17. End Of Session
 
 ### Facilitator
 
@@ -509,7 +399,7 @@ Use these explanations before the participant begins the main experiment, and re
 
 > Thank you again for your time and participation.
 
-## 19. Troubleshooting Lines
+## 18. Troubleshooting Lines
 
 Use these only when needed.
 
@@ -533,12 +423,11 @@ Use these only when needed.
 
 > No. The practice is only for familiarization. The main task comes after the practice.
 
-## 20. Facilitator Quick Reference
+## 19. Facilitator Quick Reference
 
 - Study type: `within-subject`
-- Base order for counterbalancing: `Macro Near -> Macro Side -> Micro Near -> Micro Side`
 - Condition start: match posture image, then `triple tap to start`
 - After condition start: participant should hold still briefly
 - Main submit action: `triple tap`
-- Current workflow per condition: `Placement -> Rotation -> Scaling`, with `2 tools` per phase
+- Current workflow per condition: `Placement -> Rotation -> Scaling`, with `5 tools` per phase
 - `Participant ID` should include a number if the Latin square sequence is linked to the participant ID

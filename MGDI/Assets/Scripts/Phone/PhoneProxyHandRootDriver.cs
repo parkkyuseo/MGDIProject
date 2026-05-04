@@ -17,6 +17,8 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
     [Header("Smoothing")]
     [SerializeField] private float posLerp = 24f;
     [SerializeField] private float rotLerp = 24f;
+    [Tooltip("If true, macro position is solved around the grip/contact pivot. Disable to keep wrist twist from translating the proxy hand root in an arc.")]
+    [SerializeField] private bool useGripPivotForPositionSolve = false;
     [Tooltip("If true, position solve uses the actual smoothed rotation applied this frame instead of the full desired rotation target. This reduces sideways drift caused by rotation-induced wrist compensation, especially in Macro+Side. Disable to restore the previous behavior.")]
     [SerializeField] private bool useAppliedRotationForPositionSolve = false;
 
@@ -33,6 +35,15 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
     [SerializeField] private float predictionMaxLinearSpeedMetersPerSec = 1.1f;
     [SerializeField] private float predictionMaxAngularSpeedDegPerSec = 540f;
     [SerializeField] private bool predictRotationDuringShortGaps = false;
+
+    [Header("Rotation-Dominant Translation Suppression")]
+    [Tooltip("If true, absorbs translation drift while the phone is rotating quickly but not translating much. This prevents proxy-hand position creep during repeated wrist twisting.")]
+    [SerializeField] private bool suppressTranslationDuringHighRotation = true;
+    [SerializeField] private float translationSuppressionAngularSpeedDegPerSec = 180f;
+    [SerializeField] private float translationSuppressionLinearSpeedMetersPerSec = 0.12f;
+    [SerializeField] private float translationSuppressionEnterHoldSeconds = 0.04f;
+    [SerializeField] private float translationSuppressionExitHoldSeconds = 0.12f;
+    [SerializeField] private float translationSuppressionMaxMotionAgeSeconds = 0.08f;
 
     [Header("Baseline")]
     [SerializeField] private bool autoRecenterOnFirstPose = true;
@@ -102,8 +113,6 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
     [SerializeField] private bool invertMappedPlanarForwardBack = true;
     [Tooltip("If true, translation yaw alignment is refreshed on RecenterInputOnly/RebaselineKeepWorldPose. Disable to keep the initial calibrated axis mapping stable.")]
     [SerializeField] private bool recaptureTranslationYawOnInputRecenter = false;
-    [Tooltip("If true, Macro+Side uses only the fixed workspace yaw when capturing translation alignment, instead of also factoring in the phone yaw at baseline time. This keeps intended translation directions more stable even if the phone is held at a different angle when the condition starts.")]
-    [SerializeField] private bool useFixedWorkspaceYawForMacroSide = false;
     [Tooltip("If true, skips the extra planar axis swap/invert stage when the legacy Macro+Side remap is active. This avoids double-remapping planar motion before the Side-specific axis permutation runs.")]
     [SerializeField] private bool skipAlignedPlanarAxisMappingWhenUsingLegacySideRemap = true;
 
@@ -137,6 +146,14 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
     private bool _hasLockedWorldRotation = false;
     private Quaternion _translationYawAlign = Quaternion.identity;
     private bool _hasTranslationYawAlign = false;
+    private Quaternion _offsetYawBasis = Quaternion.identity;
+    private bool _hasOffsetYawBasis = false;
+    private Vector3 _translationPhone0Position;
+    private bool _hasTranslationPhone0Position;
+    private bool _translationSuppressionActive;
+    private float _translationSuppressionEnterAccum;
+    private float _translationSuppressionExitAccum;
+    private Vector3 _translationSuppressedRawDp = Vector3.zero;
 
     public bool UseLegacySideAxisRemap => useLegacySideAxisRemap;
     public Transform HandRootTransform => handRoot;
@@ -201,8 +218,12 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
 
         // Phone translation delta
         bool skipAlignedPlanarAxisMapping = applyLegacySideAxisRemap && skipAlignedPlanarAxisMappingWhenUsingLegacySideRemap;
+        float dt = Mathf.Max(Time.deltaTime, 1e-4f);
 
-        Vector3 rawDp = phone.position - _phone0.position;
+        UpdateRotationDominantTranslationSuppression(phone.position, dt);
+
+        Vector3 translationPhone0Pos = _hasTranslationPhone0Position ? _translationPhone0Position : _phone0.position;
+        Vector3 rawDp = phone.position - translationPhone0Pos;
         rawDp = AlignTranslationDelta(rawDp, applyPlanarAxisMapping: !skipAlignedPlanarAxisMapping);
         Vector3 dp = rawDp * positionGain;
 
@@ -241,7 +262,6 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
             desiredRot = _lockedWorldRotation;
         }
 
-        float dt = Mathf.Max(Time.deltaTime, 1e-4f);
         float aPos = 1f - Mathf.Exp(-posLerp * dt);
         float aRot = 1f - Mathf.Exp(-rotLerp * dt);
 
@@ -260,11 +280,19 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
             }
         }
 
-        Quaternion positionSolveRot = applyRotation
-            ? (useAppliedRotationForPositionSolve ? nextRot : desiredRot)
-            : currentRot;
-        Vector3 desiredPivotWorld = _positionPivot0World + dp + offsetWorld;
-        Vector3 desiredPos = desiredPivotWorld - (positionSolveRot * _rootToPositionPivotLocal);
+        Vector3 desiredPos;
+        if (useGripPivotForPositionSolve)
+        {
+            Quaternion positionSolveRot = applyRotation
+                ? (useAppliedRotationForPositionSolve ? nextRot : desiredRot)
+                : currentRot;
+            Vector3 desiredPivotWorld = _positionPivot0World + dp + offsetWorld;
+            desiredPos = desiredPivotWorld - (positionSolveRot * _rootToPositionPivotLocal);
+        }
+        else
+        {
+            desiredPos = _root0.position + dp + offsetWorld;
+        }
 
         handRoot.position = Vector3.Lerp(handRoot.position, desiredPos, aPos);
         if (applyRotation)
@@ -282,7 +310,9 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         if (!phoneRx.HasPhonePose) return;
 
         _phone0 = phoneRx.LatestPhonePose;
-        CaptureTranslationYawAlignment(_phone0.rotation);
+        CaptureTranslationYawAlignment();
+        CaptureOffsetYawBasis();
+        CaptureTranslationPositionBaseline(_phone0.position);
         Quaternion rotOffset = Quaternion.Euler(rotationOffsetEuler);
         Quaternion rootRot = handRoot.rotation * Quaternion.Inverse(rotOffset);
         bool sideConditionActive = enableSideToFrontRemap;
@@ -305,7 +335,9 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
 
         _phone0 = phoneRx.LatestPhonePose;
         if (!_hasTranslationYawAlign || recaptureTranslationYawOnInputRecenter)
-            CaptureTranslationYawAlignment(_phone0.rotation);
+            CaptureTranslationYawAlignment();
+        CaptureOffsetYawBasis();
+        CaptureTranslationPositionBaseline(_phone0.position);
         _hasBaseline = true;
 
         Debug.Log("[PhoneProxyHandRootDriver] RecenterInputOnly (dp=0).");
@@ -496,7 +528,9 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         // 현재 phone을 baseline으로
         _phone0 = phoneRx.LatestPhonePose;
         if (!_hasTranslationYawAlign || recaptureTranslationYawOnInputRecenter)
-            CaptureTranslationYawAlignment(_phone0.rotation);
+            CaptureTranslationYawAlignment();
+        CaptureOffsetYawBasis();
+        CaptureTranslationPositionBaseline(_phone0.position);
 
         // Keep the macro root rotation baseline so dq==I preserves the current handRoot rotation.
         Quaternion rotOffset = Quaternion.Euler(rotationOffsetEuler);
@@ -525,13 +559,41 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
     private Vector3 ComputeOffsetWorld(bool sideConditionActive, Quaternion rootRot)
     {
         bool useCameraYawOffset = sideConditionActive ? useCameraYawOffsetInSide : useCameraYawOffsetInNear;
-        if (useCameraYawOffset && cameraTransform != null)
+        if (useCameraYawOffset)
         {
-            Quaternion camYaw = Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f);
-            return camYaw * new Vector3(positionOffset.x, 0f, positionOffset.z) + Vector3.up * positionOffset.y;
+            Quaternion yawBasis = _hasOffsetYawBasis
+                ? _offsetYawBasis
+                : (cameraTransform != null ? Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f) : Quaternion.identity);
+            return yawBasis * new Vector3(positionOffset.x, 0f, positionOffset.z) + Vector3.up * positionOffset.y;
         }
 
         return rootRot * positionOffset;
+    }
+
+    private void CaptureOffsetYawBasis()
+    {
+        if (cameraTransform == null && Camera.main != null)
+            cameraTransform = Camera.main.transform;
+
+        if (cameraTransform == null)
+        {
+            _offsetYawBasis = Quaternion.identity;
+            _hasOffsetYawBasis = false;
+            return;
+        }
+
+        _offsetYawBasis = Quaternion.Euler(0f, cameraTransform.eulerAngles.y, 0f);
+        _hasOffsetYawBasis = true;
+    }
+
+    private void CaptureTranslationPositionBaseline(Vector3 phonePosition)
+    {
+        _translationPhone0Position = phonePosition;
+        _hasTranslationPhone0Position = true;
+        _translationSuppressionActive = false;
+        _translationSuppressionEnterAccum = 0f;
+        _translationSuppressionExitAccum = 0f;
+        _translationSuppressedRawDp = Vector3.zero;
     }
 
     private Transform ResolvePositionPivotTransform()
@@ -627,7 +689,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         return mapped;
     }
 
-    private void CaptureTranslationYawAlignment(Quaternion phoneRotation)
+    private void CaptureTranslationYawAlignment()
     {
         if (!alignTranslationToWorkspaceYaw)
         {
@@ -645,41 +707,8 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
 
         workspaceYaw = workspaceYaw * Quaternion.Euler(0f, translationYawOffsetDeg, 0f);
 
-        if (useFixedWorkspaceYawForMacroSide && enableSideToFrontRemap)
-        {
-            _translationYawAlign = workspaceYaw;
-            _hasTranslationYawAlign = true;
-            return;
-        }
-
-        if (!TryExtractPhoneForwardYawDegrees(phoneRotation, out float phoneYawDeg))
-        {
-            if (_hasTranslationYawAlign)
-                return;
-
-            _translationYawAlign = Quaternion.identity;
-            _hasTranslationYawAlign = false;
-            return;
-        }
-
-        Quaternion phoneYaw = Quaternion.Euler(0f, phoneYawDeg, 0f);
-        _translationYawAlign = workspaceYaw * Quaternion.Inverse(phoneYaw);
+        _translationYawAlign = workspaceYaw;
         _hasTranslationYawAlign = true;
-    }
-
-    private static bool TryExtractPhoneForwardYawDegrees(Quaternion rotation, out float yawDeg)
-    {
-        Vector3 forward = rotation * Vector3.forward;
-        Vector3 planar = new Vector3(forward.x, 0f, forward.z);
-        if (planar.sqrMagnitude <= 1e-4f)
-        {
-            yawDeg = 0f;
-            return false;
-        }
-
-        planar.Normalize();
-        yawDeg = Mathf.Atan2(planar.x, planar.z) * Mathf.Rad2Deg;
-        return true;
     }
 
     private void QueueNeutralizeIfNeeded()
@@ -813,6 +842,75 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         }
 
         return new Pose(predictedPos, predictedRot);
+    }
+
+    private void UpdateRotationDominantTranslationSuppression(Vector3 phonePosition, float dt)
+    {
+        if (!suppressTranslationDuringHighRotation || phoneRx == null)
+            return;
+
+        if (!_hasTranslationPhone0Position)
+        {
+            _translationPhone0Position = phonePosition;
+            _hasTranslationPhone0Position = true;
+        }
+
+        bool hasEstimate = phoneRx.TryGetPhoneMotionEstimate(
+            out _,
+            out Vector3 linearVelocityMetersPerSec,
+            out Vector3 angularVelocityDegPerSec,
+            out float ageSec);
+
+        if (!hasEstimate || ageSec > Mathf.Max(0.01f, translationSuppressionMaxMotionAgeSeconds))
+        {
+            _translationSuppressionEnterAccum = 0f;
+            if (_translationSuppressionActive)
+            {
+                _translationSuppressionExitAccum += dt;
+                if (_translationSuppressionExitAccum >= Mathf.Max(0.01f, translationSuppressionExitHoldSeconds))
+                {
+                    _translationSuppressionActive = false;
+                    _translationSuppressionExitAccum = 0f;
+                }
+            }
+            return;
+        }
+
+        float angularSpeedDegPerSec = angularVelocityDegPerSec.magnitude;
+        float linearSpeedMetersPerSec = linearVelocityMetersPerSec.magnitude;
+
+        bool shouldSuppressNow =
+            angularSpeedDegPerSec >= Mathf.Max(0f, translationSuppressionAngularSpeedDegPerSec) &&
+            linearSpeedMetersPerSec <= Mathf.Max(0f, translationSuppressionLinearSpeedMetersPerSec);
+
+        if (shouldSuppressNow)
+        {
+            _translationSuppressionEnterAccum += dt;
+            _translationSuppressionExitAccum = 0f;
+
+            if (!_translationSuppressionActive &&
+                _translationSuppressionEnterAccum >= Mathf.Max(0.01f, translationSuppressionEnterHoldSeconds))
+            {
+                _translationSuppressionActive = true;
+                _translationSuppressedRawDp = phonePosition - _translationPhone0Position;
+            }
+        }
+        else
+        {
+            _translationSuppressionEnterAccum = 0f;
+            if (_translationSuppressionActive)
+            {
+                _translationSuppressionExitAccum += dt;
+                if (_translationSuppressionExitAccum >= Mathf.Max(0.01f, translationSuppressionExitHoldSeconds))
+                {
+                    _translationSuppressionActive = false;
+                    _translationSuppressionExitAccum = 0f;
+                }
+            }
+        }
+
+        if (_translationSuppressionActive)
+            _translationPhone0Position = phonePosition - _translationSuppressedRawDp;
     }
 }
 

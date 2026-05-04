@@ -616,18 +616,27 @@ public class ConditionBlockController : MonoBehaviour
                 continue;
             }
 
-            if (!phonePoseReceiver.HasPhonePose)
+            if (!phonePoseReceiver.HasPhonePose || !HasFreshPhoneConnection())
             {
+                baselineSet = false;
                 yield return null;
                 continue;
             }
 
+            int latestTripleTapId = phonePoseReceiver.LatestTripleTapId;
+
             if (!baselineSet)
             {
-                baselineTripleTapId = phonePoseReceiver.LatestTripleTapId;
+                baselineTripleTapId = latestTripleTapId;
                 baselineSet = true;
             }
-            else if (phonePoseReceiver.LatestTripleTapId != baselineTripleTapId)
+            else if (latestTripleTapId < baselineTripleTapId)
+            {
+                // Phone app restart or counter reset: resync the baseline instead of
+                // treating the reset as a fresh triple-tap event.
+                baselineTripleTapId = latestTripleTapId;
+            }
+            else if (latestTripleTapId > baselineTripleTapId)
             {
                 if (instructionHUD != null && !string.IsNullOrWhiteSpace(readyTripleTapAcknowledgementText))
                 {

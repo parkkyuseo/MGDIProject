@@ -5,6 +5,7 @@ public class BillboardUIFollower : MonoBehaviour
     [Header("Reference")]
     [SerializeField] private Transform anchorTransform;
     [SerializeField] private Transform cameraTransform;
+    [SerializeField] private bool anchorRotationOnly = false;
 
     [Header("Placement")]
     [Tooltip("Distance in front of the camera (meters).")]
@@ -43,6 +44,30 @@ public class BillboardUIFollower : MonoBehaviour
     {
         if (anchorTransform != null)
         {
+            if (anchorRotationOnly)
+            {
+                if (!ResolveCameraTransform()) return;
+
+                Vector3 anchorTargetPos =
+                    cameraTransform.position +
+                    cameraTransform.forward * distance +
+                    cameraTransform.up * heightOffset +
+                    cameraTransform.right * rightOffset;
+
+                Quaternion anchorTargetRot = ComputeAnchorRotation();
+
+                if (followLerp <= 0f)
+                    transform.position = anchorTargetPos;
+                else
+                {
+                    float a = 1f - Mathf.Exp(-followLerp * Time.deltaTime);
+                    transform.position = Vector3.Lerp(transform.position, anchorTargetPos, a);
+                }
+
+                transform.rotation = anchorTargetRot;
+                return;
+            }
+
             transform.SetPositionAndRotation(anchorTransform.position, anchorTransform.rotation);
             return;
         }
@@ -102,5 +127,16 @@ public class BillboardUIFollower : MonoBehaviour
         }
 
         return transform.rotation;
+    }
+
+    private Quaternion ComputeAnchorRotation()
+    {
+        if (anchorTransform == null)
+            return transform.rotation;
+
+        if (yawOnly)
+            return Quaternion.Euler(0f, anchorTransform.eulerAngles.y, 0f);
+
+        return anchorTransform.rotation;
     }
 }

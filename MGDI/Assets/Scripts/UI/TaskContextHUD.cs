@@ -78,7 +78,9 @@ public class TaskContextHUD : MonoBehaviour
     [SerializeField] private float hintRowHeight = 86f;
     [SerializeField] private float expandedMaxPanelHeightWithHint = 380f;
     [SerializeField] private TextAlignmentOptions tmpLineAlignment = TextAlignmentOptions.Center;
+    [SerializeField] private TextAlignmentOptions tmpHintAlignment = TextAlignmentOptions.TopLeft;
     [SerializeField] private TextAnchor uguiLineAlignment = TextAnchor.MiddleCenter;
+    [SerializeField] private TextAnchor uguiHintAlignment = TextAnchor.UpperLeft;
 
     private bool _warnedTaskLabelMissing;
     private bool _warnedConditionMissing;
@@ -557,14 +559,14 @@ public class TaskContextHUD : MonoBehaviour
             panelRect.anchoredPosition = visibleAnchoredPosition;
 
         ApplyTmpStyle(taskLabelText, taskFontSize, FontStyles.Bold, taskDefaultColor, tmpLineAlignment, true, overrideTextSizing);
-        ApplyTmpStyle(conditionText, lineFontSize, FontStyles.Normal, conditionColor, tmpLineAlignment, false, overrideTextSizing);
+        ApplyTmpStyle(conditionText, lineFontSize, FontStyles.Normal, conditionColor, tmpHintAlignment, false, overrideTextSizing);
         ApplyTmpStyle(trialText, lineFontSize, FontStyles.Bold, trialColor, tmpLineAlignment, false, overrideTextSizing);
         ApplyTmpStyle(practiceText, practiceFontSize, FontStyles.Bold, practiceColor, tmpLineAlignment, false, overrideTextSizing);
         ApplyTmpStyle(errorText, errorFontSize, FontStyles.Bold, errorColor, tmpLineAlignment, false, overrideTextSizing);
         ApplyTmpStyle(stopwatchText, stopwatchFontSize, FontStyles.Normal, conditionColor, tmpLineAlignment, false, overrideTextSizing);
 
         ApplyUguiStyle(taskLabelTextUGUI, taskDefaultColor, uguiLineAlignment, FontStyle.Bold);
-        ApplyUguiStyle(conditionTextUGUI, conditionColor, uguiLineAlignment, FontStyle.Normal);
+        ApplyUguiStyle(conditionTextUGUI, conditionColor, uguiHintAlignment, FontStyle.Normal);
         ApplyUguiStyle(trialTextUGUI, trialColor, uguiLineAlignment, FontStyle.Bold);
         ApplyUguiStyle(practiceTextUGUI, practiceColor, uguiLineAlignment, FontStyle.Bold);
         ApplyUguiStyle(errorTextUGUI, errorColor, uguiLineAlignment, FontStyle.Bold);
@@ -603,7 +605,7 @@ public class TaskContextHUD : MonoBehaviour
         yCursor = PlaceVisibleRow(conditionText != null ? conditionText.gameObject.activeSelf : (conditionTextUGUI != null && conditionTextUGUI.gameObject.activeSelf),
             conditionText != null ? conditionText.rectTransform : null,
             conditionTextUGUI != null ? conditionTextUGUI.rectTransform : null,
-            x, yCursor, contentWidth, hintRowHeight, secondaryRowGap);
+            x, yCursor, contentWidth, GetEffectiveHintRowHeight(), secondaryRowGap);
 
         yCursor = PlaceVisibleRow(trialText != null ? trialText.gameObject.activeSelf : (trialTextUGUI != null && trialTextUGUI.gameObject.activeSelf),
             trialText != null ? trialText.rectTransform : null,
@@ -633,7 +635,7 @@ public class TaskContextHUD : MonoBehaviour
         int visibleRowCount = 0;
 
         AccumulateRow(taskLabelText, taskLabelTextUGUI, 64f, ref maxLineWidth, ref totalHeight, ref visibleRowCount, rowGap);
-        AccumulateRow(conditionText, conditionTextUGUI, hintRowHeight, ref maxLineWidth, ref totalHeight, ref visibleRowCount, secondaryRowGap);
+        AccumulateRow(conditionText, conditionTextUGUI, GetEffectiveHintRowHeight(), ref maxLineWidth, ref totalHeight, ref visibleRowCount, secondaryRowGap);
         AccumulateRow(trialText, trialTextUGUI, 52f, ref maxLineWidth, ref totalHeight, ref visibleRowCount, secondaryRowGap);
         AccumulateRow(practiceText, practiceTextUGUI, 42f, ref maxLineWidth, ref totalHeight, ref visibleRowCount, secondaryRowGap);
         AccumulateRow(errorText, errorTextUGUI, 40f, ref maxLineWidth, ref totalHeight, ref visibleRowCount, secondaryRowGap);
@@ -655,6 +657,11 @@ public class TaskContextHUD : MonoBehaviour
     {
         return (conditionText != null && conditionText.gameObject.activeSelf && !string.IsNullOrWhiteSpace(conditionText.text)) ||
                (conditionTextUGUI != null && conditionTextUGUI.gameObject.activeSelf && !string.IsNullOrWhiteSpace(conditionTextUGUI.text));
+    }
+
+    private float GetEffectiveHintRowHeight()
+    {
+        return Mathf.Max(hintRowHeight, 106f);
     }
 
     private void AccumulateRow(TMP_Text tmp, Text ugui, float rowHeight, ref float maxLineWidth, ref float totalHeight, ref int visibleRowCount, float gapAfter)
@@ -746,6 +753,7 @@ public class TaskContextHUD : MonoBehaviour
         text.color = color;
         text.alignment = alignment;
         text.enableWordWrapping = true;
+        text.richText = true;
         if (uppercase && !string.IsNullOrEmpty(text.text))
             text.text = text.text.ToUpperInvariant();
     }
@@ -758,6 +766,7 @@ public class TaskContextHUD : MonoBehaviour
         text.color = color;
         text.alignment = alignment;
         text.fontStyle = style;
+        text.supportRichText = true;
     }
 
     private static bool IsFinite(float v)

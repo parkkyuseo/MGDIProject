@@ -3,9 +3,11 @@ using UnityEngine;
 public class PhoneTechniqueGate : MonoBehaviour
 {
     public enum MicroTask { Placement = 0, Rotation = 1, Scaling = 2 }
+    public MicroTask CurrentMicroTask => microTask;
 
     [Header("Refs")]
     [SerializeField] private PhoneInputRouter router;
+    [SerializeField] private ProxyHandGrabber grabber;
 
     [Header("Macro Drivers (enabled in Macro, disabled in Micro)")]
     [Tooltip("Drives phone pose follow (position + rotation). Enabled in Macro.")]
@@ -36,6 +38,7 @@ public class PhoneTechniqueGate : MonoBehaviour
     void Awake()
     {
         if (router == null) router = FindFirstObjectByType<PhoneInputRouter>();
+        if (grabber == null) grabber = FindFirstObjectByType<ProxyHandGrabber>();
         _lastMode = (router != null) ? router.CurrentMode : PhoneInputRouter.Mode.Macro;
     }
 
@@ -57,6 +60,13 @@ public class PhoneTechniqueGate : MonoBehaviour
 
     private void ApplyMode(PhoneInputRouter.Mode mode, bool force)
     {
+        bool isMicro = (mode == PhoneInputRouter.Mode.Micro);
+        bool hideProxyHandVisuals = isMicro &&
+                                    (microTask == MicroTask.Rotation || microTask == MicroTask.Scaling);
+
+        if (grabber != null)
+            grabber.SetProxyHandVisualForceHidden(hideProxyHandVisuals);
+
         if (_inputFrozen)
         {
             SetEnabled(macroPoseDriver, false);
@@ -66,8 +76,6 @@ public class PhoneTechniqueGate : MonoBehaviour
             SetEnabled(microScalingController, false);
             return;
         }
-
-        bool isMicro = (mode == PhoneInputRouter.Mode.Micro);
 
         // -------------------------
         // Driver gating

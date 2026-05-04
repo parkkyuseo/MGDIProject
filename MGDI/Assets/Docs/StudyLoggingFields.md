@@ -1,7 +1,5 @@
 # Study Logging Fields
 
-This document summarizes the trial-level data written by `StudyLogger.cs`.
-
 ## Overview
 
 - One CSV row is written for each completed trial.
@@ -49,7 +47,7 @@ This document summarizes the trial-level data written by `StudyLogger.cs`.
 
 - `tool_id`
   Identifier of the active tool for the row.
-  This is the tool ID assigned in the task setup and is more useful than an internal trial counter when analyzing tool-specific effects.
+  Tool ID from the task setup. Use this instead of an internal trial counter for tool-level analysis.
 
 ### Performance
 
@@ -81,17 +79,17 @@ This document summarizes the trial-level data written by `StudyLogger.cs`.
 
 - `micro_axis_integral`
   Accumulated Micro input magnitude over time.
-  This is computed as `|Axis| * dt`, summed across the trial.
+  Computed as `|Axis| * dt` over the trial.
 
 - `macro_path_length_m`
   Estimated Macro movement distance, in meters, based on the tracked Macro effort transform during the trial.
   In the current scene setup, this reflects the movement path of the proxy wrist/hand transform rather than the raw phone pose itself.
-  This is a cumulative path length, not a straight-line displacement from start to end.
+  Cumulative path length, not straight-line displacement.
 
 - `phone_path_length_m`
   Total raw phone translation distance, in meters, accumulated from incoming phone pose samples during the trial.
   This applies to both Macro and Micro trials and reflects how much the participant physically moved the phone itself.
-  This is also a cumulative path length, not a straight-line displacement from start to end.
+  Cumulative path length, not straight-line displacement.
 
 - `mode_switch_count`
   Number of Micro mode switches recorded during the trial, such as axis-mode toggles.

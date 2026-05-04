@@ -7,6 +7,7 @@ public class ProxyHandLocatorBeacon : MonoBehaviour
     [Header("References")]
     [SerializeField] private PhoneProxyHandRootDriver phoneMacroPoseDriver;
     [SerializeField] private PhoneInputRouter phoneRouter;
+    [SerializeField] private PhoneTechniqueGate phoneTechniqueGate;
     [SerializeField] private ToolPlacementTaskManager placementTask;
     [SerializeField] private ToolRotationTaskManager rotationTask;
     [SerializeField] private ToolScalingTaskManager scalingTask;
@@ -170,6 +171,8 @@ public class ProxyHandLocatorBeacon : MonoBehaviour
             phoneMacroPoseDriver = FindFirstObjectByType<PhoneProxyHandRootDriver>();
         if (phoneRouter == null)
             phoneRouter = FindFirstObjectByType<PhoneInputRouter>();
+        if (phoneTechniqueGate == null)
+            phoneTechniqueGate = FindFirstObjectByType<PhoneTechniqueGate>();
         if (placementTask == null)
             placementTask = FindFirstObjectByType<ToolPlacementTaskManager>();
         if (rotationTask == null)
@@ -189,6 +192,13 @@ public class ProxyHandLocatorBeacon : MonoBehaviour
     {
         if (phoneRouter == null || phoneRouter.CurrentMode != PhoneInputRouter.Mode.Micro)
             return false;
+
+        if (phoneTechniqueGate != null)
+        {
+            var microTask = phoneTechniqueGate.CurrentMicroTask;
+            return microTask == PhoneTechniqueGate.MicroTask.Rotation ||
+                   microTask == PhoneTechniqueGate.MicroTask.Scaling;
+        }
 
         bool microRotationRunning = rotationTask != null && rotationTask.IsTrialRunning;
         bool microScalingRunning = scalingTask != null && scalingTask.IsTrialRunning;
