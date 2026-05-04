@@ -23,6 +23,18 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         public float px, py, pz;
         public float qx, qy, qz, qw;
 
+        // Optional phone-side QR/marker pose in the same AR session frame as px/py/pz.
+        // If present once, it is retained so the phone and HoloLens do not need to see
+        // the QR marker at the same time.
+        public bool mvis;
+        public string mname;
+        public float mx, my, mz;
+        public float mqx, mqy, mqz, mqw;
+
+        public bool qrCalibrated;
+        public float dx_qr, dy_qr, dz_qr;
+        public float dqx_qr, dqy_qr, dqz_qr, dqw_qr;
+
         public bool hold;        // macro
         public bool toggle;      // micro grab toggle state
         public int modeToggleId; // micro placement plane toggle (event id)
@@ -40,6 +52,15 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     private bool _hasPrevPhonePose;
     private Pose _prevPhonePose;
     private double _cumulativePathLengthMeters;
+    private bool _hasPhoneMarkerPose;
+    private bool _latestPhoneMarkerVisible;
+    private Pose _phoneMarkerPose;
+    private string _phoneMarkerName;
+    private bool _hasQrRelativePhonePose;
+    private Pose _qrRelativePhonePose;
+    private bool _hasQrDeltaPose;
+    private Pose _qrDeltaPose;
+    private long _lastMarkerRxStamp;
 
     private bool _hold;
     private bool _toggle;
@@ -64,6 +85,14 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     public bool HasPhonePose { get { lock (_lock) return _hasPhonePose; } }
     public Pose LatestPhonePose { get { lock (_lock) return _phonePose; } }
     public double CumulativePathLengthMeters { get { lock (_lock) return _cumulativePathLengthMeters; } }
+    public bool HasPhoneMarker { get { lock (_lock) return _hasPhoneMarkerPose; } }
+    public bool LatestMarkerVisible { get { lock (_lock) return _latestPhoneMarkerVisible; } }
+    public Pose LatestPhoneMarkerPose { get { lock (_lock) return _phoneMarkerPose; } }
+    public string LatestPhoneMarkerName { get { lock (_lock) return _phoneMarkerName; } }
+    public bool HasQrRelativePhonePose { get { lock (_lock) return _hasQrRelativePhonePose; } }
+    public Pose LatestQrRelativePhonePose { get { lock (_lock) return _qrRelativePhonePose; } }
+    public bool HasQrDeltaPose { get { lock (_lock) return _hasQrDeltaPose; } }
+    public Pose LatestQrDeltaPose { get { lock (_lock) return _qrDeltaPose; } }
 
     public bool LatestHold { get { lock (_lock) return _hold; } }
     public bool LatestToggle { get { lock (_lock) return _toggle; } }
@@ -83,6 +112,20 @@ public class PhonePoseStreamReceiver : MonoBehaviour
             {
                 if (_lastRxStamp == 0) return float.PositiveInfinity;
                 long dtTicks = Stopwatch.GetTimestamp() - _lastRxStamp;
+                double dtSec = dtTicks * _invStopwatchFreq;
+                return (float)Math.Max(0.0, dtSec);
+            }
+        }
+    }
+
+    public float SecondsSinceLastPhoneMarker
+    {
+        get
+        {
+            lock (_lock)
+            {
+                if (_lastMarkerRxStamp == 0) return float.PositiveInfinity;
+                long dtTicks = Stopwatch.GetTimestamp() - _lastMarkerRxStamp;
                 double dtSec = dtTicks * _invStopwatchFreq;
                 return (float)Math.Max(0.0, dtSec);
             }
@@ -183,27 +226,47 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                 string json = Encoding.UTF8.GetString(data);
                 PosePacket pkt = JsonUtility.FromJson<PosePacket>(json);
 
-                Quaternion q = new Quaternion(pkt.qx, pkt.qy, pkt.qz, pkt.qw);
-                float qMag = Mathf.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
-                if (qMag > 1e-6f)
-                {
-                    float inv = 1f / qMag;
-                    q = new Quaternion(q.x * inv, q.y * inv, q.z * inv, q.w * inv);
-                }
-                else
-                {
-                    q = Quaternion.identity;
-                }
-
-                if (float.IsNaN(q.x) || float.IsNaN(q.y) || float.IsNaN(q.z) || float.IsNaN(q.w))
+                Quaternion q = NormalizePacketQuaternion(new Quaternion(pkt.qx, pkt.qy, pkt.qz, pkt.qw));
+                Vector3 phonePosition = new Vector3(pkt.px, pkt.py, pkt.pz);
+                if (!IsFinite(q) || !IsFinite(phonePosition))
                     continue;
 
                 Pose phonePose = new Pose(
-                    new Vector3(pkt.px, pkt.py, pkt.pz),
+                    phonePosition,
                     q
                 );
 
                 long nowStamp = Stopwatch.GetTimestamp();
+                bool hasMarkerPacket = false;
+                Pose markerPose = new Pose(Vector3.zero, Quaternion.identity);
+                bool hasQrDeltaPacket = false;
+                Pose qrDeltaPose = new Pose(Vector3.zero, Quaternion.identity);
+
+                if (pkt.mvis)
+                {
+                    bool hasMarkerRotation = TryNormalizePacketQuaternion(
+                        new Quaternion(pkt.mqx, pkt.mqy, pkt.mqz, pkt.mqw),
+                        out Quaternion mq);
+                    Vector3 markerPosition = new Vector3(pkt.mx, pkt.my, pkt.mz);
+                    if (hasMarkerRotation && IsFinite(markerPosition))
+                    {
+                        markerPose = new Pose(markerPosition, mq);
+                        hasMarkerPacket = true;
+                    }
+                }
+
+                if (pkt.qrCalibrated)
+                {
+                    bool hasDeltaRotation = TryNormalizePacketQuaternion(
+                        new Quaternion(pkt.dqx_qr, pkt.dqy_qr, pkt.dqz_qr, pkt.dqw_qr),
+                        out Quaternion qrDeltaRotation);
+                    Vector3 qrDeltaPosition = new Vector3(pkt.dx_qr, pkt.dy_qr, pkt.dz_qr);
+                    if (hasDeltaRotation && IsFinite(qrDeltaPosition))
+                    {
+                        qrDeltaPose = new Pose(qrDeltaPosition, qrDeltaRotation);
+                        hasQrDeltaPacket = true;
+                    }
+                }
 
                 lock (_lock)
                 {
@@ -227,6 +290,31 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                     _ay = pkt.ay;
                     _drag = pkt.drag;
 
+                    _latestPhoneMarkerVisible = hasMarkerPacket;
+                    if (hasMarkerPacket)
+                    {
+                        _phoneMarkerPose = markerPose;
+                        _phoneMarkerName = pkt.mname;
+                        _hasPhoneMarkerPose = true;
+                        _lastMarkerRxStamp = nowStamp;
+                    }
+
+                    if (_hasPhoneMarkerPose)
+                    {
+                        Pose qrRelativePose = MakeRelativePose(_phoneMarkerPose, phonePose);
+                        if (IsFinite(qrRelativePose.position) && IsFinite(qrRelativePose.rotation))
+                        {
+                            _qrRelativePhonePose = qrRelativePose;
+                            _hasQrRelativePhonePose = true;
+                        }
+                    }
+
+                    if (hasQrDeltaPacket)
+                    {
+                        _qrDeltaPose = qrDeltaPose;
+                        _hasQrDeltaPose = true;
+                    }
+
                     _lastRxStamp = nowStamp;
                 }
 
@@ -238,5 +326,54 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                 UDebug.LogWarning($"[PhonePoseStreamReceiver] RX error: {e.Message}");
             }
         }
+    }
+
+    private static Quaternion NormalizePacketQuaternion(Quaternion q)
+    {
+        if (TryNormalizePacketQuaternion(q, out Quaternion normalized))
+            return normalized;
+
+        return Quaternion.identity;
+    }
+
+    private static bool TryNormalizePacketQuaternion(Quaternion q, out Quaternion normalized)
+    {
+        normalized = Quaternion.identity;
+        if (!IsFinite(q))
+            return false;
+
+        float qMag = Mathf.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+        if (qMag > 1e-6f)
+        {
+            float inv = 1f / qMag;
+            normalized = new Quaternion(q.x * inv, q.y * inv, q.z * inv, q.w * inv);
+            return IsFinite(normalized);
+        }
+
+        return false;
+    }
+
+    private static Pose MakeRelativePose(Pose parent, Pose child)
+    {
+        Quaternion invParentRot = Quaternion.Inverse(parent.rotation);
+        return new Pose(
+            invParentRot * (child.position - parent.position),
+            invParentRot * child.rotation
+        );
+    }
+
+    private static bool IsFinite(Vector3 v)
+    {
+        return IsFinite(v.x) && IsFinite(v.y) && IsFinite(v.z);
+    }
+
+    private static bool IsFinite(Quaternion q)
+    {
+        return IsFinite(q.x) && IsFinite(q.y) && IsFinite(q.z) && IsFinite(q.w);
+    }
+
+    private static bool IsFinite(float value)
+    {
+        return !float.IsNaN(value) && !float.IsInfinity(value);
     }
 }

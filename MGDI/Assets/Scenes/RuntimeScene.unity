@@ -3001,6 +3001,9 @@ MonoBehaviour:
   invertMappedPlanarForwardBack: 1
   recaptureTranslationYawOnInputRecenter: 1
   skipAlignedPlanarAxisMappingWhenUsingLegacySideRemap: 1
+  usePhoneQrRelativeTranslation: 1
+  requirePhoneQrRelativeTranslation: 1
+  logTranslationFrameSource: 1
   useLegacySideAxisRemap: 1
   swapLegacySideLateralAndVerticalOutputs: 1
 --- !u!1 &356670512

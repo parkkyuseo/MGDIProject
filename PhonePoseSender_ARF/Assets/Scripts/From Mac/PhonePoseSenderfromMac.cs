@@ -12,6 +12,12 @@ public class PhonePoseSenderfromMac : MonoBehaviour
 
     [Header("Source")]
     [SerializeField] private Transform arCamera;
+    [SerializeField] private PhoneMarkerTrackerfromMac markerTracker;
+
+    [Header("QR Calibration")]
+    [SerializeField] private bool autoCalibrateQrOnFirstMarker = true;
+    [SerializeField] private bool includeMarkerPoseInPacket = true;
+    [SerializeField] private bool includeQrDeltaInPacket = true;
 
     [Header("Send Rate")]
     [SerializeField] private int sendHz = 60;
@@ -64,12 +70,25 @@ public class PhonePoseSenderfromMac : MonoBehaviour
     private float _awaitingTripleTapExpire = -999f;
     private Vector2 _doubleTapPos;
 
+    private bool _hasQrCalibration = false;
+    private Pose _qrWorldPose = new Pose(Vector3.zero, Quaternion.identity);
+    private Pose _qrPhone0Pose = new Pose(Vector3.zero, Quaternion.identity);
+
     [Serializable]
     private struct PosePacket
     {
         public double t;
         public float px, py, pz;
         public float qx, qy, qz, qw;
+
+        public bool mvis;
+        public string mname;
+        public float mx, my, mz;
+        public float mqx, mqy, mqz, mqw;
+
+        public bool qrCalibrated;
+        public float dx_qr, dy_qr, dz_qr;
+        public float dqx_qr, dqy_qr, dqz_qr, dqw_qr;
 
         public bool hold;
         public bool toggle;
@@ -91,6 +110,9 @@ public class PhonePoseSenderfromMac : MonoBehaviour
             var cam = Camera.main;
             if (cam != null) arCamera = cam.transform;
         }
+
+        if (markerTracker == null)
+            markerTracker = FindObjectOfType<PhoneMarkerTrackerfromMac>();
     }
 
     void OnDestroy()
@@ -286,12 +308,41 @@ public class PhonePoseSenderfromMac : MonoBehaviour
 
         Vector3 p = arCamera.position;
         Quaternion q = arCamera.rotation;
+        Pose phoneWorldPose = new Pose(p, q);
+
+        bool markerVisible = includeMarkerPoseInPacket && markerTracker != null && markerTracker.MarkerVisible;
+        Vector3 markerPosition = markerVisible ? markerTracker.MarkerPosition : Vector3.zero;
+        Quaternion markerRotation = markerVisible ? markerTracker.MarkerRotation : Quaternion.identity;
+
+        if (autoCalibrateQrOnFirstMarker && !_hasQrCalibration && markerTracker != null && markerTracker.MarkerVisible)
+        {
+            CalibrateQr(markerTracker.MarkerPosition, markerTracker.MarkerRotation, phoneWorldPose);
+        }
+
+        bool hasQrDelta = includeQrDeltaInPacket && _hasQrCalibration;
+        Vector3 qrDeltaPosition = Vector3.zero;
+        Quaternion qrDeltaRotation = Quaternion.identity;
+        if (hasQrDelta)
+        {
+            Pose qrPhoneNow = MakeRelativePose(_qrWorldPose, phoneWorldPose);
+            qrDeltaPosition = qrPhoneNow.position - _qrPhone0Pose.position;
+            qrDeltaRotation = qrPhoneNow.rotation * Quaternion.Inverse(_qrPhone0Pose.rotation);
+        }
 
         var pkt = new PosePacket
         {
             t = Time.realtimeSinceStartupAsDouble,
             px = p.x, py = p.y, pz = p.z,
             qx = q.x, qy = q.y, qz = q.z, qw = q.w,
+
+            mvis = markerVisible,
+            mname = markerVisible && markerTracker != null ? markerTracker.MarkerName : "",
+            mx = markerPosition.x, my = markerPosition.y, mz = markerPosition.z,
+            mqx = markerRotation.x, mqy = markerRotation.y, mqz = markerRotation.z, mqw = markerRotation.w,
+
+            qrCalibrated = hasQrDelta,
+            dx_qr = qrDeltaPosition.x, dy_qr = qrDeltaPosition.y, dz_qr = qrDeltaPosition.z,
+            dqx_qr = qrDeltaRotation.x, dqy_qr = qrDeltaRotation.y, dqz_qr = qrDeltaRotation.z, dqw_qr = qrDeltaRotation.w,
 
             hold = hold,
             toggle = _grabToggled,
@@ -306,5 +357,46 @@ public class PhonePoseSenderfromMac : MonoBehaviour
         string json = JsonUtility.ToJson(pkt);
         byte[] bytes = Encoding.UTF8.GetBytes(json);
         _udp.Send(bytes, bytes.Length, _endPoint);
+    }
+
+    [ContextMenu("Reset QR Calibration")]
+    public void ResetQrCalibration()
+    {
+        _hasQrCalibration = false;
+        _qrWorldPose = new Pose(Vector3.zero, Quaternion.identity);
+        _qrPhone0Pose = new Pose(Vector3.zero, Quaternion.identity);
+        Debug.Log("[PhoneTX] QR calibration reset.");
+    }
+
+    [ContextMenu("Calibrate QR Now")]
+    public void CalibrateQrNow()
+    {
+        if (arCamera == null || markerTracker == null || !markerTracker.MarkerVisible)
+        {
+            Debug.LogWarning("[PhoneTX] Cannot calibrate QR: camera or visible marker is missing.");
+            return;
+        }
+
+        CalibrateQr(
+            markerTracker.MarkerPosition,
+            markerTracker.MarkerRotation,
+            new Pose(arCamera.position, arCamera.rotation));
+    }
+
+    private void CalibrateQr(Vector3 markerPosition, Quaternion markerRotation, Pose phoneWorldPose)
+    {
+        _qrWorldPose = new Pose(markerPosition, markerRotation);
+        _qrPhone0Pose = MakeRelativePose(_qrWorldPose, phoneWorldPose);
+        _hasQrCalibration = true;
+        Debug.Log("[PhoneTX] QR calibration captured.");
+    }
+
+    private static Pose MakeRelativePose(Pose parent, Pose child)
+    {
+        Quaternion invParentRot = Quaternion.Inverse(parent.rotation);
+        return new Pose(
+            invParentRot * (child.position - parent.position),
+            invParentRot * child.rotation
+        );
     }
 }
