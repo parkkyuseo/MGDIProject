@@ -1077,7 +1077,7 @@ MonoBehaviour:
   activeLayerName: Grabbable
   inactiveLayerName: ToolInactive
   toggleColliders: 1
-  toolsPerBlock: 5
+  toolsPerBlock: 1
   debugLog: 0
   autoStart: 1
 --- !u!114 &73713665
@@ -2973,6 +2973,12 @@ MonoBehaviour:
   predictionMaxLinearSpeedMetersPerSec: 1.1
   predictionMaxAngularSpeedDegPerSec: 540
   predictRotationDuringShortGaps: 0
+  suppressTranslationDuringHighRotation: 1
+  translationSuppressionAngularSpeedDegPerSec: 180
+  translationSuppressionLinearSpeedMetersPerSec: 0.12
+  translationSuppressionEnterHoldSeconds: 0.04
+  translationSuppressionExitHoldSeconds: 0.12
+  translationSuppressionMaxMotionAgeSeconds: 0.08
   autoRecenterOnFirstPose: 1
   autoNeutralizeAfterConnect: 1
   neutralizeDelaySeconds: 1.2
@@ -3004,6 +3010,9 @@ MonoBehaviour:
   usePhoneQrRelativeTranslation: 1
   requirePhoneQrRelativeTranslation: 1
   logTranslationFrameSource: 1
+  swapQrRelativePlanarTranslationAxes: 1
+  invertQrRelativeLateral: 1
+  invertQrRelativeForwardBack: 0
   useLegacySideAxisRemap: 1
   swapLegacySideLateralAndVerticalOutputs: 1
 --- !u!1 &356670512
@@ -6078,7 +6087,7 @@ Transform:
   m_GameObject: {fileID: 814804971}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0.45}
+  m_LocalPosition: {x: 0, y: -0.172, z: 0.178}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -6781,14 +6790,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   conditions:
-  - label: Macro Near
-    technique: 0
-    handLocation: 0
-    invertSideToFront: 0
   - label: Macro Side
     technique: 0
     handLocation: 1
     invertSideToFront: 1
+  - label: Macro Near
+    technique: 0
+    handLocation: 0
+    invertSideToFront: 0
   - label: Micro Near
     technique: 1
     handLocation: 0
@@ -6818,7 +6827,7 @@ MonoBehaviour:
   useBasketBasedSideStart: 1
   sideStartReference: {fileID: 0}
   nearStartLocalOffset: {x: -1, y: 0.5, z: -0.2}
-  sideStartLocalOffset: {x: -1.2, y: 0.5, z: -0.3}
+  sideStartLocalOffset: {x: -1.2, y: 0.6, z: -0.3}
   keepCurrentHandRotationOnSideStart: 1
   maxAbsSideStartOffsetMeters: 2
   forceReferenceRotationOnMacroStart: 1
@@ -6839,14 +6848,20 @@ MonoBehaviour:
   phoneAppReadyMessageSeconds: 12
   firstConditionEntryPostureText: 'Open the phone app.
 
-    Match the posture shown
-    in the image.
+    Scan the QR code with
+    the phone.
+
+    Match the posture shown in the image.
 
     Triple tap to start.'
-  repeatConditionEntryPostureText: 'Match the posture shown in the image.
+  repeatConditionEntryPostureText: 'Open the phone app.
 
-    Triple
-    tap to start.'
+    Scan the QR code with
+    the phone.
+
+    Match the posture shown in the image.
+
+    Triple tap to start.'
   conditionBreakText: 'Condition complete.
 
     Please take a short break and complete
@@ -8171,7 +8186,7 @@ Transform:
   m_GameObject: {fileID: 1147211367}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.269, y: 0, z: 0.374}
+  m_LocalPosition: {x: 0.279, y: 0, z: 0.158}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -8494,6 +8509,14 @@ MonoBehaviour:
   countdownFontSize: 44
   normalFontStyle: 1
   countdownFontStyle: 1
+  overlayText: {fileID: 0}
+  autoCreateOverlayText: 1
+  overlayAnchoredPosition: {x: 0, y: -22}
+  overlaySize: {x: 420, y: 42}
+  overlayTextColor: {r: 0.02, g: 0.32, b: 0.18, a: 1}
+  overlayFontSize: 18
+  overlayFontStyle: 1
+  speakOverlayText: 1
   enableSpeech: 1
   speakInstructionText: 1
   speakCountdownText: 1
@@ -8725,7 +8748,7 @@ Transform:
   m_GameObject: {fileID: 1196080580}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.857, y: 0.724, z: -0.019}
+  m_LocalPosition: {x: 0.767, y: 0.346, z: -0.019}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -12841,6 +12864,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   listenPort: 5555
   logPacketsPerSec: 0
+  announcePhoneQrDetected: 1
+  instructionHUD: {fileID: 1190963280}
+  phoneQrDetectedAnnouncementText: Phone QR detected.
+  phoneQrDetectedAnnouncementSeconds: 1.4
 --- !u!1 &1680200957
 GameObject:
   m_ObjectHideFlags: 0

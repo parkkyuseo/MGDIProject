@@ -73,11 +73,15 @@ public class PhonePoseSenderfromMac : MonoBehaviour
     private bool _hasQrCalibration = false;
     private Pose _qrWorldPose = new Pose(Vector3.zero, Quaternion.identity);
     private Pose _qrPhone0Pose = new Pose(Vector3.zero, Quaternion.identity);
+    private string _appSessionId;
+    private int _qrCalibrationId = 0;
+    private double _qrCalibrationTime = 0.0;
 
     [Serializable]
     private struct PosePacket
     {
         public double t;
+        public string appSessionId;
         public float px, py, pz;
         public float qx, qy, qz, qw;
 
@@ -87,6 +91,8 @@ public class PhonePoseSenderfromMac : MonoBehaviour
         public float mqx, mqy, mqz, mqw;
 
         public bool qrCalibrated;
+        public int qrCalibrationId;
+        public double qrCalibrationTime;
         public float dx_qr, dy_qr, dz_qr;
         public float dqx_qr, dqy_qr, dqz_qr, dqw_qr;
 
@@ -102,6 +108,8 @@ public class PhonePoseSenderfromMac : MonoBehaviour
 
     void Awake()
     {
+        _appSessionId = Guid.NewGuid().ToString("N");
+
         _udp = new UdpClient();
         _endPoint = new IPEndPoint(IPAddress.Parse(targetIp), targetPort);
 
@@ -332,6 +340,7 @@ public class PhonePoseSenderfromMac : MonoBehaviour
         var pkt = new PosePacket
         {
             t = Time.realtimeSinceStartupAsDouble,
+            appSessionId = _appSessionId,
             px = p.x, py = p.y, pz = p.z,
             qx = q.x, qy = q.y, qz = q.z, qw = q.w,
 
@@ -341,6 +350,8 @@ public class PhonePoseSenderfromMac : MonoBehaviour
             mqx = markerRotation.x, mqy = markerRotation.y, mqz = markerRotation.z, mqw = markerRotation.w,
 
             qrCalibrated = hasQrDelta,
+            qrCalibrationId = hasQrDelta ? _qrCalibrationId : 0,
+            qrCalibrationTime = hasQrDelta ? _qrCalibrationTime : 0.0,
             dx_qr = qrDeltaPosition.x, dy_qr = qrDeltaPosition.y, dz_qr = qrDeltaPosition.z,
             dqx_qr = qrDeltaRotation.x, dqy_qr = qrDeltaRotation.y, dqz_qr = qrDeltaRotation.z, dqw_qr = qrDeltaRotation.w,
 
@@ -388,7 +399,9 @@ public class PhonePoseSenderfromMac : MonoBehaviour
         _qrWorldPose = new Pose(markerPosition, markerRotation);
         _qrPhone0Pose = MakeRelativePose(_qrWorldPose, phoneWorldPose);
         _hasQrCalibration = true;
-        Debug.Log("[PhoneTX] QR calibration captured.");
+        _qrCalibrationId++;
+        _qrCalibrationTime = Time.realtimeSinceStartupAsDouble;
+        Debug.Log($"[PhoneTX] QR calibration captured. id={_qrCalibrationId}");
     }
 
     private static Pose MakeRelativePose(Pose parent, Pose child)

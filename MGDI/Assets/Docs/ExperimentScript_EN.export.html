@@ -30,6 +30,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f3f6f8; bor
 <p>Each participant completes all four conditions.</p>
 <p>For each condition:</p>
 <ul>
+<li>the participant opens or restarts the phone app, scans the QR code with the phone, and waits for the HoloLens <code>Phone QR detected.</code> announcement</li>
 <li>the participant matches the required posture</li>
 <li>the participant triple taps to begin the condition</li>
 <li>the system may show a short practice before a task phase</li>
@@ -42,6 +43,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f3f6f8; bor
 <li><code>Triple tap</code> submits the current attempt.</li>
 <li>In <code>Macro</code>, the participant mainly uses larger arm and hand movements.</li>
 <li>In <code>Micro</code>, the participant should keep the arm as still as possible and use phone swipes.</li>
+<li>If the phone app is restarted between conditions, the participant must scan the QR code again with the phone before starting that condition.</li>
 <li>After the participant triple taps to begin a condition, the system briefly checks phone connection and stillness before the task starts.</li>
 </ul>
 <h2>3. Before The Session</h2>
@@ -53,7 +55,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f3f6f8; bor
 <li>Prepare the participant compensation form, if needed.</li>
 <li>Confirm the participant&#x27;s counterbalanced condition order.</li>
 <li>Assign a <code>Participant ID</code> with a numeric part.</li>
-<li>Confirm that the phone app is available and the QR workspace setup is ready.</li>
+<li>Confirm that the phone app is available, can detect the QR code, and the QR workspace setup is ready.</li>
 <li>Check the basket and tool locations in the workspace.</li>
 <li>Confirm that the session starts from the participant ID screen.</li>
 </ul>
@@ -63,6 +65,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f3f6f8; bor
 <li>the start screen asks for <code>Participant ID</code></li>
 <li>the runtime begins after QR scanning</li>
 <li>the phone connects correctly</li>
+<li>the HoloLens announces <code>Phone QR detected.</code> after the phone scans the QR code</li>
 <li>the posture example images are visible</li>
 <li>the phone can detect <code>triple tap</code></li>
 </ul>
@@ -165,13 +168,17 @@ code { font-family: Consolas, "Courier New", monospace; background: #f3f6f8; bor
 <h2>10. Condition Introduction</h2>
 <h3>Facilitator</h3>
 <ul>
-<li>Before each condition, remind the participant that the posture image on the screen is the reference.</li>
+<li>At the start of each condition, have the participant open or restart the phone app if needed.</li>
+<li>Ask the participant to scan the QR code with the phone and wait for the HoloLens <code>Phone QR detected.</code> announcement.</li>
+<li>Then remind the participant that the posture image on the screen is the reference.</li>
 <li>Do not rush the participant during posture matching.</li>
 <li>After the participant triple taps to begin the condition, wait for the system to complete the phone connection and stillness check.</li>
 </ul>
 <h3>Say</h3>
 <blockquote>
-<p>At the start of each condition, please match the posture shown in the image.</p>
+<p>At the start of each condition, please open the phone app and scan the QR code with the phone.</p>
+<p>Please wait until the HoloLens says, &quot;Phone QR detected.&quot;</p>
+<p>After that, please match the posture shown in the image.</p>
 <p>When your posture matches the instruction, triple tap to start.</p>
 <p>After that, please hold still for a moment until the system is ready.</p>
 </blockquote>
@@ -333,9 +340,13 @@ code { font-family: Consolas, "Courier New", monospace; background: #f3f6f8; bor
 <blockquote>
 <p>Please give me one moment while I reset the workspace alignment.</p>
 </blockquote>
+<h3>If the phone QR detection announcement does not happen</h3>
+<blockquote>
+<p>Please keep the phone app open and point the phone camera at the QR code until the HoloLens says, &quot;Phone QR detected.&quot;</p>
+</blockquote>
 <h3>If the participant forgets the condition start step</h3>
 <blockquote>
-<p>Please match the posture shown in the image, then triple tap to start the condition.</p>
+<p>Please scan the QR code with the phone first, wait for &quot;Phone QR detected,&quot; match the posture shown in the image, then triple tap to start the condition.</p>
 </blockquote>
 <h3>If the participant moves too much right after the start triple tap</h3>
 <blockquote>
@@ -352,7 +363,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f3f6f8; bor
 <h2>19. Facilitator Quick Reference</h2>
 <ul>
 <li>Study type: <code>within-subject</code></li>
-<li>Condition start: match posture image, then <code>triple tap to start</code></li>
+<li>Condition start: phone app open, phone scans QR, HoloLens says <code>Phone QR detected.</code>, match posture image, then <code>triple tap to start</code></li>
 <li>After condition start: participant should hold still briefly</li>
 <li>Main submit action: <code>triple tap</code></li>
 <li>Current workflow per condition: <code>Placement -&gt; Rotation -&gt; Scaling</code>, with <code>5 tools</code> per phase</li>

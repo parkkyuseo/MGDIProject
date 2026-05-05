@@ -17,6 +17,7 @@
 
 각 condition에서:
 
+- 참가자는 phone app을 실행 또는 재실행하고, phone으로 QR 코드를 스캔한 뒤 HoloLens의 `Phone QR detected.` 안내를 기다립니다
 - 참가자는 화면에 나온 자세를 맞춥니다
 - 참가자는 condition 시작을 위해 `triple tap` 합니다
 - 시스템은 task phase 전에 짧은 practice를 보여줄 수 있습니다
@@ -29,6 +30,7 @@
 - `Triple tap`은 현재 시도를 제출하는 동작입니다
 - `Macro`에서는 주로 팔과 손의 큰 움직임을 사용합니다
 - `Micro`에서는 팔을 최대한 고정하고 phone swipe로 조정합니다
+- condition 사이에 phone app을 다시 켠 경우, 해당 condition을 시작하기 전에 phone으로 QR 코드를 다시 스캔해야 합니다
 - condition 시작을 위해 `triple tap` 한 직후에는 시스템이 잠시 phone connection과 stillness를 확인합니다
 
 ## 3. 세션 시작 전
@@ -41,7 +43,7 @@
 - 필요하면 보상 관련 문서 준비
 - 참가자별 counterbalanced condition order 확인
 - 숫자가 포함된 `Participant ID` 할당
-- phone app 사용 가능 여부 및 QR workspace setup 확인
+- phone app 사용 가능 여부, phone QR 인식 여부, QR workspace setup 확인
 - basket과 tool 위치 확인
 - 세션이 participant ID 입력 화면에서 시작되는지 확인
 
@@ -52,6 +54,7 @@
 - 시작 화면에서 `Participant ID`를 입력할 수 있는지
 - QR 스캔 후 runtime이 시작되는지
 - phone connection이 정상인지
+- phone으로 QR 코드를 스캔했을 때 HoloLens가 `Phone QR detected.` 안내를 하는지
 - 자세 예시 이미지가 잘 보이는지
 - phone에서 `triple tap`이 정상 인식되는지
 
@@ -184,13 +187,19 @@
 
 ### 진행자
 
-- 각 condition 전에 화면의 자세 이미지가 기준이라는 점을 다시 알려줍니다
+- 각 condition 시작 시 필요하면 participant가 phone app을 실행 또는 재실행하게 합니다
+- participant가 phone으로 QR 코드를 스캔하고 HoloLens의 `Phone QR detected.` 안내를 들을 때까지 기다리게 합니다
+- 그 다음 화면의 자세 이미지가 기준이라는 점을 다시 알려줍니다
 - 참가자가 자세를 맞출 때 서두르게 하지 않습니다
 - 참가자가 condition 시작을 위해 `triple tap` 한 뒤에는 시스템이 phone connection과 stillness를 확인할 시간을 줍니다
 
 ### 읽어줄 문구
 
-> 각 condition이 시작될 때는 화면에 보이는 자세를 맞춰 주세요.
+> 각 condition이 시작될 때는 phone app을 열고 phone으로 QR 코드를 먼저 스캔해 주세요.
+>
+> HoloLens에서 `Phone QR detected.` 안내가 들릴 때까지 기다려 주세요.
+>
+> 그 다음 화면에 보이는 자세를 맞춰 주세요.
 >
 > 자세를 맞춘 뒤 `triple tap` 해서 시작해 주세요.
 >
@@ -403,9 +412,13 @@
 
 > Workspace alignment를 다시 맞추는 동안 잠시만 기다려 주세요.
 
+### Phone QR detected 안내가 나오지 않을 때
+
+> Phone app을 켠 상태로 phone 카메라가 QR 코드를 보게 해 주세요. HoloLens에서 `Phone QR detected.` 안내가 나올 때까지 기다려 주세요.
+
 ### 참가자가 condition 시작 절차를 잊었을 때
 
-> 화면에 나온 자세를 먼저 맞추고, 그 다음 `triple tap` 해서 condition을 시작해 주세요.
+> 먼저 phone으로 QR 코드를 스캔하고 `Phone QR detected.` 안내를 기다린 뒤, 화면에 나온 자세를 맞추고 `triple tap` 해서 condition을 시작해 주세요.
 
 ### Condition 시작 직후 참가자가 많이 움직일 때
 
@@ -422,7 +435,7 @@
 ## 19. 진행자 빠른 참고
 
 - 실험 유형: `within-subject`
-- Condition 시작: 자세 이미지에 맞춘 뒤 `triple tap to start`
+- Condition 시작: phone app 실행, phone QR 스캔, HoloLens `Phone QR detected.` 확인, 자세 이미지에 맞춘 뒤 `triple tap to start`
 - Condition 시작 직후: 잠깐 정지 자세 유지
 - Main submit 동작: `triple tap`
 - 현재 workflow: 각 condition에서 `Placement -> Rotation -> Scaling`, 각 phase당 `5 tools`

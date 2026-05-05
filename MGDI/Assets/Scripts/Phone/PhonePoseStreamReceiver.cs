@@ -16,10 +16,17 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool logPacketsPerSec = true;
 
+    [Header("Phone QR Announcement")]
+    [SerializeField] private bool announcePhoneQrDetected = true;
+    [SerializeField] private InstructionHUD instructionHUD;
+    [SerializeField] private string phoneQrDetectedAnnouncementText = "Phone QR detected.";
+    [SerializeField] private float phoneQrDetectedAnnouncementSeconds = 1.4f;
+
     [Serializable]
     private struct PosePacket
     {
         public double t;
+        public string appSessionId;
         public float px, py, pz;
         public float qx, qy, qz, qw;
 
@@ -32,6 +39,8 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         public float mqx, mqy, mqz, mqw;
 
         public bool qrCalibrated;
+        public int qrCalibrationId;
+        public double qrCalibrationTime;
         public float dx_qr, dy_qr, dz_qr;
         public float dqx_qr, dqy_qr, dqz_qr, dqw_qr;
 
@@ -61,6 +70,9 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     private bool _hasQrDeltaPose;
     private Pose _qrDeltaPose;
     private long _lastMarkerRxStamp;
+    private string _phoneAppSessionId = "";
+    private double _lastPhonePacketTime = -1.0;
+    private string _latestPhoneQrDetectionKey = "";
 
     private bool _hold;
     private bool _toggle;
@@ -81,6 +93,8 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
     private int _pktCount;
     private float _nextPktsLogTime;
+    private bool _phoneQrAnnouncementArmed = true;
+    private string _phoneQrAnnouncementBaselineKey = "";
 
     public bool HasPhonePose { get { lock (_lock) return _hasPhonePose; } }
     public Pose LatestPhonePose { get { lock (_lock) return _phonePose; } }
@@ -93,6 +107,7 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     public Pose LatestQrRelativePhonePose { get { lock (_lock) return _qrRelativePhonePose; } }
     public bool HasQrDeltaPose { get { lock (_lock) return _hasQrDeltaPose; } }
     public Pose LatestQrDeltaPose { get { lock (_lock) return _qrDeltaPose; } }
+    public string LatestPhoneQrDetectionKey { get { lock (_lock) return _latestPhoneQrDetectionKey; } }
 
     public bool LatestHold { get { lock (_lock) return _hold; } }
     public bool LatestToggle { get { lock (_lock) return _toggle; } }
@@ -103,6 +118,15 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     public float LatestAx { get { lock (_lock) return _ax; } }
     public float LatestAy { get { lock (_lock) return _ay; } }
     public bool LatestDrag { get { lock (_lock) return _drag; } }
+
+    public void ArmPhoneQrDetectedAnnouncement(bool requireNewDetection = true)
+    {
+        lock (_lock)
+        {
+            _phoneQrAnnouncementBaselineKey = requireNewDetection ? _latestPhoneQrDetectionKey : "";
+            _phoneQrAnnouncementArmed = true;
+        }
+    }
 
     public float SecondsSinceLastRx
     {
@@ -187,6 +211,9 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         _rxThread = new Thread(ReceiveLoop) { IsBackground = true };
         _rxThread.Start();
 
+        if (instructionHUD == null)
+            instructionHUD = FindFirstObjectByType<InstructionHUD>();
+
         UDebug.Log($"[PhonePoseStreamReceiver] Listening UDP :{listenPort}");
     }
 
@@ -210,6 +237,8 @@ public class PhonePoseStreamReceiver : MonoBehaviour
             _pktCount = 0;
             UDebug.Log($"[PhonePoseStreamReceiver] pkts/sec ~ {c}");
         }
+
+        TryAnnouncePhoneQrDetected();
     }
 
     private void ReceiveLoop()
@@ -270,6 +299,26 @@ public class PhonePoseStreamReceiver : MonoBehaviour
 
                 lock (_lock)
                 {
+                    bool sessionChanged = false;
+                    string packetSessionId = pkt.appSessionId ?? "";
+                    if (!string.IsNullOrWhiteSpace(packetSessionId) &&
+                        !string.Equals(packetSessionId, _phoneAppSessionId, StringComparison.Ordinal))
+                    {
+                        _phoneAppSessionId = packetSessionId;
+                        sessionChanged = true;
+                    }
+                    else if (string.IsNullOrWhiteSpace(packetSessionId) &&
+                             _lastPhonePacketTime >= 0.0 &&
+                             pkt.t + 0.5 < _lastPhonePacketTime)
+                    {
+                        sessionChanged = true;
+                    }
+
+                    if (sessionChanged)
+                        ClearPhoneQrStateLocked();
+
+                    _lastPhonePacketTime = pkt.t;
+
                     if (_hasPhonePose)
                     {
                         _cumulativePathLengthMeters += Vector3.Distance(_phonePose.position, phonePose.position);
@@ -297,6 +346,15 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                         _phoneMarkerName = pkt.mname;
                         _hasPhoneMarkerPose = true;
                         _lastMarkerRxStamp = nowStamp;
+                        if (!hasQrDeltaPacket)
+                        {
+                            _latestPhoneQrDetectionKey = BuildQrDetectionKey(
+                                packetSessionId,
+                                pkt.qrCalibrationId,
+                                pkt.qrCalibrationTime,
+                                nowStamp,
+                                pkt.mname);
+                        }
                     }
 
                     if (_hasPhoneMarkerPose)
@@ -313,6 +371,17 @@ public class PhonePoseStreamReceiver : MonoBehaviour
                     {
                         _qrDeltaPose = qrDeltaPose;
                         _hasQrDeltaPose = true;
+                        _latestPhoneQrDetectionKey = BuildQrDetectionKey(
+                            packetSessionId,
+                            pkt.qrCalibrationId,
+                            pkt.qrCalibrationTime,
+                            nowStamp,
+                            hasMarkerPacket ? pkt.mname : "");
+                    }
+                    else if (pkt.qrCalibrated == false && !hasMarkerPacket && !string.IsNullOrWhiteSpace(packetSessionId))
+                    {
+                        _hasQrDeltaPose = false;
+                        _hasQrRelativePhonePose = false;
                     }
 
                     _lastRxStamp = nowStamp;
@@ -375,5 +444,82 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     private static bool IsFinite(float value)
     {
         return !float.IsNaN(value) && !float.IsInfinity(value);
+    }
+
+    private void ClearPhoneQrStateLocked()
+    {
+        _hasPhoneMarkerPose = false;
+        _latestPhoneMarkerVisible = false;
+        _phoneMarkerPose = new Pose(Vector3.zero, Quaternion.identity);
+        _phoneMarkerName = "";
+        _hasQrRelativePhonePose = false;
+        _qrRelativePhonePose = new Pose(Vector3.zero, Quaternion.identity);
+        _hasQrDeltaPose = false;
+        _qrDeltaPose = new Pose(Vector3.zero, Quaternion.identity);
+        _lastMarkerRxStamp = 0;
+        _latestPhoneQrDetectionKey = "";
+    }
+
+    private static string BuildQrDetectionKey(
+        string appSessionId,
+        int qrCalibrationId,
+        double qrCalibrationTime,
+        long fallbackStamp,
+        string markerName)
+    {
+        if (!string.IsNullOrWhiteSpace(appSessionId) && qrCalibrationId > 0)
+            return $"{appSessionId}:{qrCalibrationId}";
+
+        if (!string.IsNullOrWhiteSpace(appSessionId) && qrCalibrationTime > 0.0)
+            return $"{appSessionId}:{qrCalibrationTime:F3}";
+
+        string safeMarker = string.IsNullOrWhiteSpace(markerName) ? "marker" : markerName;
+        return $"{safeMarker}:{fallbackStamp}";
+    }
+
+    private void TryAnnouncePhoneQrDetected()
+    {
+        if (!announcePhoneQrDetected)
+            return;
+
+        string key;
+        string baselineKey;
+        bool armed;
+        lock (_lock)
+        {
+            key = _latestPhoneQrDetectionKey;
+            baselineKey = _phoneQrAnnouncementBaselineKey;
+            armed = _phoneQrAnnouncementArmed;
+        }
+
+        if (!armed || string.IsNullOrWhiteSpace(key))
+            return;
+
+        if (!string.IsNullOrWhiteSpace(baselineKey) &&
+            string.Equals(key, baselineKey, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        lock (_lock)
+        {
+            _phoneQrAnnouncementArmed = false;
+        }
+
+        string text = string.IsNullOrWhiteSpace(phoneQrDetectedAnnouncementText)
+            ? "Phone QR detected."
+            : phoneQrDetectedAnnouncementText;
+
+        if (instructionHUD == null)
+            instructionHUD = FindFirstObjectByType<InstructionHUD>();
+
+        if (instructionHUD != null)
+        {
+            instructionHUD.ShowOverlay(text, Mathf.Max(0.25f, phoneQrDetectedAnnouncementSeconds));
+        }
+        else
+        {
+            UDebug.Log("[PhonePoseStreamReceiver] " + text);
+        }
     }
 }

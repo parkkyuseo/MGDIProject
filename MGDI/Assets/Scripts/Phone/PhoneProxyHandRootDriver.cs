@@ -123,11 +123,17 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
     [SerializeField] private bool requirePhoneQrRelativeTranslation = false;
     [Tooltip("If true, logs whether macro translation is currently using raw phone coordinates or QR-relative phone coordinates.")]
     [SerializeField] private bool logTranslationFrameSource = true;
+    [Tooltip("If true, swaps QR-relative planar X/Z before applying the HoloLens workspace yaw. Use when phone left-right arrives as QR Z and phone forward-back arrives as QR X.")]
+    [SerializeField] private bool swapQrRelativePlanarTranslationAxes = true;
+    [Tooltip("If true, flips QR-relative lateral motion after the optional X/Z swap.")]
+    [SerializeField] private bool invertQrRelativeLateral = false;
+    [Tooltip("If true, flips QR-relative forward-back motion after the optional X/Z swap.")]
+    [SerializeField] private bool invertQrRelativeForwardBack = false;
 
     [Header("Side Mapping Mode")]
     [Tooltip("If false, Side condition keeps the same axis mapping as Near and only applies sideRemapGain.")]
     [SerializeField] private bool useLegacySideAxisRemap = false;
-    [Tooltip("If true, the legacy Macro+Side remap swaps its lateral and vertical outputs. Use this when sideways hand motion incorrectly moves the proxy hand up/down, and vertical hand motion incorrectly moves it sideways.")]
+    [Tooltip("Deprecated. Macro+Side remap now always preserves lateral motion and swaps vertical with forward/back.")]
     [SerializeField] private bool swapLegacySideLateralAndVerticalOutputs = true;
 
     private bool _hasBaseline;
@@ -232,7 +238,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
 
         if (_hasTranslationPhone0Position && usingQrRelativeTranslation != _translationBaselineUsesQrRelative)
         {
-            CaptureTranslationYawAlignment();
+            CaptureTranslationYawAlignment(usingQrRelativeTranslation);
             CaptureTranslationPositionBaseline(translationPosition, usingQrRelativeTranslation);
             Debug.Log($"[PhoneProxyHandRootDriver] Translation frame switched to {GetTranslationFrameName(usingQrRelativeTranslation)}; translation baseline recaptured.");
         }
@@ -249,7 +255,9 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
 
         Vector3 translationPhone0Pos = _hasTranslationPhone0Position ? _translationPhone0Position : translationPosition;
         Vector3 rawDp = translationPosition - translationPhone0Pos;
-        rawDp = AlignTranslationDelta(rawDp, applyPlanarAxisMapping: !skipAlignedPlanarAxisMapping);
+        rawDp = AlignTranslationDelta(
+            rawDp,
+            applyPlanarAxisMapping: !usingQrRelativeTranslation && !skipAlignedPlanarAxisMapping);
         Vector3 dp = rawDp * positionGain;
 
         // Optional: legacy Side->Front axis remap (translation only)
@@ -338,7 +346,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         if (!TryGetTranslationSamplePosition(_phone0, out Vector3 translationBaseline, out bool usingQrRelativeTranslation))
             return;
 
-        CaptureTranslationYawAlignment();
+        CaptureTranslationYawAlignment(usingQrRelativeTranslation);
         CaptureOffsetYawBasis();
         CaptureTranslationPositionBaseline(translationBaseline, usingQrRelativeTranslation);
         Quaternion rotOffset = Quaternion.Euler(rotationOffsetEuler);
@@ -366,7 +374,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
             return;
 
         if (!_hasTranslationYawAlign || recaptureTranslationYawOnInputRecenter)
-            CaptureTranslationYawAlignment();
+            CaptureTranslationYawAlignment(usingQrRelativeTranslation);
         CaptureOffsetYawBasis();
         CaptureTranslationPositionBaseline(translationBaseline, usingQrRelativeTranslation);
         _hasBaseline = true;
@@ -538,12 +546,15 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         Vector3 dpWorld,
         Quaternion basisRot,
         bool invert,
-        bool swapLateralAndVerticalOutputs)
+        bool legacySwapLateralAndVerticalOutputs)
     {
+        _ = legacySwapLateralAndVerticalOutputs;
         Vector3 local = Quaternion.Inverse(basisRot) * dpWorld;
 
-        float x = swapLateralAndVerticalOutputs ? local.z : local.x;
-        float y = swapLateralAndVerticalOutputs ? local.x : -local.z;
+        // Macro+Side keeps phone left/right as proxy left/right, and swaps phone vertical
+        // with phone forward/back so side-body motion maps onto the workspace-facing axes.
+        float x = local.x;
+        float y = -local.z;
         float zSign = invert ? 1f : -1f;
         float z = local.y * zSign;
 
@@ -562,7 +573,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
             return;
 
         if (!_hasTranslationYawAlign || recaptureTranslationYawOnInputRecenter)
-            CaptureTranslationYawAlignment();
+            CaptureTranslationYawAlignment(usingQrRelativeTranslation);
         CaptureOffsetYawBasis();
         CaptureTranslationPositionBaseline(translationBaseline, usingQrRelativeTranslation);
 
@@ -637,7 +648,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         {
             if (phoneRx.HasQrDeltaPose)
             {
-                translationPosition = phoneRx.LatestQrDeltaPose.position;
+                translationPosition = MapQrRelativeTranslationPosition(phoneRx.LatestQrDeltaPose.position);
                 usingQrRelativeTranslation = true;
                 _hasWarnedMissingQrTranslation = false;
                 return true;
@@ -645,7 +656,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
 
             if (phoneRx.HasQrRelativePhonePose)
             {
-                translationPosition = phoneRx.LatestQrRelativePhonePose.position;
+                translationPosition = MapQrRelativeTranslationPosition(phoneRx.LatestQrRelativePhonePose.position);
                 usingQrRelativeTranslation = true;
                 _hasWarnedMissingQrTranslation = false;
                 return true;
@@ -667,6 +678,22 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         translationPosition = fallbackPhonePose.position;
         usingQrRelativeTranslation = false;
         return true;
+    }
+
+    private Vector3 MapQrRelativeTranslationPosition(Vector3 qrPosition)
+    {
+        Vector3 mapped = qrPosition;
+
+        if (swapQrRelativePlanarTranslationAxes)
+            mapped = new Vector3(qrPosition.z, qrPosition.y, qrPosition.x);
+
+        if (invertQrRelativeLateral)
+            mapped.x = -mapped.x;
+
+        if (invertQrRelativeForwardBack)
+            mapped.z = -mapped.z;
+
+        return mapped;
     }
 
     private void LogTranslationFrameSourceIfChanged(bool usingQrRelativeTranslation)
@@ -780,7 +807,7 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
         return mapped;
     }
 
-    private void CaptureTranslationYawAlignment()
+    private void CaptureTranslationYawAlignment(bool usingQrRelativeTranslation = false)
     {
         if (!alignTranslationToWorkspaceYaw)
         {
@@ -796,7 +823,8 @@ public class PhoneProxyHandRootDriver : MonoBehaviour
             return;
         }
 
-        workspaceYaw = workspaceYaw * Quaternion.Euler(0f, translationYawOffsetDeg, 0f);
+        if (!usingQrRelativeTranslation)
+            workspaceYaw = workspaceYaw * Quaternion.Euler(0f, translationYawOffsetDeg, 0f);
 
         _translationYawAlign = workspaceYaw;
         _hasTranslationYawAlign = true;

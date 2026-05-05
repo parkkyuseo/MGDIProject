@@ -17,6 +17,7 @@ Each participant completes all four conditions.
 
 For each condition:
 
+- the participant opens or restarts the phone app, scans the QR code with the phone, and waits for the HoloLens `Phone QR detected.` announcement
 - the participant matches the required posture
 - the participant triple taps to begin the condition
 - the system may show a short practice before a task phase
@@ -29,6 +30,7 @@ Core participant rules:
 - `Triple tap` submits the current attempt.
 - In `Macro`, the participant mainly uses larger arm and hand movements.
 - In `Micro`, the participant should keep the arm as still as possible and use phone swipes.
+- If the phone app is restarted between conditions, the participant must scan the QR code again with the phone before starting that condition.
 - After the participant triple taps to begin a condition, the system briefly checks phone connection and stillness before the task starts.
 
 ## 3. Before The Session
@@ -41,7 +43,7 @@ Core participant rules:
 - Prepare the participant compensation form, if needed.
 - Confirm the participant's counterbalanced condition order.
 - Assign a `Participant ID` with a numeric part.
-- Confirm that the phone app is available and the QR workspace setup is ready.
+- Confirm that the phone app is available, can detect the QR code, and the QR workspace setup is ready.
 - Check the basket and tool locations in the workspace.
 - Confirm that the session starts from the participant ID screen.
 
@@ -52,6 +54,7 @@ Before the participant arrives, confirm:
 - the start screen asks for `Participant ID`
 - the runtime begins after QR scanning
 - the phone connects correctly
+- the HoloLens announces `Phone QR detected.` after the phone scans the QR code
 - the posture example images are visible
 - the phone can detect `triple tap`
 
@@ -184,13 +187,19 @@ On the start screen:
 
 ### Facilitator
 
-- Before each condition, remind the participant that the posture image on the screen is the reference.
+- At the start of each condition, have the participant open or restart the phone app if needed.
+- Ask the participant to scan the QR code with the phone and wait for the HoloLens `Phone QR detected.` announcement.
+- Then remind the participant that the posture image on the screen is the reference.
 - Do not rush the participant during posture matching.
 - After the participant triple taps to begin the condition, wait for the system to complete the phone connection and stillness check.
 
 ### Say
 
-> At the start of each condition, please match the posture shown in the image.
+> At the start of each condition, please open the phone app and scan the QR code with the phone.
+>
+> Please wait until the HoloLens says, "Phone QR detected."
+>
+> After that, please match the posture shown in the image.
 >
 > When your posture matches the instruction, triple tap to start.
 >
@@ -407,9 +416,13 @@ Use these only when needed.
 
 > Please give me one moment while I reset the workspace alignment.
 
+### If the phone QR detection announcement does not happen
+
+> Please keep the phone app open and point the phone camera at the QR code until the HoloLens says, "Phone QR detected."
+
 ### If the participant forgets the condition start step
 
-> Please match the posture shown in the image, then triple tap to start the condition.
+> Please scan the QR code with the phone first, wait for "Phone QR detected," match the posture shown in the image, then triple tap to start the condition.
 
 ### If the participant moves too much right after the start triple tap
 
@@ -426,7 +439,7 @@ Use these only when needed.
 ## 19. Facilitator Quick Reference
 
 - Study type: `within-subject`
-- Condition start: match posture image, then `triple tap to start`
+- Condition start: phone app open, phone scans QR, HoloLens says `Phone QR detected.`, match posture image, then `triple tap to start`
 - After condition start: participant should hold still briefly
 - Main submit action: `triple tap`
 - Current workflow per condition: `Placement -> Rotation -> Scaling`, with `5 tools` per phase

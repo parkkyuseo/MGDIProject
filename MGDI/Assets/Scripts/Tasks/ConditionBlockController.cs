@@ -79,9 +79,9 @@ public class ConditionBlockController : MonoBehaviour
     [SerializeField] private string phoneAppReadyMessage = "Look around and check the basket and tool locations.\nGet familiar with the workspace before starting.";
     [SerializeField] private float phoneAppReadyMessageSeconds = 12f;
     [TextArea(2, 4)]
-    [SerializeField] private string firstConditionEntryPostureText = "Open the phone app.\nMatch the posture shown in the image.\nTriple tap to start.";
+    [SerializeField] private string firstConditionEntryPostureText = "Open the phone app.\nScan the QR code with the phone.\nMatch the posture shown in the image.\nTriple tap to start.";
     [TextArea(2, 4)]
-    [SerializeField] private string repeatConditionEntryPostureText = "Match the posture shown in the image.\nTriple tap to start.";
+    [SerializeField] private string repeatConditionEntryPostureText = "Open the phone app.\nScan the QR code with the phone.\nMatch the posture shown in the image.\nTriple tap to start.";
     [TextArea(2, 4)]
     [SerializeField] private string conditionBreakText = "Condition complete.\nPlease take a short break and complete the questionnaire for this condition.";
     [SerializeField] private float conditionBreakSeconds = 5f;
@@ -495,6 +495,11 @@ public class ConditionBlockController : MonoBehaviour
             }
 
             ApplyConditionEntryStartPose();
+
+            if (phonePoseReceiver == null)
+                phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
+            if (phonePoseReceiver != null)
+                phonePoseReceiver.ArmPhoneQrDetectedAnnouncement(requireNewDetection: true);
 
             Sprite exampleSprite = GetConditionEntryExampleSprite();
             bool showingExample = showConditionEntryExampleImage && exampleSprite != null;

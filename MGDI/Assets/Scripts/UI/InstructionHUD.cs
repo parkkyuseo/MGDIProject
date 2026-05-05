@@ -55,6 +55,16 @@ public class InstructionHUD : MonoBehaviour
     [SerializeField] private FontStyles normalFontStyle = FontStyles.Bold;
     [SerializeField] private FontStyles countdownFontStyle = FontStyles.Bold;
 
+    [Header("Overlay Announcement")]
+    [SerializeField] private TMP_Text overlayText;
+    [SerializeField] private bool autoCreateOverlayText = true;
+    [SerializeField] private Vector2 overlayAnchoredPosition = new Vector2(0f, -22f);
+    [SerializeField] private Vector2 overlaySize = new Vector2(420f, 42f);
+    [SerializeField] private Color overlayTextColor = new Color(0.02f, 0.32f, 0.18f, 1f);
+    [SerializeField] private float overlayFontSize = 18f;
+    [SerializeField] private FontStyles overlayFontStyle = FontStyles.Bold;
+    [SerializeField] private bool speakOverlayText = true;
+
     [Header("Speech")]
     [SerializeField] private bool enableSpeech = true;
     [SerializeField] private bool speakInstructionText = true;
@@ -78,6 +88,7 @@ public class InstructionHUD : MonoBehaviour
     public float DefaultShowSeconds => defaultShowSeconds;
 
     Coroutine _hideCo;
+    Coroutine _overlayHideCo;
     Component _resolvedTextToSpeech;
     AudioSource _resolvedSpeechAudioSource;
     bool _warnedNoTextToSpeech;
@@ -100,6 +111,7 @@ public class InstructionHUD : MonoBehaviour
     Vector2 _exampleDefaultPivot;
     Vector2 _exampleDefaultAnchoredPosition;
     Vector2 _exampleDefaultSizeDelta;
+    RectTransform _overlayTextRect;
     bool _layoutDefaultsCached;
 
     private void Awake()
@@ -203,8 +215,11 @@ public class InstructionHUD : MonoBehaviour
     {
         if (_hideCo != null) StopCoroutine(_hideCo);
         _hideCo = null;
+        if (_overlayHideCo != null) StopCoroutine(_overlayHideCo);
+        _overlayHideCo = null;
 
         if (instructionText != null) instructionText.text = "";
+        HideOverlayImmediate();
         HideExample();
         if (canvasGroup != null) canvasGroup.alpha = 0f;
         if (panelRect != null) panelRect.localScale = Vector3.one * popScaleEnd;
@@ -233,6 +248,47 @@ public class InstructionHUD : MonoBehaviour
         float s = ResolveDisplaySeconds(instructionText.text, requestedSeconds);
         _hideCo = useTransitions ? StartCoroutine(ShowHideAnimated(s)) : StartCoroutine(HideAfter(s));
         return s;
+    }
+
+    public float ShowOverlay(string text, float? seconds = null, bool speak = true)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return 0f;
+
+        TMP_Text target = ResolveOverlayText();
+        if (target == null)
+            return 0f;
+
+        if (_overlayHideCo != null) StopCoroutine(_overlayHideCo);
+        _overlayHideCo = null;
+
+        target.text = text;
+        ApplyOverlayStyle(target);
+        target.gameObject.SetActive(true);
+        target.transform.SetAsLastSibling();
+
+        gameObject.SetActive(true);
+        if (canvasGroup != null && canvasGroup.alpha <= 0f)
+            canvasGroup.alpha = 1f;
+        if (panelRect != null)
+            panelRect.localScale = Vector3.one * popScaleEnd;
+
+        if (speak && speakOverlayText)
+            TrySpeak(text);
+
+        float requestedSeconds = seconds ?? defaultShowSeconds;
+        float s = Mathf.Max(0f, requestedSeconds);
+        _overlayHideCo = StartCoroutine(HideOverlayAfter(s));
+        return s;
+    }
+
+    public void HideOverlayImmediate()
+    {
+        if (overlayText == null)
+            return;
+
+        overlayText.text = "";
+        overlayText.gameObject.SetActive(false);
     }
 
     public void ShowExample(Sprite sprite)
@@ -637,6 +693,19 @@ public class InstructionHUD : MonoBehaviour
         HideImmediate();
     }
 
+    IEnumerator HideOverlayAfter(float s)
+    {
+        if (float.IsPositiveInfinity(s))
+        {
+            _overlayHideCo = null;
+            yield break;
+        }
+
+        yield return new WaitForSeconds(Mathf.Max(0f, s));
+        HideOverlayImmediate();
+        _overlayHideCo = null;
+    }
+
     private void ApplyStyleForText(string text)
     {
         if (instructionText == null)
@@ -654,6 +723,66 @@ public class InstructionHUD : MonoBehaviour
         instructionText.alignment = TextAlignmentOptions.Center;
         instructionText.enableWordWrapping = !isCountdown;
         instructionText.overflowMode = TextOverflowModes.Overflow;
+    }
+
+    private TMP_Text ResolveOverlayText()
+    {
+        if (overlayText != null)
+        {
+            ConfigureOverlayText(overlayText);
+            return overlayText;
+        }
+
+        if (!autoCreateOverlayText || instructionText == null)
+            return null;
+
+        Transform parent = panelRect != null ? panelRect : instructionText.transform.parent;
+        if (parent == null)
+            parent = transform;
+
+        GameObject go = new GameObject("InstructionHUD_OverlayText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        go.transform.SetParent(parent, false);
+        overlayText = go.GetComponent<TMP_Text>();
+
+        if (instructionText.font != null)
+            overlayText.font = instructionText.font;
+        overlayText.material = instructionText.material;
+
+        ConfigureOverlayText(overlayText);
+        overlayText.gameObject.SetActive(false);
+        return overlayText;
+    }
+
+    private void ConfigureOverlayText(TMP_Text target)
+    {
+        if (target == null)
+            return;
+
+        _overlayTextRect = target.rectTransform;
+        if (_overlayTextRect != null)
+        {
+            _overlayTextRect.anchorMin = new Vector2(0.5f, 1f);
+            _overlayTextRect.anchorMax = new Vector2(0.5f, 1f);
+            _overlayTextRect.pivot = new Vector2(0.5f, 1f);
+            _overlayTextRect.anchoredPosition = overlayAnchoredPosition;
+            _overlayTextRect.sizeDelta = overlaySize;
+        }
+
+        target.raycastTarget = false;
+        ApplyOverlayStyle(target);
+    }
+
+    private void ApplyOverlayStyle(TMP_Text target)
+    {
+        if (target == null)
+            return;
+
+        target.color = overlayTextColor;
+        target.fontSize = overlayFontSize;
+        target.fontStyle = overlayFontStyle;
+        target.alignment = TextAlignmentOptions.Center;
+        target.enableWordWrapping = false;
+        target.overflowMode = TextOverflowModes.Overflow;
     }
 
     private static bool IsCountdownText(string text)

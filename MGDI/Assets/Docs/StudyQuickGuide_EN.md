@@ -12,12 +12,13 @@
 
 1. On the start screen, enter your assigned `Participant ID`.
 2. If needed, use `Edit` to change it, then press `Continue`.
-3. In the runtime scene, when you see `Scan the QR code to begin.`, scan the QR code.
-4. When a condition starts, follow the posture instruction and example image, then hold that posture briefly.
-5. After the countdown, the task starts automatically. There is no separate `Start` button.
-6. A short `practice` may appear before each task. `Practice` is not logged.
-7. Match the target, then `triple tap` when you are ready to submit.
-8. After one condition ends, the next condition starts automatically.
+3. In the runtime scene, when you see `Scan the QR code to begin.`, scan the HoloLens workspace QR code.
+4. At the start of each condition, open or restart the phone app, scan the QR code with the phone, and wait for the HoloLens to say `Phone QR detected.`
+5. Follow the posture instruction and example image, then hold that posture briefly.
+6. After the countdown, the task starts automatically. There is no separate `Start` button.
+7. A short `practice` may appear before each task. `Practice` is not logged.
+8. Match the target, then `triple tap` when you are ready to submit.
+9. After one condition ends, the next condition starts automatically.
 
 ## 3. Condition Summary
 
@@ -80,12 +81,14 @@
 - If the proxy hand is close enough to an object, it can grab the object.
 - In `Macro`, the object is held while you keep touching the screen, and it is released when you let go.
 - In `Micro`, a single tap grabs the object, and another tap releases it.
+- If the phone app is restarted for a new condition, scan the QR code with the phone again before matching the posture.
 - Try not to change posture too much while the instruction image and countdown are shown.
-- If QR scanning fails or the display/input seems wrong, tell the facilitator immediately.
+- If QR scanning fails, `Phone QR detected.` is not announced, or the display/input seems wrong, tell the facilitator immediately.
 
 ## 6. Most Important
 
-- Before starting, enter your `Participant ID` and scan the `QR` code.
+- Before starting, enter your `Participant ID` and scan the HoloLens workspace `QR` code.
+- For every condition, scan the QR code with the phone and wait for `Phone QR detected.` before posture matching and `triple tap`.
 - Keep your hand in the correct condition posture: `Near Head` or `Side Of Body`.
 - In `Macro`, you hold an object while touching the screen. In `Micro`, you tap to grab and tap again to release.
 - In `Micro`, use phone swipes to control the task.
