@@ -1077,7 +1077,7 @@ MonoBehaviour:
   activeLayerName: Grabbable
   inactiveLayerName: ToolInactive
   toggleColliders: 1
-  toolsPerBlock: 1
+  toolsPerBlock: 5
   debugLog: 0
   autoStart: 1
 --- !u!114 &73713665
@@ -6790,14 +6790,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   conditions:
-  - label: Macro Side
-    technique: 0
-    handLocation: 1
-    invertSideToFront: 1
   - label: Macro Near
     technique: 0
     handLocation: 0
     invertSideToFront: 0
+  - label: Macro Side
+    technique: 0
+    handLocation: 1
+    invertSideToFront: 1
   - label: Micro Near
     technique: 1
     handLocation: 0
@@ -6827,7 +6827,7 @@ MonoBehaviour:
   useBasketBasedSideStart: 1
   sideStartReference: {fileID: 0}
   nearStartLocalOffset: {x: -1, y: 0.5, z: -0.2}
-  sideStartLocalOffset: {x: -1.2, y: 0.6, z: -0.3}
+  sideStartLocalOffset: {x: -1.2, y: 0.6, z: 0}
   keepCurrentHandRotationOnSideStart: 1
   maxAbsSideStartOffsetMeters: 2
   forceReferenceRotationOnMacroStart: 1
@@ -8511,10 +8511,10 @@ MonoBehaviour:
   countdownFontStyle: 1
   overlayText: {fileID: 0}
   autoCreateOverlayText: 1
-  overlayAnchoredPosition: {x: 0, y: -22}
-  overlaySize: {x: 420, y: 42}
-  overlayTextColor: {r: 0.02, g: 0.32, b: 0.18, a: 1}
-  overlayFontSize: 18
+  overlayAnchoredPosition: {x: 0, y: -10}
+  overlaySize: {x: 560, y: 64}
+  overlayTextColor: {r: 0.9, g: 0.05, b: 0.02, a: 1}
+  overlayFontSize: 30
   overlayFontStyle: 1
   speakOverlayText: 1
   enableSpeech: 1
@@ -9147,6 +9147,8 @@ MonoBehaviour:
   phonePoseReceiver: {fileID: 0}
   macroEffortTransform: {fileID: 1050038128}
   logDebug: 0
+  enableDocumentsCopy: 1
+  documentsCopyFolderName: Study1Logs
   enableMirrorSend: 1
   mirrorHost: 10.138.130.118
   mirrorPort: 19620
@@ -11351,6 +11353,11 @@ MonoBehaviour:
   practiceCompleteSeconds: 3
   showSkippedPracticeMicroStartMessage: 1
   skippedPracticeMicroStartSeconds: 1.5
+  showMainTaskStartMessage: 1
+  mainTaskStartMessageSeconds: 2
+  mainPlacementStartMessage: Main Placement Task Starts Now
+  mainRotationStartMessage: Main Rotation Task Starts Now
+  mainScalingStartMessage: Main Scaling Task Starts Now
   showDebugHUD: 0
   hudUpdateHz: 10
   logTaskContextUpdates: 0
@@ -12866,8 +12873,8 @@ MonoBehaviour:
   logPacketsPerSec: 0
   announcePhoneQrDetected: 1
   instructionHUD: {fileID: 1190963280}
-  phoneQrDetectedAnnouncementText: Phone QR detected.
-  phoneQrDetectedAnnouncementSeconds: 1.4
+  phoneQrDetectedAnnouncementText: PHONE QR DETECTED
+  phoneQrDetectedAnnouncementSeconds: 2.5
 --- !u!1 &1680200957
 GameObject:
   m_ObjectHideFlags: 0

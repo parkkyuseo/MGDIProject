@@ -712,6 +712,7 @@ PlayerSettings:
   syncCapabilities: 0
   platformCapabilities:
     WindowsStoreApps:
+      DocumentsLibrary: True
       GazeInput: True
       PrivateNetworkClientServer: True
       InternetClientServer: True
@@ -721,8 +722,10 @@ PlayerSettings:
       WebCam: True
       Microphone: True
   metroTargetDeviceFamilies: {}
-  metroFTAName: 
-  metroFTAFileTypes: []
+  metroFTAName: StudyLogCsv
+  metroFTAFileTypes:
+  - contentType: 
+    fileType: 
   metroProtocolName: 
   vcxProjDefaultLanguage: 
   XboxOneProductId: 

@@ -19,8 +19,8 @@ public class PhonePoseStreamReceiver : MonoBehaviour
     [Header("Phone QR Announcement")]
     [SerializeField] private bool announcePhoneQrDetected = true;
     [SerializeField] private InstructionHUD instructionHUD;
-    [SerializeField] private string phoneQrDetectedAnnouncementText = "Phone QR detected.";
-    [SerializeField] private float phoneQrDetectedAnnouncementSeconds = 1.4f;
+    [SerializeField] private string phoneQrDetectedAnnouncementText = "PHONE QR DETECTED";
+    [SerializeField] private float phoneQrDetectedAnnouncementSeconds = 2.5f;
 
     [Serializable]
     private struct PosePacket
@@ -507,7 +507,7 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         }
 
         string text = string.IsNullOrWhiteSpace(phoneQrDetectedAnnouncementText)
-            ? "Phone QR detected."
+            ? "PHONE QR DETECTED"
             : phoneQrDetectedAnnouncementText;
 
         if (instructionHUD == null)

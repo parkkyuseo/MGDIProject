@@ -32,6 +32,10 @@ public class StudyLogger : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool logDebug = true;
 
+    [Header("HoloLens File Explorer Copy")]
+    [SerializeField] private bool enableDocumentsCopy = true;
+    [SerializeField] private string documentsCopyFolderName = "Study1Logs";
+
     [Header("Mirror To Laptop (Optional)")]
     [SerializeField] private bool enableMirrorSend = false;
     [SerializeField] private string mirrorHost = "10.138.130.118";
@@ -136,6 +140,8 @@ public class StudyLogger : MonoBehaviour
     private bool _warnedMissingPhonePoseReceiver;
     private bool _warnedMissingTasks;
     private bool _warnedMirrorConfig;
+    private bool _warnedDocumentsCopyUnavailable;
+    private bool _loggedDocumentsCopyPath;
     private bool EffectiveLoggingEnabled => enableLogging && LoggingEnabled;
 
     private readonly List<MirrorRowEnvelope> _mirrorQueue = new List<MirrorRowEnvelope>();
@@ -147,6 +153,10 @@ public class StudyLogger : MonoBehaviour
     private bool _mirrorSendResultReady;
     private bool _mirrorSendResultOk;
     private string _mirrorSendResultRowId;
+#if ENABLE_WINMD_SUPPORT
+    private bool _documentsCopyInFlight;
+    private bool _documentsCopyPending;
+#endif
 
     private void Awake()
     {
@@ -721,6 +731,7 @@ public class StudyLogger : MonoBehaviour
             _writer = new StreamWriter(_filePath, append: false, Encoding.UTF8);
             _writer.WriteLine(CsvHeader);
             _writer.Flush();
+            RequestDocumentsCopy();
 
             if (logDebug)
                 Debug.Log($"[StudyLogger] Logging to {_filePath}");
@@ -1162,8 +1173,90 @@ public class StudyLogger : MonoBehaviour
 
         _writer.WriteLine(row);
         _writer.Flush();
+        RequestDocumentsCopy();
         return true;
     }
+
+    private void RequestDocumentsCopy()
+    {
+        if (!enableDocumentsCopy)
+            return;
+
+        if (string.IsNullOrEmpty(_filePath))
+            return;
+
+#if ENABLE_WINMD_SUPPORT
+        CopyCsvToDocumentsAsync();
+#else
+        if (logDebug && !_warnedDocumentsCopyUnavailable)
+        {
+            _warnedDocumentsCopyUnavailable = true;
+            Debug.Log("[StudyLogger] Documents copy is only available in UWP/HoloLens builds. Local StudyLogs CSV remains active.");
+        }
+#endif
+    }
+
+#if ENABLE_WINMD_SUPPORT
+    private async void CopyCsvToDocumentsAsync()
+    {
+        if (_documentsCopyInFlight)
+        {
+            _documentsCopyPending = true;
+            return;
+        }
+
+        _documentsCopyInFlight = true;
+
+        do
+        {
+            _documentsCopyPending = false;
+
+            try
+            {
+                if (string.IsNullOrEmpty(_filePath) || !File.Exists(_filePath))
+                    break;
+
+                string fileText = File.ReadAllText(_filePath, Encoding.UTF8);
+                string folderName = SanitizeForFileName(documentsCopyFolderName);
+                if (string.IsNullOrEmpty(folderName))
+                    folderName = "Study1Logs";
+
+                Windows.Storage.StorageFolder documents = Windows.Storage.KnownFolders.DocumentsLibrary;
+                Windows.Storage.StorageFolder folder = await documents.CreateFolderAsync(
+                    folderName,
+                    Windows.Storage.CreationCollisionOption.OpenIfExists);
+
+                Windows.Storage.StorageFile file = await folder.CreateFileAsync(
+                    Path.GetFileName(_filePath),
+                    Windows.Storage.CreationCollisionOption.ReplaceExisting);
+
+                await Windows.Storage.FileIO.WriteTextAsync(
+                    file,
+                    fileText,
+                    Windows.Storage.Streams.UnicodeEncoding.Utf8);
+
+                if (logDebug && !_loggedDocumentsCopyPath)
+                {
+                    _loggedDocumentsCopyPath = true;
+                    Debug.Log($"[StudyLogger] File Explorer copy enabled: Documents\\{folderName}\\{Path.GetFileName(_filePath)}");
+                }
+            }
+            catch (Exception e)
+            {
+                if (!_warnedDocumentsCopyUnavailable)
+                {
+                    _warnedDocumentsCopyUnavailable = true;
+                    Debug.LogWarning($"[StudyLogger] Failed to copy CSV to Documents\\{documentsCopyFolderName}. Local CSV remains active. Check UWP DocumentsLibrary capability. {e.Message}");
+                }
+
+                _documentsCopyPending = false;
+            }
+        }
+        while (_documentsCopyPending);
+
+        _documentsCopyInFlight = false;
+    }
+#endif
 
     private void CloseWriter()
     {

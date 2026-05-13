@@ -58,10 +58,10 @@ public class InstructionHUD : MonoBehaviour
     [Header("Overlay Announcement")]
     [SerializeField] private TMP_Text overlayText;
     [SerializeField] private bool autoCreateOverlayText = true;
-    [SerializeField] private Vector2 overlayAnchoredPosition = new Vector2(0f, -22f);
-    [SerializeField] private Vector2 overlaySize = new Vector2(420f, 42f);
-    [SerializeField] private Color overlayTextColor = new Color(0.02f, 0.32f, 0.18f, 1f);
-    [SerializeField] private float overlayFontSize = 18f;
+    [SerializeField] private Vector2 overlayAnchoredPosition = new Vector2(0f, -10f);
+    [SerializeField] private Vector2 overlaySize = new Vector2(560f, 64f);
+    [SerializeField] private Color overlayTextColor = new Color(0.9f, 0.05f, 0.02f, 1f);
+    [SerializeField] private float overlayFontSize = 30f;
     [SerializeField] private FontStyles overlayFontStyle = FontStyles.Bold;
     [SerializeField] private bool speakOverlayText = true;
 

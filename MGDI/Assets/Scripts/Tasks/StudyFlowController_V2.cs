@@ -69,6 +69,13 @@ public class StudyFlowController_V2 : MonoBehaviour
     [SerializeField] private bool showSkippedPracticeMicroStartMessage = true;
     [SerializeField] private float skippedPracticeMicroStartSeconds = 1.5f;
 
+    [Header("Main Task Start Message")]
+    [SerializeField] private bool showMainTaskStartMessage = true;
+    [SerializeField] private float mainTaskStartMessageSeconds = 2.0f;
+    [SerializeField] private string mainPlacementStartMessage = "Main Placement Task Starts Now";
+    [SerializeField] private string mainRotationStartMessage = "Main Rotation Task Starts Now";
+    [SerializeField] private string mainScalingStartMessage = "Main Scaling Task Starts Now";
+
     private Action _onPlacementFinished;
     private Action _onRotationFinished;
     private Action _onScalingFinished;
@@ -897,7 +904,8 @@ public class StudyFlowController_V2 : MonoBehaviour
             return;
         }
 
-        if (showSkippedPracticeMicroStartMessage &&
+        if (!showMainTaskStartMessage &&
+            showSkippedPracticeMicroStartMessage &&
             IsCurrentTechniqueMicro() &&
             ShouldShowSkippedPracticeStartSignalForCurrentCondition())
         {
@@ -916,13 +924,26 @@ public class StudyFlowController_V2 : MonoBehaviour
             _blockIntroCoroutine = null;
         }
 
+        _blockIntroCoroutine = StartCoroutine(ShowMainTaskStartThenBegin(phase));
+    }
+
+    private IEnumerator ShowMainTaskStartThenBegin(WorkflowProgressionController.Phase phase)
+    {
         if (instructionHUD != null)
             instructionHUD.HideImmediate();
+
+        if (showMainTaskStartMessage)
+        {
+            string text = BuildMainTaskStartText(phase);
+            float wait = Mathf.Max(0f, mainTaskStartMessageSeconds);
+            yield return ShowInstructionAndWaitForTaskGate(text, wait);
+        }
 
         if (IsCurrentTechniqueMicro())
             MarkSkippedPracticeStartSignalShownForCurrentCondition();
 
         StartRealBlockForPhase(phase);
+        _blockIntroCoroutine = null;
     }
 
     private void StartSkippedPracticeMicroStartGate(WorkflowProgressionController.Phase phase)
@@ -1177,8 +1198,9 @@ public class StudyFlowController_V2 : MonoBehaviour
             taskContextHUD.SetVisible(false);
         }
 
-        float wait = showPracticeCompleteMessage ? Mathf.Max(0f, practiceCompleteSeconds) : 0f;
-        if (showPracticeCompleteMessage &&
+        bool showGenericPracticeComplete = showPracticeCompleteMessage && !showMainTaskStartMessage;
+        float wait = showGenericPracticeComplete ? Mathf.Max(0f, practiceCompleteSeconds) : 0f;
+        if (showGenericPracticeComplete &&
             instructionHUD != null &&
             !string.IsNullOrWhiteSpace(practiceCompleteMessage))
         {
@@ -1341,6 +1363,27 @@ public class StudyFlowController_V2 : MonoBehaviour
                 return "Main task starts now\nUse phone swipes to adjust\nthe tool.";
             default:
                 return "Main task starts now\nUse phone swipes to continue.";
+        }
+    }
+
+    private string BuildMainTaskStartText(WorkflowProgressionController.Phase phase)
+    {
+        switch (phase)
+        {
+            case WorkflowProgressionController.Phase.Placement:
+                return string.IsNullOrWhiteSpace(mainPlacementStartMessage)
+                    ? "Main Placement Task Starts Now"
+                    : mainPlacementStartMessage;
+            case WorkflowProgressionController.Phase.Rotation:
+                return string.IsNullOrWhiteSpace(mainRotationStartMessage)
+                    ? "Main Rotation Task Starts Now"
+                    : mainRotationStartMessage;
+            case WorkflowProgressionController.Phase.Scaling:
+                return string.IsNullOrWhiteSpace(mainScalingStartMessage)
+                    ? "Main Scaling Task Starts Now"
+                    : mainScalingStartMessage;
+            default:
+                return "Main Task Starts Now";
         }
     }
 
@@ -1779,14 +1822,9 @@ public class StudyFlowController_V2 : MonoBehaviour
             if (conditionBlockController.CurrentTechnique == ConditionBlockController.Technique.Micro)
                 return "micro";
 
-            if (phase == WorkflowProgressionController.Phase.Placement)
-            {
-                return conditionBlockController.CurrentHandLocation == ConditionBlockController.HandLocation.Side
-                    ? "macro_side"
-                    : "macro_near";
-            }
-
-            return "macro_shared";
+            return conditionBlockController.CurrentHandLocation == ConditionBlockController.HandLocation.Side
+                ? "macro_side"
+                : "macro_near";
         }
 
         bool isMicro = phoneRouter != null && phoneRouter.CurrentMode == PhoneInputRouter.Mode.Micro;
