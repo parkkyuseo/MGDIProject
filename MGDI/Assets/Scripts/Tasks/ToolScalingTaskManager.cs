@@ -218,6 +218,9 @@ public class ToolScalingTaskManager : MonoBehaviour
     public float ScaleFactorTolerance => scaleFactorTolerance;
     public float ActiveScalingErrorFactor => active != null ? Mathf.Abs(ActiveCurrentFactor - active.targetFactor) : float.MaxValue;
     public Transform ActiveTargetTransform => _activeGhost;
+    public bool HasLastTrialOutcome { get; private set; }
+    public bool LastTrialSuccess { get; private set; }
+    public bool LastTrialTimedOut { get; private set; }
     public bool AllowMicroScaleWithoutHolding => allowMicroScaleWithoutHolding;
     public float EffectiveMinScaleFactor => GetEffectiveMinScaleFactor();
     public float EffectiveMaxScaleFactor => GetEffectiveMaxScaleFactor();
@@ -478,6 +481,9 @@ public class ToolScalingTaskManager : MonoBehaviour
         DrainPendingSubmitTriggers();
         ResetConfirmState();
         InitializeConfirmPoseFromActive();
+        HasLastTrialOutcome = false;
+        LastTrialSuccess = false;
+        LastTrialTimedOut = false;
         trialRunning = true;
         inTransition = false;
         OnConfirmProgress?.Invoke(0f, false);
@@ -496,6 +502,9 @@ public class ToolScalingTaskManager : MonoBehaviour
     {
         if (inTransition) yield break;
         inTransition = true;
+        HasLastTrialOutcome = true;
+        LastTrialSuccess = success;
+        LastTrialTimedOut = timedOut;
         trialRunning = false;
         OnConfirmProgress?.Invoke(0f, false);
         OnConfirmStatus?.Invoke("");

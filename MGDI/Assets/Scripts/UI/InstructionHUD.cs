@@ -58,7 +58,7 @@ public class InstructionHUD : MonoBehaviour
     [Header("Overlay Announcement")]
     [SerializeField] private TMP_Text overlayText;
     [SerializeField] private bool autoCreateOverlayText = true;
-    [SerializeField] private Vector2 overlayAnchoredPosition = new Vector2(0f, -10f);
+    [SerializeField] private Vector2 overlayAnchoredPosition = new Vector2(0f, 42f);
     [SerializeField] private Vector2 overlaySize = new Vector2(560f, 64f);
     [SerializeField] private Color overlayTextColor = new Color(0.9f, 0.05f, 0.02f, 1f);
     [SerializeField] private float overlayFontSize = 30f;

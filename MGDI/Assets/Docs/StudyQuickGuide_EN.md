@@ -13,12 +13,14 @@
 1. On the start screen, enter your assigned `Participant ID`.
 2. If needed, use `Edit` to change it, then press `Continue`.
 3. In the runtime scene, when you see `Scan the QR code to begin.`, scan the HoloLens workspace QR code.
-4. At the start of each condition, open or restart the phone app, scan the QR code with the phone, and wait for the HoloLens to say `Phone QR detected.`
-5. Follow the posture instruction and example image, then hold that posture briefly.
-6. After the countdown, the task starts automatically. There is no separate `Start` button.
-7. A short `practice` may appear before each task. `Practice` is not logged.
-8. Match the target, then `triple tap` when you are ready to submit.
-9. After one condition ends, the next condition starts automatically.
+4. At the start of each condition, the condition name appears. Listen to the explanation, then `triple tap` on the phone to continue.
+5. Open or restart the phone app, scan the QR code with the phone, and wait for the HoloLens to say `Phone QR detected.`
+6. Follow the posture instruction and example image, then `triple tap` to start. When the HoloLens says `Triple tap detected. Hold still.`, hold still briefly.
+7. Before each task, the task name appears. Listen to the explanation, then `triple tap` on the phone to continue.
+8. A short `practice` may appear before each task. `Practice` is not logged.
+9. Before the first main trial of each task, the HoloLens announces `Main Placement Task Starts Now`, `Main Rotation Task Starts Now`, or `Main Scaling Task Starts Now`.
+10. Match the target, then `triple tap` to submit.
+11. After one condition ends, complete the break/questionnaire step, then `triple tap` to continue to the next condition.
 
 ## 3. Condition Summary
 
@@ -34,7 +36,9 @@
 - Use larger arm and hand movements.
 - Keep your hand at the side of your body.
 - In this condition, the input is remapped.
-- Up/down hand movement is remapped to forward/back movement, and forward/back movement is remapped to up/down movement.
+- Phone left/right movement stays mapped to proxy-hand left/right movement.
+- Phone up/down movement controls proxy-hand forward/back movement.
+- Phone forward/back movement controls proxy-hand up/down movement.
 
 ![Macro Side Of Body](../Image/MacroSideBody.png)
 
@@ -59,20 +63,20 @@
 - Move the tool to the target position.
 - In `Micro`, swipe on the phone to move the tool left/right and up/down.
 - If needed, `double tap` to switch the movement plane for forward/back adjustment.
-- When ready, submit with `triple tap`.
+- After matching the target position, submit with `triple tap`.
 
 ### Rotation
 
 - Match the target orientation.
 - In `Micro`, left/right swipes control yaw, and up/down swipes control roll.
 - If needed, `double tap` to switch the vertical swipe axis between `roll` and `pitch`.
-- When ready, submit with `triple tap`.
+- After matching the target orientation, submit with `triple tap`.
 
 ### Scaling
 
 - Match the target size.
 - In `Micro`, up/down swipes make the tool larger or smaller.
-- When ready, submit with `triple tap`.
+- After matching the target size, submit with `triple tap`.
 
 ## 5. Notes
 
@@ -82,15 +86,16 @@
 - In `Macro`, the object is held while you keep touching the screen, and it is released when you let go.
 - In `Micro`, a single tap grabs the object, and another tap releases it.
 - If the phone app is restarted for a new condition, scan the QR code with the phone again before matching the posture.
-- Try not to change posture too much while the instruction image and countdown are shown.
+- Try not to change posture too much while the posture instruction image is shown and while the HoloLens asks you to hold still.
 - If QR scanning fails, `Phone QR detected.` is not announced, or the display/input seems wrong, tell the facilitator immediately.
 
 ## 6. Most Important
 
 - Before starting, enter your `Participant ID` and scan the HoloLens workspace `QR` code.
-- For every condition, scan the QR code with the phone and wait for `Phone QR detected.` before posture matching and `triple tap`.
+- For every condition, listen to the condition explanation, `triple tap` to continue, scan the QR code with the phone, and wait for `Phone QR detected.` before posture matching and `triple tap`.
 - Keep your hand in the correct condition posture: `Near Head` or `Side Of Body`.
+- When the HoloLens says `Triple tap detected. Hold still.`, keep still briefly.
 - In `Macro`, you hold an object while touching the screen. In `Micro`, you tap to grab and tap again to release.
 - In `Micro`, use phone swipes to control the task.
-- In `Macro - Side Of Body`, up/down and forward/back movement are remapped.
+- In `Macro - Side Of Body`, phone left/right stays left/right, phone up/down drives forward/back, and phone forward/back drives up/down.
 - Submission is always `triple tap` for every task.

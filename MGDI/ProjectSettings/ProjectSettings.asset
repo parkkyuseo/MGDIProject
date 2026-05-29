@@ -724,8 +724,8 @@ PlayerSettings:
   metroTargetDeviceFamilies: {}
   metroFTAName: StudyLogCsv
   metroFTAFileTypes:
-  - contentType: 
-    fileType: 
+  - contentType: text/csv
+    fileType: .csv
   metroProtocolName: 
   vcxProjDefaultLanguage: 
   XboxOneProductId: 

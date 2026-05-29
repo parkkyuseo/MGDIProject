@@ -189,6 +189,9 @@ public class ToolPlacementTaskManager : MonoBehaviour
     public string ActiveToolId => _active != null ? _active.id : null;
     public float ActiveToleranceMeters => _active != null ? _active.tolerance : float.MaxValue;
     public float ActiveErrorMeters => _active != null ? _active.lastErr : float.MaxValue;
+    public bool HasLastTrialOutcome { get; private set; }
+    public bool LastTrialSuccess { get; private set; }
+    public bool LastTrialTimedOut { get; private set; }
     public bool ResetToolsToStartAfterTrial
     {
         get => resetToolsToStartAfterTrial;
@@ -432,6 +435,9 @@ public class ToolPlacementTaskManager : MonoBehaviour
         DrainPendingSubmitTriggers();
         ResetConfirmState();
         InitializeConfirmPoseFromActive();
+        HasLastTrialOutcome = false;
+        LastTrialSuccess = false;
+        LastTrialTimedOut = false;
         trialRunning = true;
         inTransition = false;
         OnConfirmStatus?.Invoke("");
@@ -454,6 +460,9 @@ public class ToolPlacementTaskManager : MonoBehaviour
     {
         if (inTransition) yield break;
         inTransition = true;
+        HasLastTrialOutcome = true;
+        LastTrialSuccess = success;
+        LastTrialTimedOut = timedOut;
         trialRunning = false;
         OnConfirmStatus?.Invoke("");
         ResetConfirmState();

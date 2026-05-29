@@ -83,9 +83,10 @@ public class ConditionBlockController : MonoBehaviour
     [TextArea(2, 4)]
     [SerializeField] private string repeatConditionEntryPostureText = "Open the phone app.\nScan the QR code with the phone.\nMatch the posture shown in the image.\nTriple tap to start.";
     [TextArea(2, 4)]
-    [SerializeField] private string conditionBreakText = "Condition complete.\nPlease take a short break and complete the questionnaire for this condition.";
+    [SerializeField] private string conditionBreakText = "Condition complete.\nPlease hand the phone to the researcher.\nTake a short break and complete the questionnaire for this condition.";
     [SerializeField] private float conditionBreakSeconds = 5f;
     [SerializeField] private float conditionBreakPostReadSeconds = 2f;
+    [SerializeField] private bool requireTripleTapToLeaveConditionBreak = true;
     [SerializeField] private float conditionEntryIntroSeconds = 4f;
     [SerializeField] private float conditionEntryHoldSeconds = 3f;
     [SerializeField] private bool showConditionEntryCountdown = true;
@@ -108,7 +109,17 @@ public class ConditionBlockController : MonoBehaviour
     [TextArea(2, 4)]
     [SerializeField] private string waitingForPhoneConnectionText = "Waiting for phone connection.\nOpen the phone app if needed.";
     [TextArea(2, 4)]
-    [SerializeField] private string readyTripleTapAcknowledgementText = "Ready detected.\nHold still.";
+    [SerializeField] private string readyTripleTapAcknowledgementText = "Triple tap detected.\nHold still.";
+
+    [Header("Researcher Explanation Gates")]
+    [SerializeField] private bool showConditionExplanationGate = true;
+    [TextArea(3, 6)]
+    [SerializeField] private string conditionExplanationTextTemplate = "Condition {condition_index}\n{condition_name}\nThis condition will be explained.\nAfter the explanation is finished, triple tap on the phone to continue.";
+
+    [Header("Phone QR Gate")]
+    [SerializeField] private bool requireFreshPhoneQrBeforeConditionReady = true;
+    [SerializeField] private string waitingForPhoneQrText = "Scan the phone QR code first.";
+    [SerializeField] private float waitingForPhoneQrReminderSeconds = 1.5f;
 
     [Header("Condition Entry Baseline Stability")]
     [SerializeField] private bool requirePhoneStillnessBeforeConditionBaseline = true;
@@ -148,6 +159,8 @@ public class ConditionBlockController : MonoBehaviour
     private bool _initialConditionReady = false;
     private bool _startupPhoneAppMessageShown = false;
     private bool _hasCompletedConditionEntryOnce = false;
+    private string _conditionEntryPhoneQrBaselineKey = "";
+    private bool _conditionEntryPhoneQrBaselineSet = false;
 
     public Technique CurrentTechnique => _currentCondition != null ? _currentCondition.technique : Technique.Macro;
     public HandLocation CurrentHandLocation => _currentCondition != null ? _currentCondition.handLocation : HandLocation.NearHead;
@@ -462,6 +475,11 @@ public class ConditionBlockController : MonoBehaviour
             if (phoneTechniqueGate != null)
                 phoneTechniqueGate.SetInputFrozen(true);
 
+            if (phonePoseReceiver == null)
+                phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
+            if (phonePoseReceiver != null)
+                phonePoseReceiver.DisarmPhoneQrDetectedAnnouncement();
+
             if (grabber != null)
                 grabber.ForceRelease();
 
@@ -490,16 +508,33 @@ public class ConditionBlockController : MonoBehaviour
                 if (postReadWait > 0f)
                     yield return new WaitForSeconds(postReadWait);
 
+                yield return WaitForConditionBreakReadyTripleTap(token);
+                if (token != _conditionEntryToken)
+                    yield break;
+
                 if (instructionHUD != null)
                     instructionHUD.HideImmediate();
             }
+
+            yield return ShowConditionExplanationGate(token);
+            if (token != _conditionEntryToken)
+                yield break;
 
             ApplyConditionEntryStartPose();
 
             if (phonePoseReceiver == null)
                 phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
             if (phonePoseReceiver != null)
+            {
+                _conditionEntryPhoneQrBaselineKey = phonePoseReceiver.LatestPhoneQrDetectionKey;
+                _conditionEntryPhoneQrBaselineSet = true;
                 phonePoseReceiver.ArmPhoneQrDetectedAnnouncement(requireNewDetection: true);
+            }
+            else
+            {
+                _conditionEntryPhoneQrBaselineKey = "";
+                _conditionEntryPhoneQrBaselineSet = false;
+            }
 
             Sprite exampleSprite = GetConditionEntryExampleSprite();
             bool showingExample = showConditionEntryExampleImage && exampleSprite != null;
@@ -604,7 +639,34 @@ public class ConditionBlockController : MonoBehaviour
         return Mathf.Max(0f, conditionBreakSeconds);
     }
 
-    private IEnumerator WaitForReadyTripleTapThenPhoneConnection(int token)
+    private IEnumerator WaitForConditionBreakReadyTripleTap(int token)
+    {
+        if (!requireTripleTapToLeaveConditionBreak)
+            yield break;
+
+        yield return WaitForFreshPhoneTripleTap(token, showReadyAcknowledgement: false);
+    }
+
+    private IEnumerator ShowConditionExplanationGate(int token)
+    {
+        if (!showConditionExplanationGate)
+            yield break;
+
+        ResolveInstructionHudIfNeeded();
+
+        if (instructionHUD != null)
+        {
+            instructionHUD.HideExample();
+            instructionHUD.Show(BuildConditionExplanationText(), float.PositiveInfinity);
+        }
+
+        yield return WaitForFreshPhoneTripleTap(token, showReadyAcknowledgement: false);
+
+        if (token == _conditionEntryToken && instructionHUD != null)
+            instructionHUD.HideImmediate();
+    }
+
+    private IEnumerator WaitForFreshPhoneTripleTap(int token, bool showReadyAcknowledgement)
     {
         if (phonePoseReceiver == null)
             phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
@@ -637,27 +699,122 @@ public class ConditionBlockController : MonoBehaviour
             }
             else if (latestTripleTapId < baselineTripleTapId)
             {
-                // Phone app restart or counter reset: resync the baseline instead of
-                // treating the reset as a fresh triple-tap event.
                 baselineTripleTapId = latestTripleTapId;
             }
             else if (latestTripleTapId > baselineTripleTapId)
             {
-                if (instructionHUD != null && !string.IsNullOrWhiteSpace(readyTripleTapAcknowledgementText))
+                if (showReadyAcknowledgement &&
+                    instructionHUD != null &&
+                    !string.IsNullOrWhiteSpace(readyTripleTapAcknowledgementText))
                 {
                     instructionHUD.HideExample();
                     instructionHUD.Show(readyTripleTapAcknowledgementText, float.PositiveInfinity);
                 }
-                break;
+
+                yield break;
             }
 
             yield return null;
         }
+    }
+
+    private IEnumerator WaitForReadyTripleTapThenPhoneConnection(int token)
+    {
+        yield return WaitForFreshPhoneQrIfNeeded(token);
+
+        if (token != _conditionEntryToken)
+            yield break;
+
+        yield return WaitForFreshPhoneTripleTap(token, showReadyAcknowledgement: true);
 
         if (token != _conditionEntryToken)
             yield break;
 
         yield return WaitForPhoneConnectionIfNeeded(token);
+    }
+
+    private IEnumerator WaitForFreshPhoneQrIfNeeded(int token)
+    {
+        if (!requireFreshPhoneQrBeforeConditionReady)
+            yield break;
+
+        if (phonePoseReceiver == null)
+            phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
+
+        float reminderSeconds = Mathf.Max(0.25f, waitingForPhoneQrReminderSeconds);
+        float nextReminderAt = 0f;
+
+        while (token == _conditionEntryToken)
+        {
+            if (phonePoseReceiver == null)
+            {
+                phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
+                yield return null;
+                continue;
+            }
+
+            if (HasFreshPhoneQrLock())
+                yield break;
+
+            if (instructionHUD != null &&
+                !string.IsNullOrWhiteSpace(waitingForPhoneQrText) &&
+                Time.unscaledTime >= nextReminderAt)
+            {
+                instructionHUD.ShowOverlay(waitingForPhoneQrText, reminderSeconds, speak: false);
+                nextReminderAt = Time.unscaledTime + reminderSeconds;
+            }
+
+            yield return null;
+        }
+    }
+
+    private bool HasFreshPhoneQrLock()
+    {
+        if (phonePoseReceiver == null)
+            return false;
+
+        bool hasQrPose = phonePoseReceiver.HasQrDeltaPose || phonePoseReceiver.HasQrRelativePhonePose;
+        if (!hasQrPose)
+            return false;
+
+        string key = phonePoseReceiver.LatestPhoneQrDetectionKey;
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+
+        if (!_conditionEntryPhoneQrBaselineSet)
+            return true;
+
+        if (string.IsNullOrWhiteSpace(_conditionEntryPhoneQrBaselineKey))
+            return true;
+
+        return !string.Equals(key, _conditionEntryPhoneQrBaselineKey, StringComparison.Ordinal);
+    }
+
+    private string BuildConditionExplanationText()
+    {
+        string template = string.IsNullOrWhiteSpace(conditionExplanationTextTemplate)
+            ? "Condition {condition_index}\n{condition_name}\nThis condition will be explained.\nAfter the explanation is finished, triple tap on the phone to continue."
+            : conditionExplanationTextTemplate;
+
+        int index = CurrentConditionIndex1Based;
+        int total = ConditionCount;
+        string conditionName = GetResearchConditionName();
+
+        return template
+            .Replace("{condition_index}", index > 0 ? index.ToString() : "-")
+            .Replace("{condition_total}", total > 0 ? total.ToString() : "-")
+            .Replace("{condition_name}", conditionName)
+            .Replace("{condition_label}", GetConditionLabel());
+    }
+
+    private string GetResearchConditionName()
+    {
+        if (_currentCondition == null)
+            return "Large Motion / Near Head";
+
+        string motion = _currentCondition.technique == Technique.Micro ? "Small Motion" : "Large Motion";
+        string location = _currentCondition.handLocation == HandLocation.Side ? "Side of Body" : "Near Head";
+        return $"{motion} / {location}";
     }
 
     private IEnumerator WaitForPhoneConnectionIfNeeded(int token)

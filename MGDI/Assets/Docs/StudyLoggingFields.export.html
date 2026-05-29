@@ -69,6 +69,7 @@ code {
 <li><code>scaling_error_pct</code><br>Final scaling error at submission, in percent. Used for scaling trials.</li>
 <li><code>time_to_first_within_tol_s</code><br>Time from trial start until the first moment the tool entered the success tolerance.</li>
 <li><code>eligible_breaks</code><br>Number of times the tool entered the tolerance and then left it again before submission.</li>
+<li><code>error_recovery_time_s</code><br>Total time, in seconds, spent outside the success tolerance after the tool first entered the tolerance. This is blank if the tool never entered the tolerance. It is <code>0</code> if the tool entered the tolerance and stayed within it until submission.</li>
 </ul>
 
 <h3>Effort and interaction</h3>
@@ -85,6 +86,7 @@ code {
 <li>Placement, rotation, and scaling rows share the same CSV header for consistency.</li>
 <li>Only the error column relevant to the current task is expected to contain a value.</li>
 <li><code>condition_order</code> is useful for reconstructing the participant-specific task order during analysis.</li>
+<li><code>error_recovery_time_s</code> is intended as a secondary stability/recovery metric. It distinguishes participants who briefly reached the target and then corrected drift from participants who stayed within tolerance after first reaching it.</li>
 <li><code>macro_path_length_m</code> and <code>phone_path_length_m</code> are intentionally different measures.</li>
 <li><code>macro_path_length_m</code> is based on the in-system control transform and may differ from raw phone movement because gains, remapping, offsets, smoothing, and rotation coupling can affect the proxy wrist path.</li>
 <li><code>phone_path_length_m</code> is the better field to use when analyzing how much the participant physically moved the phone in either Macro or Micro.</li>

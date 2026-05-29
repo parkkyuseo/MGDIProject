@@ -125,7 +125,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     [SerializeField] private bool bringTargetNearActiveTool = false;
 
     [Tooltip("Offset near the tool when bringing target close. X=right, Y=up, Z=forward (in chosen frame). Meters.")]
-    [SerializeField] private Vector3 targetOffsetLocal = new Vector3(0.18f, 0.03f, 0.00f);
+    [SerializeField] private Vector3 targetOffsetLocal = new Vector3(0.18f, 0.05f, -0.10f);
 
     [Tooltip("If true, offset uses Camera frame (cam.right/up/fwd). If false, uses tool frame (tool.right/up/fwd).")]
     [SerializeField] private bool offsetInCameraFrame = true;
@@ -221,6 +221,9 @@ public class ToolRotationTaskManager : MonoBehaviour
     public float ActiveRotationErrorDeg => ComputeRotationErrorDeg();
     public float LastSubmittedErrorDeg => _lastSubmittedErrorDeg;
     public Transform ActiveTargetTransform => GetActiveEvaluationTargetTransform();
+    public bool HasLastTrialOutcome { get; private set; }
+    public bool LastTrialSuccess { get; private set; }
+    public bool LastTrialTimedOut { get; private set; }
     public bool ResetToolToStartAfterTrial
     {
         get => resetToolToStartAfterTrial;
@@ -574,6 +577,9 @@ public class ToolRotationTaskManager : MonoBehaviour
         _lastSubmittedErrorDeg = float.NaN;
         ResetConfirmState();
         InitializeConfirmPoseFromActive();
+        HasLastTrialOutcome = false;
+        LastTrialSuccess = false;
+        LastTrialTimedOut = false;
         _trialRunning = true;
         _inTransition = false;
         OnConfirmProgress?.Invoke(0f, false);
@@ -592,6 +598,9 @@ public class ToolRotationTaskManager : MonoBehaviour
     {
         if (_inTransition) yield break;
         _inTransition = true;
+        HasLastTrialOutcome = true;
+        LastTrialSuccess = success;
+        LastTrialTimedOut = timedOut;
         _lastSubmittedErrorDeg = ComputeRotationErrorDeg();
         _trialRunning = false;
         OnConfirmProgress?.Invoke(0f, false);

@@ -17,9 +17,14 @@ Each participant completes all four conditions.
 
 For each condition:
 
+- the system shows the condition name, and the condition is explained before the participant continues
+- the participant triple taps to continue from the condition explanation
 - the participant opens or restarts the phone app, scans the QR code with the phone, and waits for the HoloLens `Phone QR detected.` announcement
 - the participant matches the required posture
 - the participant triple taps to begin the condition
+- the system says `Triple tap detected. Hold still.` and briefly checks phone connection and stillness
+- before each task phase, the system shows the task name, and the task is explained before the participant continues
+- the participant triple taps to continue from the task explanation
 - the system may show a short practice before a task phase
 - the participant completes `Placement`, `Rotation`, and `Scaling`
 - each phase is completed for `5 tools` in the current workflow
@@ -27,11 +32,12 @@ For each condition:
 
 Core participant rules:
 
-- `Triple tap` submits the current attempt.
+- During task trials, `triple tap` submits the current attempt.
+- On condition, task, and break screens, `triple tap` continues to the next step.
 - In `Macro`, the participant mainly uses larger arm and hand movements.
 - In `Micro`, the participant should keep the arm as still as possible and use phone swipes.
 - If the phone app is restarted between conditions, the participant must scan the QR code again with the phone before starting that condition.
-- After the participant triple taps to begin a condition, the system briefly checks phone connection and stillness before the task starts.
+- After the participant triple taps to begin a condition, the system briefly checks phone connection and stillness before the task sequence starts.
 
 ## 3. Before The Session
 
@@ -111,7 +117,7 @@ Before the participant arrives, confirm:
 >
 > In every condition, your goal is to match the target as closely as possible.
 >
-> When you are ready, you will submit your current attempt with a triple tap.
+> When your current attempt is as close to the target as you can make it, submit it with a triple tap.
 >
 > This is a within-subject study, so you will try all of the conditions.
 >
@@ -123,7 +129,7 @@ Before the participant arrives, confirm:
 >
 > Please try to be as accurate as you can in every condition.
 >
-> When you are ready to submit your current attempt, triple tap.
+> When your current attempt is as accurate as you can make it, triple tap to submit.
 
 ## 7. Device Setup
 
@@ -173,7 +179,7 @@ On the start screen:
 >
 > There is no separate start button for each task. Once the task begins, you can start right away.
 >
-> When you are ready to submit your current attempt, please triple tap.
+> When your current attempt is as close to the target as you can make it, please triple tap.
 >
 > If a short practice appears, just follow the instruction on the screen. The practice is only for familiarization.
 
@@ -187,15 +193,24 @@ On the start screen:
 
 ### Facilitator
 
-- At the start of each condition, have the participant open or restart the phone app if needed.
+- At the start of each condition, wait on the condition title screen while the condition is explained.
+- Have the participant triple tap on the phone to continue from the condition explanation.
+- Then have the participant open or restart the phone app if needed.
 - Ask the participant to scan the QR code with the phone and wait for the HoloLens `Phone QR detected.` announcement.
-- Then remind the participant that the posture image on the screen is the reference.
+- Remind the participant that the posture image on the screen is the reference.
 - Do not rush the participant during posture matching.
-- After the participant triple taps to begin the condition, wait for the system to complete the phone connection and stillness check.
+- After the participant triple taps to begin the condition, the HoloLens should say `Triple tap detected. Hold still.`
+- Wait for the system to complete the phone connection and stillness check.
 
 ### Say
 
-> At the start of each condition, please open the phone app and scan the QR code with the phone.
+> The next screen will show the current condition.
+>
+> I will explain the condition first.
+>
+> After the explanation, please triple tap on the phone to continue.
+>
+> Then please open the phone app and scan the QR code with the phone.
 >
 > Please wait until the HoloLens says, "Phone QR detected."
 >
@@ -203,7 +218,7 @@ On the start screen:
 >
 > When your posture matches the instruction, triple tap to start.
 >
-> After that, please hold still for a moment until the system is ready.
+> After the HoloLens says "Triple tap detected. Hold still," please hold still for a moment.
 
 ## 11. Condition Explanation Script
 
@@ -231,7 +246,11 @@ Use the relevant explanation before the participant starts each condition.
 >
 > In this side condition, the movement mapping changes.
 >
-> Up and down movement is remapped with forward and backward movement.
+> Phone left and right movement stays mapped to proxy-hand left and right movement.
+>
+> Phone up and down movement controls proxy-hand forward and backward movement.
+>
+> Phone forward and backward movement controls proxy-hand up and down movement.
 
 ### 11.3 Micro Near
 
@@ -255,7 +274,7 @@ Use the relevant explanation before the participant starts each condition.
 
 ## 12. Task Explanation Script
 
-Use these explanations before the participant begins the main experiment, and repeat them only if needed.
+Use these explanations when the task title screen appears. After the explanation, the participant triple taps on the phone to continue.
 
 ### 12.1 Placement
 
@@ -325,9 +344,15 @@ Use these explanations before the participant begins the main experiment, and re
 
 > You may see a short practice round before a task phase.
 >
+> The practice screen will name the task and then show what to match before asking for a triple tap.
+>
 > During practice, just get familiar with the control.
 >
 > When you are done with the current practice round, triple tap.
+
+### Facilitator note
+
+Practice can appear before `Placement`, `Rotation`, or `Scaling`. In the second Macro condition, `Rotation` and `Scaling` can also include practice even if the first Macro condition already included practice.
 
 ### When practice ends
 
@@ -339,9 +364,11 @@ Use these explanations before the participant begins the main experiment, and re
 
 ### Say
 
+> The HoloLens will announce the main task once before the first main trial, for example, "Main Placement Task Starts Now."
+>
 > Please do your best to match the target as closely as possible.
 >
-> When you are ready to submit your current attempt, triple tap.
+> When your current attempt is as close to the target as you can make it, triple tap.
 
 ### If the participant submits too early
 
@@ -355,7 +382,7 @@ Use these explanations before the participant begins the main experiment, and re
 
 > The goal is not just to get close enough.
 >
-> Please try to match the target as accurately as you can, then triple tap when you are ready to submit.
+> Please try to match the target as accurately as you can, then triple tap to submit.
 
 ## 15. Questionnaire After Each Condition
 
@@ -422,11 +449,11 @@ Use these only when needed.
 
 ### If the participant forgets the condition start step
 
-> Please scan the QR code with the phone first, wait for "Phone QR detected," match the posture shown in the image, then triple tap to start the condition.
+> First listen to the condition explanation, then triple tap to continue. After that, scan the QR code with the phone, wait for "Phone QR detected," match the posture shown in the image, then triple tap to start the condition.
 
 ### If the participant moves too much right after the start triple tap
 
-> After you triple tap to start, please hold still for a moment until the system is ready.
+> After you triple tap to start, the HoloLens should say "Triple tap detected. Hold still." Please hold still for a moment after that.
 
 ### If the participant asks when to triple tap during a task
 
@@ -439,8 +466,9 @@ Use these only when needed.
 ## 19. Facilitator Quick Reference
 
 - Study type: `within-subject`
-- Condition start: phone app open, phone scans QR, HoloLens says `Phone QR detected.`, match posture image, then `triple tap to start`
-- After condition start: participant should hold still briefly
+- Condition start: condition title/explanation, `triple tap to continue`, phone QR scan, HoloLens says `Phone QR detected.`, match posture image, then `triple tap to start`
+- After condition start: HoloLens says `Triple tap detected. Hold still.`, and participant should hold still briefly
+- Task start: task title/explanation, `triple tap to continue`, optional practice, then `Main Placement/Rotation/Scaling Task Starts Now`
 - Main submit action: `triple tap`
 - Current workflow per condition: `Placement -> Rotation -> Scaling`, with `5 tools` per phase
 - `Participant ID` should include a number if the Latin square sequence is linked to the participant ID

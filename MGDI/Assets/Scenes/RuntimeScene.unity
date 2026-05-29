@@ -3631,7 +3631,7 @@ MonoBehaviour:
 
     then triple tap.'
   bringTargetNearActiveTool: 1
-  targetOffsetLocal: {x: 0.22, y: 0.04, z: 0}
+  targetOffsetLocal: {x: 0.18, y: 0.05, z: -0.1}
   offsetInCameraFrame: 1
   finishBlockAfterOneSuccessWhenForced: 1
   logDebug: 0
@@ -6815,7 +6815,7 @@ MonoBehaviour:
   rotationTask: {fileID: 0}
   scalingTask: {fileID: 0}
   phoneRouter: {fileID: 1282618817}
-  phonePoseReceiver: {fileID: 0}
+  phonePoseReceiver: {fileID: 1664965683}
   phoneTechniqueGate: {fileID: 1446671051}
   phoneMacroPoseDriver: {fileID: 345937160}
   qrLock: {fileID: 0}
@@ -6864,10 +6864,13 @@ MonoBehaviour:
     Triple tap to start.'
   conditionBreakText: 'Condition complete.
 
-    Please take a short break and complete
-    the questionnaire for this condition.'
+    Please hand the phone to the researcher.
+
+    Take a short break and complete the
+    questionnaire for this condition.'
   conditionBreakSeconds: 5
   conditionBreakPostReadSeconds: 2
+  requireTripleTapToLeaveConditionBreak: 1
   conditionEntryIntroSeconds: 4
   conditionEntryHoldSeconds: 3
   showConditionEntryCountdown: 0
@@ -6888,9 +6891,17 @@ MonoBehaviour:
 
     Open the phone
     app if needed.'
-  readyTripleTapAcknowledgementText: 'Ready detected.
+  readyTripleTapAcknowledgementText: 'Triple tap detected.
 
     Hold still.'
+  showConditionExplanationGate: 1
+  conditionExplanationTextTemplate: 'Condition {condition_index}
+
+    {condition_name}
+
+    This condition will be explained.
+
+    After the explanation is finished, triple tap on the phone to continue.'
   requirePhoneStillnessBeforeConditionBaseline: 1
   conditionEntryStableAngularSpeedDegPerSec: 12
   conditionEntryStableLinearSpeedMetersPerSec: 0.08
@@ -8511,7 +8522,7 @@ MonoBehaviour:
   countdownFontStyle: 1
   overlayText: {fileID: 0}
   autoCreateOverlayText: 1
-  overlayAnchoredPosition: {x: 0, y: -10}
+  overlayAnchoredPosition: {x: 0, y: 42}
   overlaySize: {x: 560, y: 64}
   overlayTextColor: {r: 0.9, g: 0.05, b: 0.02, a: 1}
   overlayFontSize: 30
@@ -9149,6 +9160,7 @@ MonoBehaviour:
   logDebug: 0
   enableDocumentsCopy: 1
   documentsCopyFolderName: Study1Logs
+  enablePicturesFallbackCopy: 1
   enableMirrorSend: 1
   mirrorHost: 10.138.130.118
   mirrorPort: 19620
@@ -11317,6 +11329,7 @@ MonoBehaviour:
   scalingGrabberMode: 1
   phoneTechniqueGate: {fileID: 1446671051}
   phoneRouter: {fileID: 1282618817}
+  phonePoseReceiver: {fileID: 1664965683}
   phoneMacroPoseDriver: {fileID: 0}
   conditionBlockController: {fileID: 942365701}
   taskContextHUD: {fileID: 796200818}
@@ -11336,16 +11349,12 @@ MonoBehaviour:
   logGripCalibrationGate: 0
   practiceTrialsPerBlock: 1
   practiceToolId: FireExtinguisher
-  practiceIntroTextTemplate: 'Practice ({count} trials)
+  practiceIntroTextTemplate: '{task} Practice'
+  practiceIntroSeconds: 2
+  practiceDetailTextTemplate: '{task_instruction}
 
-    Tool: {tool} '
-  practiceIntroSeconds: 7
-  practiceDetailTextTemplate: 'Practice: {task}
-
-    {technique}
-
-    {controlInstruction}'
-  practiceDetailSeconds: 2.5
+    Then triple tap to submit.'
+  practiceDetailSeconds: 1.5
   practiceIntroPanelGapSeconds: 0.08
   minPracticeIntroRepeatInterval: 1
   showPracticeCompleteMessage: 1
@@ -11358,6 +11367,13 @@ MonoBehaviour:
   mainPlacementStartMessage: Main Placement Task Starts Now
   mainRotationStartMessage: Main Rotation Task Starts Now
   mainScalingStartMessage: Main Scaling Task Starts Now
+  showTaskExplanationGate: 1
+  taskExplanationTextTemplate: '{task_name} Task
+
+    This task will be explained.
+
+    After the explanation is finished, triple tap on the phone to continue.'
+  taskExplanationPhoneFreshSeconds: 0.75
   showDebugHUD: 0
   hudUpdateHz: 10
   logTaskContextUpdates: 0

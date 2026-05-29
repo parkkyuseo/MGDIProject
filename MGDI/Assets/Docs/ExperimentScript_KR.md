@@ -17,9 +17,14 @@
 
 각 condition에서:
 
+- 시스템은 현재 condition 이름을 보여주고, 참가자가 넘어가기 전에 condition 설명을 진행합니다
+- 참가자는 condition 설명이 끝난 뒤 phone에서 `triple tap` 해서 다음 단계로 넘어갑니다
 - 참가자는 phone app을 실행 또는 재실행하고, phone으로 QR 코드를 스캔한 뒤 HoloLens의 `Phone QR detected.` 안내를 기다립니다
 - 참가자는 화면에 나온 자세를 맞춥니다
 - 참가자는 condition 시작을 위해 `triple tap` 합니다
+- 시스템은 `Triple tap detected. Hold still.` 안내를 하고, 잠시 phone connection과 stillness를 확인합니다
+- 각 task phase 전에 시스템은 현재 task 이름을 보여주고, 참가자가 넘어가기 전에 task 설명을 진행합니다
+- 참가자는 task 설명이 끝난 뒤 phone에서 `triple tap` 해서 다음 단계로 넘어갑니다
 - 시스템은 task phase 전에 짧은 practice를 보여줄 수 있습니다
 - 참가자는 `Placement`, `Rotation`, `Scaling`을 수행합니다
 - 현재 workflow에서는 각 phase를 `5개 tool`로 수행합니다
@@ -27,11 +32,12 @@
 
 참가자에게 꼭 전달할 핵심 규칙:
 
-- `Triple tap`은 현재 시도를 제출하는 동작입니다
+- task trial 중 `triple tap`은 현재 시도를 제출하는 동작입니다
+- condition 설명, task 설명, break 화면에서 `triple tap`은 다음 단계로 넘어가는 동작입니다
 - `Macro`에서는 주로 팔과 손의 큰 움직임을 사용합니다
 - `Micro`에서는 팔을 최대한 고정하고 phone swipe로 조정합니다
 - condition 사이에 phone app을 다시 켠 경우, 해당 condition을 시작하기 전에 phone으로 QR 코드를 다시 스캔해야 합니다
-- condition 시작을 위해 `triple tap` 한 직후에는 시스템이 잠시 phone connection과 stillness를 확인합니다
+- condition 시작을 위해 `triple tap` 한 직후에는 시스템이 잠시 phone connection과 stillness를 확인한 뒤 task sequence를 시작합니다
 
 ## 3. 세션 시작 전
 
@@ -111,7 +117,7 @@
 >
 > 모든 condition에서 목표는 target을 최대한 정확하게 맞추는 것입니다.
 >
-> 준비가 되면 `triple tap`으로 현재 시도를 제출하시면 됩니다.
+> 현재 시도가 target에 최대한 가깝다고 판단되면 `triple tap`으로 제출하시면 됩니다.
 >
 > 이 실험은 within-subject 방식이기 때문에, 모든 condition을 직접 수행하게 됩니다.
 >
@@ -123,7 +129,7 @@
 >
 > 매번 최대한 정확하게 맞춰 주세요.
 >
-> 현재 시도를 제출할 준비가 되면 `triple tap` 하시면 됩니다.
+> 현재 시도가 최대한 정확하다고 판단되면 `triple tap`으로 제출하시면 됩니다.
 
 ## 7. 기기 세팅
 
@@ -173,7 +179,7 @@
 >
 > 각 task에는 별도의 시작 버튼이 없습니다. task가 시작되면 바로 수행하시면 됩니다.
 >
-> 현재 시도를 제출할 준비가 되면 `triple tap` 해 주세요.
+> 현재 시도가 target에 최대한 가깝다고 판단되면 `triple tap` 해 주세요.
 >
 > 짧은 practice가 나오면 화면 안내를 따라 하시면 됩니다. practice는 익숙해지기 위한 단계입니다.
 
@@ -187,15 +193,24 @@
 
 ### 진행자
 
-- 각 condition 시작 시 필요하면 participant가 phone app을 실행 또는 재실행하게 합니다
+- 각 condition 시작 시 condition 이름 화면에서 condition 설명을 진행합니다
+- 설명이 끝나면 participant가 phone에서 `triple tap` 해서 다음 단계로 넘어가게 합니다
+- 그 다음 필요하면 participant가 phone app을 실행 또는 재실행하게 합니다
 - participant가 phone으로 QR 코드를 스캔하고 HoloLens의 `Phone QR detected.` 안내를 들을 때까지 기다리게 합니다
-- 그 다음 화면의 자세 이미지가 기준이라는 점을 다시 알려줍니다
+- 화면의 자세 이미지가 기준이라는 점을 다시 알려줍니다
 - 참가자가 자세를 맞출 때 서두르게 하지 않습니다
-- 참가자가 condition 시작을 위해 `triple tap` 한 뒤에는 시스템이 phone connection과 stillness를 확인할 시간을 줍니다
+- 참가자가 condition 시작을 위해 `triple tap` 한 뒤에는 HoloLens가 `Triple tap detected. Hold still.` 안내를 하는지 확인합니다
+- 그 다음 시스템이 phone connection과 stillness를 확인할 시간을 줍니다
 
 ### 읽어줄 문구
 
-> 각 condition이 시작될 때는 phone app을 열고 phone으로 QR 코드를 먼저 스캔해 주세요.
+> 다음 화면에는 현재 condition이 표시됩니다.
+>
+> 먼저 이 condition에 대해 설명드리겠습니다.
+>
+> 설명이 끝나면 phone에서 `triple tap` 해서 다음 단계로 넘어가 주세요.
+>
+> 그 다음 phone app을 열고 phone으로 QR 코드를 스캔해 주세요.
 >
 > HoloLens에서 `Phone QR detected.` 안내가 들릴 때까지 기다려 주세요.
 >
@@ -203,7 +218,7 @@
 >
 > 자세를 맞춘 뒤 `triple tap` 해서 시작해 주세요.
 >
-> 그 다음에는 시스템이 준비될 때까지 잠깐만 가만히 있어 주세요.
+> HoloLens에서 `Triple tap detected. Hold still.` 안내가 나오면 잠깐만 가만히 있어 주세요.
 
 ## 11. Condition별 설명 문구
 
@@ -231,7 +246,11 @@
 >
 > 이 side condition에서는 움직임 매핑이 바뀝니다.
 >
-> 위아래 움직임과 앞뒤 움직임이 서로 바뀌어 매핑됩니다.
+> Phone의 좌우 움직임은 proxy hand의 좌우 움직임으로 유지됩니다.
+>
+> Phone의 위아래 움직임은 proxy hand의 앞뒤 움직임을 조정합니다.
+>
+> Phone의 앞뒤 움직임은 proxy hand의 위아래 움직임을 조정합니다.
 
 ### 11.3 Micro Near
 
@@ -255,7 +274,7 @@
 
 ## 12. Task별 설명 문구
 
-본 실험 전에 이 설명을 먼저 읽어주고, 필요할 때만 다시 짧게 상기시킵니다.
+Task 이름 화면이 나올 때 해당 설명을 진행합니다. 설명이 끝나면 participant가 phone에서 `triple tap` 해서 다음 단계로 넘어갑니다.
 
 ### 12.1 Placement
 
@@ -323,9 +342,15 @@
 
 > Task phase 전에 짧은 practice round가 나올 수 있습니다.
 >
+> Practice 화면은 task 이름을 먼저 보여준 뒤, 무엇을 맞춰야 하는지 안내하고 `triple tap` 제출을 요청합니다.
+>
 > Practice 동안에는 control에 익숙해지는 데 집중해 주세요.
 >
 > 현재 practice round가 끝났다고 느껴지면 `triple tap` 해 주세요.
+
+### 진행자 메모
+
+Practice는 `Placement`, `Rotation`, `Scaling` 전에 나올 수 있습니다. 두 번째 Macro condition에서는 첫 번째 Macro condition에서 practice를 했더라도 `Rotation`과 `Scaling`에도 practice가 나올 수 있습니다.
 
 ### Practice 종료 후
 
@@ -337,9 +362,11 @@
 
 ### 읽어줄 문구
 
+> HoloLens는 첫 번째 main trial 전에 한 번만 main task 시작 안내를 합니다. 예를 들어 `Main Placement Task Starts Now`라고 안내합니다.
+>
 > Target을 최대한 정확하게 맞춰 주세요.
 >
-> 현재 시도를 제출할 준비가 되면 `triple tap` 해 주세요.
+> 현재 시도가 target에 최대한 가깝다고 판단되면 `triple tap` 해 주세요.
 
 ### 참가자가 너무 빨리 제출할 때
 
@@ -353,7 +380,7 @@
 
 > 단순히 어느 정도 가까워지는 것이 목표는 아닙니다.
 >
-> 가능한 한 정확하게 맞춘 뒤, 제출할 준비가 되면 `triple tap` 해 주세요.
+> 가능한 한 정확하게 맞춘 뒤 `triple tap`으로 제출해 주세요.
 
 ## 15. Condition 후 설문
 
@@ -418,11 +445,11 @@
 
 ### 참가자가 condition 시작 절차를 잊었을 때
 
-> 먼저 phone으로 QR 코드를 스캔하고 `Phone QR detected.` 안내를 기다린 뒤, 화면에 나온 자세를 맞추고 `triple tap` 해서 condition을 시작해 주세요.
+> 먼저 condition 설명을 듣고 `triple tap` 해서 다음 단계로 넘어가 주세요. 그 다음 phone으로 QR 코드를 스캔하고 `Phone QR detected.` 안내를 기다린 뒤, 화면에 나온 자세를 맞추고 `triple tap` 해서 condition을 시작해 주세요.
 
 ### Condition 시작 직후 참가자가 많이 움직일 때
 
-> 시작하려고 `triple tap` 한 뒤에는 시스템이 준비될 때까지 잠깐만 가만히 있어 주세요.
+> 시작하려고 `triple tap` 한 뒤 HoloLens에서 `Triple tap detected. Hold still.` 안내가 나오면 잠깐만 가만히 있어 주세요.
 
 ### 참가자가 task 중 언제 `triple tap` 해야 하는지 묻는 경우
 
@@ -435,8 +462,9 @@
 ## 19. 진행자 빠른 참고
 
 - 실험 유형: `within-subject`
-- Condition 시작: phone app 실행, phone QR 스캔, HoloLens `Phone QR detected.` 확인, 자세 이미지에 맞춘 뒤 `triple tap to start`
-- Condition 시작 직후: 잠깐 정지 자세 유지
+- Condition 시작: condition 이름/설명, `triple tap to continue`, phone QR 스캔, HoloLens `Phone QR detected.` 확인, 자세 이미지에 맞춘 뒤 `triple tap to start`
+- Condition 시작 직후: HoloLens `Triple tap detected. Hold still.` 안내 후 잠깐 정지 자세 유지
+- Task 시작: task 이름/설명, `triple tap to continue`, optional practice, 그 다음 `Main Placement/Rotation/Scaling Task Starts Now`
 - Main submit 동작: `triple tap`
 - 현재 workflow: 각 condition에서 `Placement -> Rotation -> Scaling`, 각 phase당 `5 tools`
 - Latin square sequence를 `Participant ID`에 연결할 경우 ID에 숫자가 포함되어야 함

@@ -49,6 +49,21 @@
   Identifier of the active tool for the row.
   Tool ID from the task setup. Use this instead of an internal trial counter for tool-level analysis.
 
+- `trial_index_global`
+  1-based trial index across logged main-task trials in the current session.
+
+- `trial_index_in_task`
+  1-based tool/trial index within the current task phase.
+
+- `trial_result`
+  Final trial outcome: `success`, `timeout`, `failed`, or `unknown`.
+
+- `timed_out`
+  `1` if the trial ended because the timeout expired, `0` if it ended without timing out, blank if unknown.
+
+- `success`
+  `1` if the trial ended successfully, `0` if it ended unsuccessfully, blank if unknown.
+
 ### Performance
 
 - `completion_time_s`
@@ -71,6 +86,10 @@
 
 - `eligible_breaks`
   Number of times the tool entered the tolerance and then left it again before submission.
+
+- `error_recovery_time_s`
+  Total time, in seconds, spent outside the success tolerance after the tool first entered the tolerance.
+  This is blank if the tool never entered the tolerance. It is `0` if the tool entered the tolerance and stayed within it until submission.
 
 ### Effort and interaction
 
@@ -99,6 +118,7 @@
 - Placement, rotation, and scaling rows share the same CSV header for consistency.
 - Only the error column relevant to the current task is expected to contain a value.
 - `condition_order` is useful for reconstructing the participant-specific task order during analysis.
+- `error_recovery_time_s` is intended as a secondary stability/recovery metric. It distinguishes participants who briefly reached the target and then corrected drift from participants who stayed within tolerance after first reaching it.
 - `macro_path_length_m` and `phone_path_length_m` are intentionally different measures.
 - `macro_path_length_m` is based on the in-system control transform and may differ from raw phone movement because gains, remapping, offsets, smoothing, and rotation coupling can affect the proxy wrist path.
 - `phone_path_length_m` is the better field to use when analyzing how much the participant physically moved the phone in either Macro or Micro.

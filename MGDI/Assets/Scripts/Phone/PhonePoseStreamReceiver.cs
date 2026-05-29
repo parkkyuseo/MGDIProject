@@ -128,6 +128,15 @@ public class PhonePoseStreamReceiver : MonoBehaviour
         }
     }
 
+    public void DisarmPhoneQrDetectedAnnouncement()
+    {
+        lock (_lock)
+        {
+            _phoneQrAnnouncementArmed = false;
+            _phoneQrAnnouncementBaselineKey = _latestPhoneQrDetectionKey;
+        }
+    }
+
     public float SecondsSinceLastRx
     {
         get
@@ -474,7 +483,7 @@ public class PhonePoseStreamReceiver : MonoBehaviour
             return $"{appSessionId}:{qrCalibrationTime:F3}";
 
         string safeMarker = string.IsNullOrWhiteSpace(markerName) ? "marker" : markerName;
-        return $"{safeMarker}:{fallbackStamp}";
+        return $"{safeMarker}:visible";
     }
 
     private void TryAnnouncePhoneQrDetected()

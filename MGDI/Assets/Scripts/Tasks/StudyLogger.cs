@@ -18,6 +18,7 @@ public class StudyLogger : MonoBehaviour
     [SerializeField] private string participantIdFallback = "TEST";
 
     [Header("Refs")]
+    [SerializeField] private WorkflowProgressionController workflow;
     [SerializeField] private StudyFlowController_V2 flow;
     [SerializeField] private ToolPlacementTaskManager placementTask;
     [SerializeField] private ToolRotationTaskManager rotationTask;
@@ -35,6 +36,7 @@ public class StudyLogger : MonoBehaviour
     [Header("HoloLens File Explorer Copy")]
     [SerializeField] private bool enableDocumentsCopy = true;
     [SerializeField] private string documentsCopyFolderName = "Study1Logs";
+    [SerializeField] private bool enablePicturesFallbackCopy = true;
 
     [Header("Mirror To Laptop (Optional)")]
     [SerializeField] private bool enableMirrorSend = false;
@@ -89,9 +91,10 @@ public class StudyLogger : MonoBehaviour
 
     private const string CsvHeader =
         "session_timestamp,participant_id,task,technique,hand_location,condition_label,condition_index,condition_total,condition_order,condition_sequence_index,condition_sequence_total,tool_id," +
+        "trial_index_global,trial_index_in_task,trial_result,timed_out,success," +
         "completion_time_s," +
         "translation_error_cm,rotation_error_deg,scaling_error_pct," +
-        "time_to_first_within_tol_s,eligible_breaks," +
+        "time_to_first_within_tol_s,eligible_breaks,error_recovery_time_s," +
         "micro_axis_active_duration_s,micro_axis_integral," +
         "macro_path_length_m,phone_path_length_m," +
         "mode_switch_count";
@@ -117,12 +120,19 @@ public class StudyLogger : MonoBehaviour
     private int _trialConditionSequenceIndex = -1;
     private int _trialConditionSequenceTotal = -1;
     private string _trialToolId = "Unknown";
+    private int _loggedTrialCount = 0;
+    private int _trialGlobalIndex = -1;
+    private int _trialIndexInTask = -1;
+    private bool _trialHasOutcome = false;
+    private bool _trialSuccess = false;
+    private bool _trialTimedOut = false;
     private float _trialStartTime;
 
     private float _firstWithinTolTime = -1f;
     private bool _hasEnteredWithinTol;
     private bool _wasWithinTol;
     private int _eligibleBreaks;
+    private float _errorRecoveryTime;
 
     private float _microAxisActiveDuration;
     private float _microAxisIntegral;
@@ -141,8 +151,13 @@ public class StudyLogger : MonoBehaviour
     private bool _warnedMissingTasks;
     private bool _warnedMirrorConfig;
     private bool _warnedDocumentsCopyUnavailable;
+    private bool _warnedPicturesCopyUnavailable;
     private bool _loggedDocumentsCopyPath;
+    private bool _loggedPicturesCopyPath;
     private bool EffectiveLoggingEnabled => enableLogging && LoggingEnabled;
+
+    private readonly object _csvSnapshotLock = new object();
+    private readonly StringBuilder _csvSnapshot = new StringBuilder(8192);
 
     private readonly List<MirrorRowEnvelope> _mirrorQueue = new List<MirrorRowEnvelope>();
     private bool _mirrorOutboxLoaded;
@@ -247,6 +262,7 @@ public class StudyLogger : MonoBehaviour
 
     private void ResolveRefs()
     {
+        if (workflow == null) workflow = FindFirstObjectByType<WorkflowProgressionController>();
         if (flow == null) flow = FindFirstObjectByType<StudyFlowController_V2>();
         if (placementTask == null) placementTask = FindFirstObjectByType<ToolPlacementTaskManager>();
         if (rotationTask == null) rotationTask = FindFirstObjectByType<ToolRotationTaskManager>();
@@ -320,12 +336,18 @@ public class StudyLogger : MonoBehaviour
         _trialConditionSequenceIndex = GetCurrentConditionSequenceIndex1Based();
         _trialConditionSequenceTotal = GetCurrentConditionSequenceCount();
         _trialToolId = GetCurrentToolId(task);
+        _trialGlobalIndex = EffectiveLoggingEnabled ? ++_loggedTrialCount : -1;
+        _trialIndexInTask = GetCurrentTrialIndexInTask(task);
+        _trialHasOutcome = false;
+        _trialSuccess = false;
+        _trialTimedOut = false;
         _trialStartTime = Time.time;
 
         _firstWithinTolTime = -1f;
         _hasEnteredWithinTol = false;
         _wasWithinTol = false;
         _eligibleBreaks = 0;
+        _errorRecoveryTime = 0f;
 
         _microAxisActiveDuration = 0f;
         _microAxisIntegral = 0f;
@@ -378,6 +400,9 @@ public class StudyLogger : MonoBehaviour
 
             if (_wasWithinTol && !withinTol && _hasEnteredWithinTol)
                 _eligibleBreaks++;
+
+            if (_hasEnteredWithinTol && !withinTol)
+                _errorRecoveryTime += dt;
 
             _wasWithinTol = withinTol;
         }
@@ -475,10 +500,13 @@ public class StudyLogger : MonoBehaviour
         }
 
         float? firstWithin = _hasEnteredWithinTol ? _firstWithinTolTime : (float?)null;
+        float? errorRecoveryTime = _hasEnteredWithinTol ? _errorRecoveryTime : (float?)null;
         float? microActiveDur = _trialTechnique == TechniqueKind.Micro ? _microAxisActiveDuration : (float?)null;
         float? microIntegral = _trialTechnique == TechniqueKind.Micro ? _microAxisIntegral : (float?)null;
         float? macroPath = _trialTechnique == TechniqueKind.Macro ? _macroPathLength : (float?)null;
         float? phonePath = null;
+        CaptureTrialOutcome();
+        string trialResult = GetTrialResultCsv();
         if (_hasTrialPhonePathLengthBaseline && phonePoseReceiver != null)
         {
             double rawPhonePath = phonePoseReceiver.CumulativePathLengthMeters - _trialPhonePathLengthBaselineMeters;
@@ -505,12 +533,18 @@ public class StudyLogger : MonoBehaviour
             _trialConditionSequenceIndex > 0 ? _trialConditionSequenceIndex.ToString(CultureInfo.InvariantCulture) : "",
             _trialConditionSequenceTotal > 0 ? _trialConditionSequenceTotal.ToString(CultureInfo.InvariantCulture) : "",
             EscapeCsv(_trialToolId),
+            _trialGlobalIndex > 0 ? _trialGlobalIndex.ToString(CultureInfo.InvariantCulture) : "",
+            _trialIndexInTask > 0 ? _trialIndexInTask.ToString(CultureInfo.InvariantCulture) : "",
+            EscapeCsv(trialResult),
+            FormatNullableBool(_trialHasOutcome ? _trialTimedOut : (bool?)null),
+            FormatNullableBool(_trialHasOutcome ? _trialSuccess : (bool?)null),
             FormatFloat(completionTime),
             FormatNullableFloat(translationErrorCm),
             FormatNullableFloat(rotationErrorDeg),
             FormatNullableFloat(scalingErrorPct),
             FormatNullableFloat(firstWithin),
             _eligibleBreaks.ToString(CultureInfo.InvariantCulture),
+            FormatNullableFloat(errorRecoveryTime),
             FormatNullableFloat(microActiveDur),
             FormatNullableFloat(microIntegral),
             FormatNullableFloat(macroPath),
@@ -537,8 +571,75 @@ public class StudyLogger : MonoBehaviour
         _trialConditionSequenceIndex = -1;
         _trialConditionSequenceTotal = -1;
         _trialToolId = "Unknown";
+        _trialGlobalIndex = -1;
+        _trialIndexInTask = -1;
+        _trialHasOutcome = false;
+        _trialSuccess = false;
+        _trialTimedOut = false;
         _trialPhonePathLengthBaselineMeters = 0.0;
         _hasTrialPhonePathLengthBaseline = false;
+    }
+
+    private int GetCurrentTrialIndexInTask(TaskKind task)
+    {
+        if (workflow != null && workflow.CurrentToolIndex >= 0)
+            return workflow.CurrentToolIndex + 1;
+
+        switch (task)
+        {
+            case TaskKind.Placement:
+                return placementTask != null ? placementTask.CurrentTrialIndex1Based : -1;
+            case TaskKind.Rotation:
+                return rotationTask != null ? rotationTask.CurrentTrialIndex1Based : -1;
+            case TaskKind.Scaling:
+                return scalingTask != null ? scalingTask.CurrentTrialIndex1Based : -1;
+            default:
+                return -1;
+        }
+    }
+
+    private void CaptureTrialOutcome()
+    {
+        switch (_trialTask)
+        {
+            case TaskKind.Placement:
+                if (placementTask != null && placementTask.HasLastTrialOutcome)
+                {
+                    _trialHasOutcome = true;
+                    _trialSuccess = placementTask.LastTrialSuccess;
+                    _trialTimedOut = placementTask.LastTrialTimedOut;
+                }
+                break;
+
+            case TaskKind.Rotation:
+                if (rotationTask != null && rotationTask.HasLastTrialOutcome)
+                {
+                    _trialHasOutcome = true;
+                    _trialSuccess = rotationTask.LastTrialSuccess;
+                    _trialTimedOut = rotationTask.LastTrialTimedOut;
+                }
+                break;
+
+            case TaskKind.Scaling:
+                if (scalingTask != null && scalingTask.HasLastTrialOutcome)
+                {
+                    _trialHasOutcome = true;
+                    _trialSuccess = scalingTask.LastTrialSuccess;
+                    _trialTimedOut = scalingTask.LastTrialTimedOut;
+                }
+                break;
+        }
+    }
+
+    private string GetTrialResultCsv()
+    {
+        if (!_trialHasOutcome)
+            return "unknown";
+
+        if (_trialSuccess)
+            return "success";
+
+        return _trialTimedOut ? "timeout" : "failed";
     }
 
     private bool TryGetCurrentErrorAndTolerance(TaskKind task, out float err, out float tol)
@@ -731,6 +832,11 @@ public class StudyLogger : MonoBehaviour
             _writer = new StreamWriter(_filePath, append: false, Encoding.UTF8);
             _writer.WriteLine(CsvHeader);
             _writer.Flush();
+            lock (_csvSnapshotLock)
+            {
+                _csvSnapshot.Clear();
+                _csvSnapshot.AppendLine(CsvHeader);
+            }
             RequestDocumentsCopy();
 
             if (logDebug)
@@ -1173,6 +1279,10 @@ public class StudyLogger : MonoBehaviour
 
         _writer.WriteLine(row);
         _writer.Flush();
+        lock (_csvSnapshotLock)
+        {
+            _csvSnapshot.AppendLine(row);
+        }
         RequestDocumentsCopy();
         return true;
     }
@@ -1186,18 +1296,18 @@ public class StudyLogger : MonoBehaviour
             return;
 
 #if ENABLE_WINMD_SUPPORT
-        CopyCsvToDocumentsAsync();
+        CopyCsvToVisibleLibrariesAsync();
 #else
-        if (logDebug && !_warnedDocumentsCopyUnavailable)
+        if (!_warnedDocumentsCopyUnavailable)
         {
             _warnedDocumentsCopyUnavailable = true;
-            Debug.Log("[StudyLogger] Documents copy is only available in UWP/HoloLens builds. Local StudyLogs CSV remains active.");
+            LogVisibleCopyStatus("[StudyLogger] File Explorer copy unavailable: ENABLE_WINMD_SUPPORT is off. Local StudyLogs CSV remains active.", true);
         }
 #endif
     }
 
 #if ENABLE_WINMD_SUPPORT
-    private async void CopyCsvToDocumentsAsync()
+    private async void CopyCsvToVisibleLibrariesAsync()
     {
         if (_documentsCopyInFlight)
         {
@@ -1213,32 +1323,70 @@ public class StudyLogger : MonoBehaviour
 
             try
             {
-                if (string.IsNullOrEmpty(_filePath) || !File.Exists(_filePath))
+                if (string.IsNullOrEmpty(_filePath))
                     break;
 
-                string fileText = File.ReadAllText(_filePath, Encoding.UTF8);
+                string fileText;
+                lock (_csvSnapshotLock)
+                {
+                    fileText = _csvSnapshot.ToString();
+                }
+
+                if (string.IsNullOrEmpty(fileText))
+                    break;
+
+                string fileName = Path.GetFileName(_filePath);
                 string folderName = SanitizeForFileName(documentsCopyFolderName);
                 if (string.IsNullOrEmpty(folderName))
                     folderName = "Study1Logs";
 
-                Windows.Storage.StorageFolder documents = Windows.Storage.KnownFolders.DocumentsLibrary;
-                Windows.Storage.StorageFolder folder = await documents.CreateFolderAsync(
-                    folderName,
-                    Windows.Storage.CreationCollisionOption.OpenIfExists);
-
-                Windows.Storage.StorageFile file = await folder.CreateFileAsync(
-                    Path.GetFileName(_filePath),
-                    Windows.Storage.CreationCollisionOption.ReplaceExisting);
-
-                await Windows.Storage.FileIO.WriteTextAsync(
-                    file,
-                    fileText,
-                    Windows.Storage.Streams.UnicodeEncoding.Utf8);
-
-                if (logDebug && !_loggedDocumentsCopyPath)
+                try
                 {
-                    _loggedDocumentsCopyPath = true;
-                    Debug.Log($"[StudyLogger] File Explorer copy enabled: Documents\\{folderName}\\{Path.GetFileName(_filePath)}");
+                    await CopyCsvTextToLibraryAsync(
+                        Windows.Storage.KnownFolders.DocumentsLibrary,
+                        folderName,
+                        fileName,
+                        fileText);
+
+                    if (!_loggedDocumentsCopyPath)
+                    {
+                        _loggedDocumentsCopyPath = true;
+                        LogVisibleCopyStatus($"[StudyLogger] File Explorer copy: Documents\\{folderName}\\{fileName}", false);
+                    }
+                }
+                catch (Exception e)
+                {
+                    if (!_warnedDocumentsCopyUnavailable)
+                    {
+                        _warnedDocumentsCopyUnavailable = true;
+                        LogVisibleCopyStatus($"[StudyLogger] Documents copy failed. Will try Pictures fallback. {e.Message}", true);
+                    }
+                }
+
+                if (enablePicturesFallbackCopy)
+                {
+                    try
+                    {
+                        await CopyCsvTextToLibraryAsync(
+                            Windows.Storage.KnownFolders.PicturesLibrary,
+                            folderName,
+                            fileName,
+                            fileText);
+
+                        if (!_loggedPicturesCopyPath)
+                        {
+                            _loggedPicturesCopyPath = true;
+                            LogVisibleCopyStatus($"[StudyLogger] File Explorer fallback copy: Pictures\\{folderName}\\{fileName}", false);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (!_warnedPicturesCopyUnavailable)
+                        {
+                            _warnedPicturesCopyUnavailable = true;
+                            LogVisibleCopyStatus($"[StudyLogger] Pictures fallback copy failed. Local CSV remains active. {e.Message}", true);
+                        }
+                    }
                 }
             }
             catch (Exception e)
@@ -1246,7 +1394,7 @@ public class StudyLogger : MonoBehaviour
                 if (!_warnedDocumentsCopyUnavailable)
                 {
                     _warnedDocumentsCopyUnavailable = true;
-                    Debug.LogWarning($"[StudyLogger] Failed to copy CSV to Documents\\{documentsCopyFolderName}. Local CSV remains active. Check UWP DocumentsLibrary capability. {e.Message}");
+                    LogVisibleCopyStatus($"[StudyLogger] Visible CSV copy failed. Local CSV remains active. {e.Message}", true);
                 }
 
                 _documentsCopyPending = false;
@@ -1256,7 +1404,37 @@ public class StudyLogger : MonoBehaviour
 
         _documentsCopyInFlight = false;
     }
+
+    private static async System.Threading.Tasks.Task CopyCsvTextToLibraryAsync(
+        Windows.Storage.StorageFolder library,
+        string folderName,
+        string fileName,
+        string fileText)
+    {
+        Windows.Storage.StorageFolder folder = await library.CreateFolderAsync(
+            folderName,
+            Windows.Storage.CreationCollisionOption.OpenIfExists);
+
+        Windows.Storage.StorageFile file = await folder.CreateFileAsync(
+            fileName,
+            Windows.Storage.CreationCollisionOption.ReplaceExisting);
+
+        await Windows.Storage.FileIO.WriteTextAsync(
+            file,
+            fileText,
+            Windows.Storage.Streams.UnicodeEncoding.Utf8);
+    }
 #endif
+
+    private static void LogVisibleCopyStatus(string message, bool warning)
+    {
+        if (warning)
+            Debug.LogWarning(message);
+        else
+            Debug.Log(message);
+
+        try { DebugHUD.Log(message); } catch { }
+    }
 
     private void CloseWriter()
     {
@@ -1304,6 +1482,12 @@ public class StudyLogger : MonoBehaviour
     {
         if (!value.HasValue) return "";
         return value.Value.ToString("0.######", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatNullableBool(bool? value)
+    {
+        if (!value.HasValue) return "";
+        return value.Value ? "1" : "0";
     }
 
     private static bool IsFinite(float v)

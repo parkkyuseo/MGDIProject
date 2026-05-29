@@ -49,6 +49,21 @@
   해당 row의 active tool 식별자입니다.
   task setup에서 지정된 tool ID이며, 내부 trial 번호보다 tool별 효과를 분석할 때 더 유용합니다.
 
+- `trial_index_global`
+  현재 세션에서 기록된 main-task trial의 전체 순번입니다. 1부터 시작합니다.
+
+- `trial_index_in_task`
+  현재 task phase 안에서의 tool/trial 순번입니다. 1부터 시작합니다.
+
+- `trial_result`
+  trial의 최종 결과입니다: `success`, `timeout`, `failed`, `unknown`.
+
+- `timed_out`
+  timeout으로 끝난 trial이면 `1`, timeout 없이 끝났으면 `0`, 알 수 없으면 비어 있습니다.
+
+- `success`
+  성공으로 끝난 trial이면 `1`, 실패로 끝났으면 `0`, 알 수 없으면 비어 있습니다.
+
 ### 수행 지표
 
 - `completion_time_s`
@@ -71,6 +86,10 @@
 
 - `eligible_breaks`
   제출 전에 tool이 tolerance 안에 들어갔다가 다시 벗어난 횟수입니다.
+
+- `error_recovery_time_s`
+  tool이 처음으로 success tolerance 안에 들어간 뒤, 제출 전까지 tolerance 밖에 있었던 총 시간입니다. 단위는 초입니다.
+  한 번도 tolerance 안에 들어가지 못한 trial에서는 비어 있습니다. 처음 들어간 뒤 제출까지 계속 tolerance 안에 머문 경우에는 `0`입니다.
 
 ### Effort 및 interaction 지표
 
@@ -99,6 +118,7 @@
 - Placement, rotation, scaling row는 일관성을 위해 동일한 CSV header를 공유합니다.
 - 현재 task에 해당하는 error 컬럼만 값이 들어가는 것이 정상입니다.
 - `condition_order`는 참가자별 task 순서를 분석 단계에서 복원할 때 유용합니다.
+- `error_recovery_time_s`는 보조적인 안정성/회복 지표입니다. target에 한 번 도달한 뒤 다시 벗어나 수정한 경우와, 처음 도달한 뒤 계속 tolerance 안에 머문 경우를 구분하는 데 사용합니다.
 - `macro_path_length_m`와 `phone_path_length_m`는 의도적으로 서로 다른 지표입니다.
 - `macro_path_length_m`는 시스템 내부 control transform 기준이므로 gain, remapping, offset, smoothing, rotation coupling 등의 영향으로 raw phone movement와 다를 수 있습니다.
 - `phone_path_length_m`는 Macro와 Micro 모두에서 참가자가 실제로 폰을 얼마나 움직였는지 분석할 때 더 적합한 필드입니다.

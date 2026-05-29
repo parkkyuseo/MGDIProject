@@ -69,6 +69,7 @@ code {
 <li><code>scaling_error_pct</code><br>제출 시점의 최종 scaling error입니다. 단위는 퍼센트입니다. scaling trial에서 사용됩니다.</li>
 <li><code>time_to_first_within_tol_s</code><br>trial 시작 후 tool이 처음으로 success tolerance 안에 들어가기까지 걸린 시간입니다.</li>
 <li><code>eligible_breaks</code><br>제출 전에 tool이 tolerance 안에 들어갔다가 다시 벗어난 횟수입니다.</li>
+<li><code>error_recovery_time_s</code><br>tool이 처음으로 success tolerance 안에 들어간 뒤, 제출 전까지 tolerance 밖에 있었던 총 시간입니다. 단위는 초입니다. 한 번도 tolerance 안에 들어가지 못한 trial에서는 비어 있습니다. 처음 들어간 뒤 제출까지 계속 tolerance 안에 머문 경우에는 <code>0</code>입니다.</li>
 </ul>
 
 <h3>Effort 및 interaction 지표</h3>
@@ -85,6 +86,7 @@ code {
 <li>Placement, rotation, scaling row는 일관성을 위해 동일한 CSV header를 공유합니다.</li>
 <li>현재 task에 해당하는 error 컬럼만 값이 들어가는 것이 정상입니다.</li>
 <li><code>condition_order</code>는 참가자별 task 순서를 분석 단계에서 복원할 때 유용합니다.</li>
+<li><code>error_recovery_time_s</code>는 보조적인 안정성/회복 지표입니다. target에 한 번 도달한 뒤 다시 벗어나 수정한 경우와, 처음 도달한 뒤 계속 tolerance 안에 머문 경우를 구분하는 데 사용합니다.</li>
 <li><code>macro_path_length_m</code>와 <code>phone_path_length_m</code>는 의도적으로 서로 다른 지표입니다.</li>
 <li><code>macro_path_length_m</code>는 시스템 내부 control transform 기준이므로 gain, remapping, offset, smoothing, rotation coupling 등의 영향으로 raw phone movement와 다를 수 있습니다.</li>
 <li><code>phone_path_length_m</code>는 Macro와 Micro 모두에서 참가자가 실제로 폰을 얼마나 움직였는지 분석할 때 더 적합한 필드입니다.</li>

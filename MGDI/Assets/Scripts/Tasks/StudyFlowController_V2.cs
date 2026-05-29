@@ -27,6 +27,7 @@ public class StudyFlowController_V2 : MonoBehaviour
 
     [SerializeField] private PhoneTechniqueGate phoneTechniqueGate;
     [SerializeField] private PhoneInputRouter phoneRouter;
+    [SerializeField] private PhonePoseStreamReceiver phonePoseReceiver;
     [SerializeField] private PhoneProxyHandRootDriver phoneMacroPoseDriver;
     [SerializeField] private ConditionBlockController conditionBlockController;
 
@@ -56,11 +57,11 @@ public class StudyFlowController_V2 : MonoBehaviour
     [SerializeField] private int practiceTrialsPerBlock = 2;
     [SerializeField] private string practiceToolId = "hammer";
     [TextArea(2, 5)]
-    [SerializeField] private string practiceIntroTextTemplate = "Practice ({count} successful trials)\nTool: {tool}";
+    [SerializeField] private string practiceIntroTextTemplate = "{task} Practice";
     [SerializeField] private float practiceIntroSeconds = 2f;
     [TextArea(2, 6)]
-    [SerializeField] private string practiceDetailTextTemplate = "Practice: {task}\n{technique}\n{controlInstruction}";
-    [SerializeField] private float practiceDetailSeconds = 2.5f;
+    [SerializeField] private string practiceDetailTextTemplate = "{task_instruction}\nThen triple tap to submit.";
+    [SerializeField] private float practiceDetailSeconds = 1.5f;
     [SerializeField] private float practiceIntroPanelGapSeconds = 0.08f;
     [SerializeField] private float minPracticeIntroRepeatInterval = 1.0f;
     [SerializeField] private bool showPracticeCompleteMessage = false;
@@ -75,6 +76,12 @@ public class StudyFlowController_V2 : MonoBehaviour
     [SerializeField] private string mainPlacementStartMessage = "Main Placement Task Starts Now";
     [SerializeField] private string mainRotationStartMessage = "Main Rotation Task Starts Now";
     [SerializeField] private string mainScalingStartMessage = "Main Scaling Task Starts Now";
+
+    [Header("Researcher Task Explanation Gate")]
+    [SerializeField] private bool showTaskExplanationGate = true;
+    [TextArea(3, 6)]
+    [SerializeField] private string taskExplanationTextTemplate = "{task_name} Task\nThis task will be explained.\nAfter the explanation is finished, triple tap on the phone to continue.";
+    [SerializeField] private float taskExplanationPhoneFreshSeconds = 0.75f;
 
     private Action _onPlacementFinished;
     private Action _onRotationFinished;
@@ -176,6 +183,8 @@ public class StudyFlowController_V2 : MonoBehaviour
             conditionBlockController = FindFirstObjectByType<ConditionBlockController>();
         if (logger == null)
             logger = FindFirstObjectByType<StudyLogger>();
+        if (phonePoseReceiver == null)
+            phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
         if (phoneMacroPoseDriver == null)
             phoneMacroPoseDriver = FindFirstObjectByType<PhoneProxyHandRootDriver>();
 
@@ -889,6 +898,10 @@ public class StudyFlowController_V2 : MonoBehaviour
         if (token != _phaseEntryGateToken)
             yield break;
 
+        yield return ShowTaskExplanationGateIfNeeded(phase, token);
+        if (token != _phaseEntryGateToken)
+            yield break;
+
         StartPhaseEntryWithPracticeAndIntro(phase);
         _phaseEntryGateCoroutine = null;
     }
@@ -916,6 +929,78 @@ public class StudyFlowController_V2 : MonoBehaviour
         StartRealBlockWithIntroGate(phase);
     }
 
+    private IEnumerator ShowTaskExplanationGateIfNeeded(WorkflowProgressionController.Phase phase, int token)
+    {
+        if (!showTaskExplanationGate || !ShouldShowTaskExplanationForCurrentTool())
+            yield break;
+
+        if (phoneRouter != null)
+            phoneRouter.SetInputSuppressed(true);
+        if (phoneTechniqueGate != null)
+            phoneTechniqueGate.SetInputFrozen(true);
+
+        if (instructionHUD != null)
+            instructionHUD.Show(BuildTaskExplanationText(phase), float.PositiveInfinity);
+
+        yield return WaitForFreshTaskGateTripleTap(token);
+
+        if (token == _phaseEntryGateToken && instructionHUD != null)
+            instructionHUD.HideImmediate();
+    }
+
+    private IEnumerator WaitForFreshTaskGateTripleTap(int token)
+    {
+        if (phonePoseReceiver == null)
+            phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
+
+        bool baselineSet = false;
+        int baselineTripleTapId = 0;
+
+        while (token == _phaseEntryGateToken)
+        {
+            if (phonePoseReceiver == null)
+            {
+                phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
+                yield return null;
+                continue;
+            }
+
+            if (!phonePoseReceiver.HasPhonePose || !HasFreshPhoneConnectionForTaskGate())
+            {
+                baselineSet = false;
+                yield return null;
+                continue;
+            }
+
+            int latestTripleTapId = phonePoseReceiver.LatestTripleTapId;
+
+            if (!baselineSet)
+            {
+                baselineTripleTapId = latestTripleTapId;
+                baselineSet = true;
+            }
+            else if (latestTripleTapId < baselineTripleTapId)
+            {
+                baselineTripleTapId = latestTripleTapId;
+            }
+            else if (latestTripleTapId > baselineTripleTapId)
+            {
+                yield break;
+            }
+
+            yield return null;
+        }
+    }
+
+    private bool HasFreshPhoneConnectionForTaskGate()
+    {
+        if (phonePoseReceiver == null || !phonePoseReceiver.HasPhonePose)
+            return false;
+
+        float freshSeconds = Mathf.Max(0.05f, taskExplanationPhoneFreshSeconds);
+        return phonePoseReceiver.SecondsSinceLastRx <= freshSeconds;
+    }
+
     private void StartRealBlockWithIntroGate(WorkflowProgressionController.Phase phase)
     {
         if (_blockIntroCoroutine != null)
@@ -932,7 +1017,12 @@ public class StudyFlowController_V2 : MonoBehaviour
         if (instructionHUD != null)
             instructionHUD.HideImmediate();
 
-        if (showMainTaskStartMessage)
+        if (phoneRouter != null && showMainTaskStartMessage && ShouldShowMainTaskStartForCurrentTool())
+            phoneRouter.SetInputSuppressed(true);
+        if (phoneTechniqueGate != null && showMainTaskStartMessage && ShouldShowMainTaskStartForCurrentTool())
+            phoneTechniqueGate.SetInputFrozen(true);
+
+        if (showMainTaskStartMessage && ShouldShowMainTaskStartForCurrentTool())
         {
             string text = BuildMainTaskStartText(phase);
             float wait = Mathf.Max(0f, mainTaskStartMessageSeconds);
@@ -1016,15 +1106,11 @@ public class StudyFlowController_V2 : MonoBehaviour
 
     private string GetBlockInstructionText(WorkflowProgressionController.Phase blockType)
     {
-        bool isMicro = IsCurrentTechniqueMicro();
         string taskInstruction = BuildTaskInstruction(blockType);
         if (string.IsNullOrEmpty(taskInstruction))
             return "";
 
-        if (!isMicro)
-            return $"{taskInstruction}\nTriple tap to submit\nyour current attempt.";
-
-        return $"{taskInstruction}\n{BuildMicroControlHint(blockType)}\nTriple tap to submit\nyour current attempt.";
+        return $"{taskInstruction}\nTriple tap to submit.";
     }
 
     private void AbortPracticeState()
@@ -1242,20 +1328,23 @@ public class StudyFlowController_V2 : MonoBehaviour
         switch (phase)
         {
             case WorkflowProgressionController.Phase.Placement:
-                return "Placement practice round.\nTry the placement task freely\nbefore the main trials.";
+                return "Placement Practice";
             case WorkflowProgressionController.Phase.Rotation:
-                return "Rotation practice round.\nTry the rotation task freely\nbefore the main trials.";
+                return "Rotation Practice";
             case WorkflowProgressionController.Phase.Scaling:
-                return "Scaling practice round.\nTry the scaling task freely\nbefore the main trials.";
+                return "Scaling Practice";
             default:
-                return "This is practice time.\nTry the task freely\nbefore the main trials.";
+                return "Practice";
         }
     }
 
     private string BuildPracticeDetailText(WorkflowProgressionController.Phase phase)
     {
-        bool isMicro = IsCurrentTechniqueMicro();
-        return BuildPracticeControlInstruction(phase, isMicro);
+        string taskInstruction = BuildTaskInstruction(phase);
+        if (string.IsNullOrWhiteSpace(taskInstruction))
+            taskInstruction = "Complete the task.";
+
+        return $"{taskInstruction}\nThen triple tap to submit.";
     }
 
     private static string GetPracticeTaskLabel(WorkflowProgressionController.Phase phase)
@@ -1287,10 +1376,7 @@ public class StudyFlowController_V2 : MonoBehaviour
         if (string.IsNullOrEmpty(taskInstruction))
             taskInstruction = "Practice the task.";
 
-        if (isMicro)
-            return $"{taskInstruction}\n{BuildMicroPracticeControlHint(phase)}\nTriple tap when done.";
-
-        return $"{taskInstruction}\n{BuildMacroPracticeControlHint(phase)}\nTriple tap when done.";
+        return $"{taskInstruction}\nTriple tap to submit.";
     }
 
     private static string BuildTaskInstruction(WorkflowProgressionController.Phase phase)
@@ -1298,11 +1384,11 @@ public class StudyFlowController_V2 : MonoBehaviour
         switch (phase)
         {
             case WorkflowProgressionController.Phase.Placement:
-                return "Place the tool as close to the target as possible.";
+                return "Place the tool on the target.";
             case WorkflowProgressionController.Phase.Rotation:
-                return "Match the tool to the target rotation.";
+                return "Match the target rotation.";
             case WorkflowProgressionController.Phase.Scaling:
-                return "Match the tool to the target size.";
+                return "Match the target size.";
             default:
                 return "";
         }
@@ -1313,13 +1399,13 @@ public class StudyFlowController_V2 : MonoBehaviour
         switch (phase)
         {
             case WorkflowProgressionController.Phase.Placement:
-                return "Move the phone to control the proxy hand, grab the tool, and move it to the target.";
+                return "Use the phone controls.";
             case WorkflowProgressionController.Phase.Rotation:
-                return "Move the phone to control the proxy hand, grab the tool, and rotate it.";
+                return "Use the phone controls.";
             case WorkflowProgressionController.Phase.Scaling:
-                return "Move the phone to control the proxy hand, grab the tool, and scale it.";
+                return "Use the phone controls.";
             default:
-                return "Move the phone to practice.";
+                return "Use the phone controls.";
         }
     }
 
@@ -1328,13 +1414,13 @@ public class StudyFlowController_V2 : MonoBehaviour
         switch (phase)
         {
             case WorkflowProgressionController.Phase.Placement:
-                return "Keep your arm still. Use phone swipes to control the proxy hand, grab the tool, and move it to the target.";
+                return "Use the phone controls.";
             case WorkflowProgressionController.Phase.Rotation:
-                return "Keep your arm still. Use phone swipes to rotate the tool.";
+                return "Use the phone controls.";
             case WorkflowProgressionController.Phase.Scaling:
-                return "Keep your arm still. Use phone swipes to scale the tool.";
+                return "Use the phone controls.";
             default:
-                return "Keep your arm still.\nUse phone swipes to practice.";
+                return "Use the phone controls.";
         }
     }
 
@@ -1385,6 +1471,52 @@ public class StudyFlowController_V2 : MonoBehaviour
             default:
                 return "Main Task Starts Now";
         }
+    }
+
+    private bool ShouldShowMainTaskStartForCurrentTool()
+    {
+        if (workflow == null)
+            return true;
+
+        return workflow.CurrentToolIndex <= 0;
+    }
+
+    private string BuildTaskExplanationText(WorkflowProgressionController.Phase phase)
+    {
+        string template = string.IsNullOrWhiteSpace(taskExplanationTextTemplate)
+            ? "{task_name} Task\nThis task will be explained.\nAfter the explanation is finished, triple tap on the phone to continue."
+            : taskExplanationTextTemplate;
+
+        string taskName = GetPracticeTaskLabel(phase);
+        int taskIndex = GetTaskIndex1Based(phase);
+
+        return template
+            .Replace("{task_index}", taskIndex > 0 ? taskIndex.ToString() : "-")
+            .Replace("{task_name}", taskName)
+            .Replace("{task_instruction}", BuildTaskInstruction(phase));
+    }
+
+    private static int GetTaskIndex1Based(WorkflowProgressionController.Phase phase)
+    {
+        switch (phase)
+        {
+            case WorkflowProgressionController.Phase.Placement:
+                return 1;
+            case WorkflowProgressionController.Phase.Rotation:
+                return 2;
+            case WorkflowProgressionController.Phase.Scaling:
+                return 3;
+            default:
+                return -1;
+        }
+    }
+
+    private bool ShouldShowTaskExplanationForCurrentTool()
+    {
+        if (workflow == null)
+            return true;
+
+        return workflow.CurrentToolIndex <= 0;
     }
 
     private IEnumerator ShowPracticeIntroIfNeeded()
