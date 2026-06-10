@@ -14,6 +14,8 @@ public class MicroPlacementAnalogController : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private PlaneMode planeMode = PlaneMode.XY;
     [SerializeField] private float speedMetersPerSec = 0.12f; // Continuous speed
+    [Tooltip("Receiver-side sensitivity multiplier for micro placement movement.")]
+    [SerializeField] private float speedMultiplier = 1f;
     [SerializeField] private bool useCameraFrame = true;
     [SerializeField] private float deadzone = 0.08f;
 
@@ -84,7 +86,7 @@ public class MicroPlacementAnalogController : MonoBehaviour
 
         if (useAxis.magnitude < deadzone) return;
 
-        float effectiveSpeed = speedMetersPerSec * _gain;
+        float effectiveSpeed = speedMetersPerSec * Mathf.Max(0.01f, speedMultiplier) * _gain;
 
         if (logDominantAxis)
         {
