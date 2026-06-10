@@ -40,17 +40,8 @@ The task goals, target displays, submission method, and logging procedure were k
 
 \subsection{Counterbalancing and Randomization}
 
-Because all participants completed all four conditions, condition order was controlled to reduce potential order effects, learning effects, and fatigue effects. The four interaction conditions were presented in a counterbalanced order across participants using [counterbalancing method, e.g., a Latin square / balanced condition order]. This ensured that each condition appeared in different ordinal positions across the study.
+Because all participants completed all four conditions, condition order was controlled to reduce potential order effects, learning effects, and fatigue effects. The four interaction conditions were presented in a counterbalanced order across participants using the balanced Latin square implemented in the study controller. The authored base condition order was Macro Near-Head, Macro Side-of-Body, Micro Near-Head, and Micro Side-of-Body, and the selected Latin-square sequence was derived from the numeric participant ID. If no numeric participant ID was available, the configured manual sequence number was used. This ensured that each condition appeared in different ordinal positions across the study.
 
-Within each condition, participants completed the translation, rotation, and scaling tasks. The order of task blocks was [fixed / randomized / counterbalanced] across participants. Within each task, trial targets were [randomized / pseudo-randomized / presented in a fixed sequence] to reduce predictability while maintaining comparable task difficulty across conditions.
+Within each condition, participants completed the translation, rotation, and scaling tasks. The order of task blocks was fixed across participants: translation, followed by rotation, followed by scaling. In the Unity workflow, these correspond to the Placement, Rotation, and Scaling phases. Within each task, trial targets were presented in a fixed workflow sequence defined by the ordered tool list in the WorkflowProgressionController. The scene uses phase-by-phase progression, so the workflow completes the selected tools for Placement first, then repeats the same selected tool sequence for Rotation, and then repeats it again for Scaling. This kept the task structure and trial difficulty comparable across conditions.
 
 Participants completed practice trials before the main trials for each condition. Practice trials allowed participants to become familiar with the current gesture scale, hand location, and control mapping before recorded trials began. Practice trials were not included in the main analysis. Breaks were provided between condition blocks to reduce fatigue and to allow participants to reset their posture before continuing.
-
-
-
-여기서 네가 실제 정보로 채워야 할 부분은 세 가지야.
-
-
-[counterbalancing method]
-[fixed / randomized / counterbalanced]
-[randomized / pseudo-randomized / fixed sequence]
