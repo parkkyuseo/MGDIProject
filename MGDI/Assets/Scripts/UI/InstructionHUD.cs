@@ -218,6 +218,8 @@ public class InstructionHUD : MonoBehaviour
         if (_overlayHideCo != null) StopCoroutine(_overlayHideCo);
         _overlayHideCo = null;
 
+        StopSpeakingNow();
+
         if (instructionText != null) instructionText.text = "";
         HideOverlayImmediate();
         HideExample();
@@ -226,7 +228,7 @@ public class InstructionHUD : MonoBehaviour
         gameObject.SetActive(false);
     }
 
-    public float Show(string text, float? seconds = null)
+    public float Show(string text, float? seconds = null, bool speak = true)
     {
         if (instructionText == null) return 0f;
 
@@ -242,10 +244,13 @@ public class InstructionHUD : MonoBehaviour
         ApplyExampleImageLayout();
         panelAutoSizer?.RefreshNow();
         ApplyExampleImageLayout();
-        TrySpeak(instructionText.text);
+        if (speak)
+            TrySpeak(instructionText.text);
+        else
+            StopSpeakingNow();
 
         float requestedSeconds = seconds ?? defaultShowSeconds;
-        float s = ResolveDisplaySeconds(instructionText.text, requestedSeconds);
+        float s = ResolveDisplaySeconds(instructionText.text, requestedSeconds, speak);
         _hideCo = useTransitions ? StartCoroutine(ShowHideAnimated(s)) : StartCoroutine(HideAfter(s));
         return s;
     }
@@ -280,6 +285,35 @@ public class InstructionHUD : MonoBehaviour
         float s = Mathf.Max(0f, requestedSeconds);
         _overlayHideCo = StartCoroutine(HideOverlayAfter(s));
         return s;
+    }
+
+    public void SpeakOnly(string text)
+    {
+        if (_hideCo != null)
+        {
+            StopCoroutine(_hideCo);
+            _hideCo = null;
+        }
+
+        bool wasInactive = !gameObject.activeSelf;
+        if (wasInactive)
+            gameObject.SetActive(true);
+
+        bool shouldSuppressVisuals = wasInactive
+            || (instructionText != null && string.IsNullOrEmpty(instructionText.text));
+        if (shouldSuppressVisuals)
+        {
+            if (instructionText != null)
+                instructionText.text = "";
+            HideOverlayImmediate();
+            HideExample();
+            if (canvasGroup != null)
+                canvasGroup.alpha = 0f;
+            if (panelRect != null)
+                panelRect.localScale = Vector3.zero;
+        }
+
+        TrySpeak(text);
     }
 
     public void HideOverlayImmediate()
@@ -603,6 +637,48 @@ public class InstructionHUD : MonoBehaviour
         yield return WaitForSpeechCompletionIfNeeded();
     }
 
+    public IEnumerator ShowUntilSpeechCompletesOrTimeout(string text, float timeoutSeconds, float speechActivationGraceSeconds = 0.25f)
+    {
+        float timeout = Mathf.Max(0f, timeoutSeconds);
+        bool canTrackSpeech = CanSpeakText(text);
+
+        Show(text, float.PositiveInfinity);
+
+        if (timeout <= 0f)
+            yield break;
+
+        if (!canTrackSpeech)
+        {
+            yield return new WaitForSeconds(timeout);
+            yield break;
+        }
+
+        float elapsed = 0f;
+        float grace = Mathf.Max(0f, speechActivationGraceSeconds);
+        while (grace > 0f && !IsSpeechActive())
+        {
+            if (elapsed >= grace || elapsed >= timeout)
+                break;
+
+            yield return null;
+            elapsed += Time.unscaledDeltaTime;
+        }
+
+        if (!IsSpeechActive())
+        {
+            float remaining = timeout - elapsed;
+            if (remaining > 0f)
+                yield return new WaitForSeconds(remaining);
+            yield break;
+        }
+
+        while (IsSpeechActive() && elapsed < timeout)
+        {
+            yield return null;
+            elapsed += Time.unscaledDeltaTime;
+        }
+    }
+
     public IEnumerator WaitForTaskGate(string text, float fallbackSeconds, float speechActivationGraceSeconds = 0.25f)
     {
         float fallback = Mathf.Max(0f, fallbackSeconds);
@@ -823,7 +899,7 @@ public class InstructionHUD : MonoBehaviour
             return;
 
         if (stopPreviousSpeechOnShow)
-            InvokeIfExists(_resolvedTextToSpeech, "StopSpeaking");
+            StopSpeakingNow();
 
         if (!InvokeWithString(_resolvedTextToSpeech, "StartSpeaking", speechText) &&
             !InvokeWithString(_resolvedTextToSpeech, "Speak", speechText))
@@ -839,12 +915,27 @@ public class InstructionHUD : MonoBehaviour
         _lastSpeakTime = now;
     }
 
-    private float ResolveDisplaySeconds(string text, float requestedSeconds)
+    private void StopSpeakingNow()
+    {
+        if (!enableSpeech)
+            return;
+
+        if (_resolvedTextToSpeech == null)
+            ResolveTextToSpeech();
+
+        if (_resolvedTextToSpeech != null)
+            InvokeIfExists(_resolvedTextToSpeech, "StopSpeaking");
+    }
+
+    private float ResolveDisplaySeconds(string text, float requestedSeconds, bool willSpeak = true)
     {
         if (float.IsPositiveInfinity(requestedSeconds))
             return requestedSeconds;
 
         float requested = Mathf.Max(0f, requestedSeconds);
+        if (!willSpeak)
+            return requested;
+
         if (!syncPanelDurationToSpeech)
             return requested;
 

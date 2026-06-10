@@ -28,7 +28,7 @@ public class ToolScalingTaskManager : MonoBehaviour
     [SerializeField] private bool bringTargetGhostNearActiveTool = false;
 
     [Tooltip("Offset near the tool when bringing target ghost close. X=right, Y=up, Z=forward (in chosen frame). Meters.")]
-    [SerializeField] private Vector3 targetGhostOffsetLocal = new Vector3(0.18f, 0.03f, 0.00f);
+    [SerializeField] private Vector3 targetGhostOffsetLocal = new Vector3(0.18f, 0.05f, -0.20f);
 
     [Tooltip("If true, offset uses Camera frame (cam.right/up/fwd). If false, uses tool frame (tool.right/up/fwd).")]
     [SerializeField] private bool targetGhostOffsetInCameraFrame = true;

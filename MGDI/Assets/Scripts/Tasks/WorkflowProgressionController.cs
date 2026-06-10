@@ -30,12 +30,14 @@ public class WorkflowProgressionController : MonoBehaviour
     public int CurrentToolIndex { get; private set; } = -1;
     public Phase CurrentPhase { get; private set; } = Phase.Placement;
     public GameObject CurrentTool => (CurrentToolIndex >= 0 && CurrentToolIndex < tools.Count) ? tools[CurrentToolIndex] : null;
+    public int ToolCount => tools != null ? tools.Count : 0;
 
     public event Action<Phase, int, GameObject> OnStepChanged;
     public event Action OnAllCompleted;
 
     private int _activeLayer;
     private int _inactiveLayer;
+    private int _skipCompensation = 0;
 
     void Awake()
     {
@@ -61,9 +63,7 @@ public class WorkflowProgressionController : MonoBehaviour
         if (tools == null || tools.Count == 0) return;
         if (CurrentToolIndex < 0) CurrentToolIndex = 0;
 
-        int blockToolCount = tools.Count;
-        if (toolsPerBlock > 0)
-            blockToolCount = Mathf.Clamp(toolsPerBlock, 1, tools.Count);
+        int blockToolCount = GetBlockToolCount();
 
         if (mode == ProgressionMode.ToolByTool)
         {
@@ -109,6 +109,7 @@ public class WorkflowProgressionController : MonoBehaviour
     {
         CurrentToolIndex = 0;
         CurrentPhase = Phase.Placement;
+        _skipCompensation = 0;
 
         DeactivateAll();
         if (debugLog)
@@ -121,6 +122,100 @@ public class WorkflowProgressionController : MonoBehaviour
         mode = newMode;
         ApplyActiveTool();
         EmitStepChanged("ModeChanged");
+    }
+
+    public string GetToolIdAtIndex(int index)
+    {
+        if (tools == null || index < 0 || index >= tools.Count || tools[index] == null)
+            return null;
+
+        var tid = tools[index].GetComponent<ToolId>();
+        return tid != null ? NormalizeToolId(tid.id) : null;
+    }
+
+    public bool ToolAtIndexMatchesId(int index, string id)
+    {
+        string normalized = NormalizeToolId(id);
+        if (string.IsNullOrEmpty(normalized))
+            return false;
+
+        return string.Equals(GetToolIdAtIndex(index), normalized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public bool CurrentToolMatchesId(string id)
+    {
+        return ToolAtIndexMatchesId(CurrentToolIndex, id);
+    }
+
+    public bool SkipCurrentToolIfId(string id, bool emitStepChanged = true)
+    {
+        string normalized = NormalizeToolId(id);
+        if (string.IsNullOrEmpty(normalized) || !CurrentToolMatchesId(normalized))
+            return false;
+
+        int nextIndex = CurrentToolIndex + 1;
+        if (nextIndex >= tools.Count)
+        {
+            Debug.LogWarning($"[Workflow] Cannot skip current tool '{normalized}' because no later tool exists.");
+            return false;
+        }
+
+        CurrentToolIndex = nextIndex;
+        if (toolsPerBlock > 0)
+            _skipCompensation = Mathf.Max(_skipCompensation, 1);
+
+        ApplyActiveTool();
+
+        if (emitStepChanged)
+            EmitStepChanged("SkipCurrentToolIfId");
+        else if (debugLog)
+            Debug.Log($"[Workflow] SkipCurrentToolIfId | Phase={CurrentPhase} | ToolIndex={CurrentToolIndex} | Tool={CurrentTool?.name}");
+
+        return true;
+    }
+
+    public bool ActivateToolByIdWithoutChangingStep(string id)
+    {
+        string normalized = NormalizeToolId(id);
+        if (string.IsNullOrEmpty(normalized) || tools == null)
+            return false;
+
+        for (int i = 0; i < tools.Count; i++)
+        {
+            if (!ToolAtIndexMatchesId(i, normalized))
+                continue;
+
+            DeactivateAll();
+            SetToolActive(tools[i], true);
+
+            if (debugLog)
+                Debug.Log($"[Workflow] Temporarily activated tool '{normalized}' without changing workflow step.");
+
+            return true;
+        }
+
+        Debug.LogWarning($"[Workflow] Could not temporarily activate tool '{normalized}' because it is not in the workflow list.");
+        return false;
+    }
+
+    public void ReapplyCurrentActiveTool()
+    {
+        if (tools == null || tools.Count == 0 || CurrentToolIndex < 0)
+            return;
+
+        ApplyActiveTool();
+    }
+
+    private int GetBlockToolCount()
+    {
+        if (tools == null || tools.Count == 0)
+            return 0;
+
+        if (toolsPerBlock <= 0)
+            return tools.Count;
+
+        int compensated = toolsPerBlock + Mathf.Max(0, _skipCompensation);
+        return Mathf.Clamp(compensated, 1, tools.Count);
     }
 
     private void ApplyActiveTool()
@@ -175,7 +270,13 @@ public class WorkflowProgressionController : MonoBehaviour
         // reset state and re-apply first step
         CurrentToolIndex = 0;
         CurrentPhase = Phase.Placement;
+        _skipCompensation = 0;
         ApplyActiveTool();
         EmitStepChanged("RestartFromBeginning");
+    }
+
+    private static string NormalizeToolId(string id)
+    {
+        return string.IsNullOrWhiteSpace(id) ? null : id.Trim();
     }
 }

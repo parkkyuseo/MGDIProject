@@ -75,15 +75,22 @@ public class ConditionBlockController : MonoBehaviour
     [SerializeField] private float fastPhoneAppReadyMessageSeconds = 1f;
     [SerializeField] private float fastConditionBreakSeconds = 5f;
     [SerializeField] private bool showPhoneAppReadyMessageOnFirstStart = true;
+    [SerializeField] private bool scanPhoneQrDuringInitialWorkspaceSetup = true;
     [TextArea(2, 4)]
-    [SerializeField] private string phoneAppReadyMessage = "Look around and check the basket and tool locations.\nGet familiar with the workspace before starting.";
+    [SerializeField] private string initialPhoneQrScanText = "Workspace QR detected.\nExperimenter scans the phone QR now.\nWait for PHONE QR DETECTED.";
+    [SerializeField] private bool requireTripleTapAfterWorkspaceQrReady = true;
+    [TextArea(2, 4)]
+    [SerializeField] private string workspaceQrReadyText = "Workspace and phone QR setup complete.\nTriple tap on the phone to continue.";
+    [SerializeField] private bool requireTripleTapAfterPhoneAppReadyMessage = true;
+    [TextArea(2, 4)]
+    [SerializeField] private string phoneAppReadyMessage = "Look around and check the basket and tool locations.\nGet familiar with the workspace before starting.\nWhen finished, triple tap on the phone to continue.";
     [SerializeField] private float phoneAppReadyMessageSeconds = 12f;
     [TextArea(2, 4)]
-    [SerializeField] private string firstConditionEntryPostureText = "Open the phone app.\nScan the QR code with the phone.\nMatch the posture shown in the image.\nTriple tap to start.";
+    [SerializeField] private string firstConditionEntryPostureText = "Match the posture shown in the image.\nTriple tap to start.";
     [TextArea(2, 4)]
-    [SerializeField] private string repeatConditionEntryPostureText = "Open the phone app.\nScan the QR code with the phone.\nMatch the posture shown in the image.\nTriple tap to start.";
+    [SerializeField] private string repeatConditionEntryPostureText = "Match the posture shown in the image.\nTriple tap to start.";
     [TextArea(2, 4)]
-    [SerializeField] private string conditionBreakText = "Condition complete.\nPlease hand the phone to the researcher.\nTake a short break and complete the questionnaire for this condition.";
+    [SerializeField] private string conditionBreakText = "Condition complete.\nPlease hand the phone to the experimenter.\nTake a short break and complete the questionnaire for this condition.";
     [SerializeField] private float conditionBreakSeconds = 5f;
     [SerializeField] private float conditionBreakPostReadSeconds = 2f;
     [SerializeField] private bool requireTripleTapToLeaveConditionBreak = true;
@@ -111,13 +118,19 @@ public class ConditionBlockController : MonoBehaviour
     [TextArea(2, 4)]
     [SerializeField] private string readyTripleTapAcknowledgementText = "Triple tap detected.\nHold still.";
 
-    [Header("Researcher Explanation Gates")]
+    [Header("Experimenter Explanation Gates")]
     [SerializeField] private bool showConditionExplanationGate = true;
     [TextArea(3, 6)]
     [SerializeField] private string conditionExplanationTextTemplate = "Condition {condition_index}\n{condition_name}\nThis condition will be explained.\nAfter the explanation is finished, triple tap on the phone to continue.";
 
     [Header("Phone QR Gate")]
     [SerializeField] private bool requireFreshPhoneQrBeforeConditionReady = true;
+    [SerializeField] private bool showResearcherPhoneQrScanGateBeforePosture = true;
+    [TextArea(2, 4)]
+    [SerializeField] private string researcherPhoneQrScanText = "Phone QR calibration.\nPlease wait while the experimenter scans the QR code with the phone.";
+    [SerializeField] private bool requireTripleTapAfterResearcherPhoneQrScan = true;
+    [TextArea(2, 4)]
+    [SerializeField] private string researcherPhoneQrContinueText = "Phone QR calibration complete.\nTriple tap on the phone to continue.";
     [SerializeField] private string waitingForPhoneQrText = "Scan the phone QR code first.";
     [SerializeField] private float waitingForPhoneQrReminderSeconds = 1.5f;
 
@@ -161,6 +174,8 @@ public class ConditionBlockController : MonoBehaviour
     private bool _hasCompletedConditionEntryOnce = false;
     private string _conditionEntryPhoneQrBaselineKey = "";
     private bool _conditionEntryPhoneQrBaselineSet = false;
+    private bool _conditionEntryPhoneQrSatisfied = false;
+    private bool _initialWorkspacePhoneQrSatisfied = false;
 
     public Technique CurrentTechnique => _currentCondition != null ? _currentCondition.technique : Technique.Macro;
     public HandLocation CurrentHandLocation => _currentCondition != null ? _currentCondition.handLocation : HandLocation.NearHead;
@@ -320,6 +335,26 @@ public class ConditionBlockController : MonoBehaviour
         if (phoneRouter != null)
             phoneRouter.SetInputSuppressed(true);
 
+        if (scanPhoneQrDuringInitialWorkspaceSetup && requireFreshPhoneQrBeforeConditionReady)
+        {
+            PrepareFreshPhoneQrGate();
+            yield return ShowResearcherPhoneQrScanGate(_conditionEntryToken, initialPhoneQrScanText);
+            _initialWorkspacePhoneQrSatisfied = _conditionEntryPhoneQrSatisfied;
+        }
+
+        if (requireTripleTapAfterWorkspaceQrReady)
+        {
+            ResolveInstructionHudIfNeeded();
+
+            if (instructionHUD != null && !string.IsNullOrWhiteSpace(workspaceQrReadyText))
+                instructionHUD.Show(workspaceQrReadyText, float.PositiveInfinity);
+
+            yield return WaitForFreshPhoneTripleTap(_conditionEntryToken, showReadyAcknowledgement: false);
+
+            if (instructionHUD != null)
+                instructionHUD.HideImmediate();
+        }
+
         if (showPhoneAppReadyMessageOnFirstStart && !_startupPhoneAppMessageShown)
         {
             ResolveInstructionHudIfNeeded();
@@ -327,13 +362,27 @@ public class ConditionBlockController : MonoBehaviour
             float wait = GetPhoneAppReadyWaitSeconds();
             if (instructionHUD != null && !string.IsNullOrWhiteSpace(phoneAppReadyMessage))
             {
-                wait = Mathf.Max(wait, instructionHUD.Show(phoneAppReadyMessage, wait));
+                wait = requireTripleTapAfterPhoneAppReadyMessage
+                    ? float.PositiveInfinity
+                    : Mathf.Max(wait, instructionHUD.Show(phoneAppReadyMessage, wait));
+
+                if (requireTripleTapAfterPhoneAppReadyMessage)
+                    instructionHUD.Show(phoneAppReadyMessage, float.PositiveInfinity);
             }
 
             _startupPhoneAppMessageShown = true;
 
-            if (wait > 0f)
+            if (requireTripleTapAfterPhoneAppReadyMessage)
+            {
+                yield return WaitForFreshPhoneTripleTap(_conditionEntryToken, showReadyAcknowledgement: false);
+
+                if (instructionHUD != null)
+                    instructionHUD.HideImmediate();
+            }
+            else if (wait > 0f)
+            {
                 yield return new WaitForSeconds(wait);
+            }
         }
 
         _initialConditionApplied = true;
@@ -516,25 +565,25 @@ public class ConditionBlockController : MonoBehaviour
                     instructionHUD.HideImmediate();
             }
 
+            _conditionEntryPhoneQrSatisfied = isFirstConditionEntry && _initialWorkspacePhoneQrSatisfied;
+            if (!_conditionEntryPhoneQrSatisfied)
+                PrepareFreshPhoneQrGate();
+
+            if (showResearcherPhoneQrScanGateBeforePosture && !_conditionEntryPhoneQrSatisfied)
+            {
+                yield return ShowResearcherPhoneQrScanGate(
+                    token,
+                    researcherPhoneQrScanText,
+                    requireTripleTapAfterResearcherPhoneQrScan);
+                if (token != _conditionEntryToken)
+                    yield break;
+            }
+
             yield return ShowConditionExplanationGate(token);
             if (token != _conditionEntryToken)
                 yield break;
 
             ApplyConditionEntryStartPose();
-
-            if (phonePoseReceiver == null)
-                phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
-            if (phonePoseReceiver != null)
-            {
-                _conditionEntryPhoneQrBaselineKey = phonePoseReceiver.LatestPhoneQrDetectionKey;
-                _conditionEntryPhoneQrBaselineSet = true;
-                phonePoseReceiver.ArmPhoneQrDetectedAnnouncement(requireNewDetection: true);
-            }
-            else
-            {
-                _conditionEntryPhoneQrBaselineKey = "";
-                _conditionEntryPhoneQrBaselineSet = false;
-            }
 
             Sprite exampleSprite = GetConditionEntryExampleSprite();
             bool showingExample = showConditionEntryExampleImage && exampleSprite != null;
@@ -720,7 +769,12 @@ public class ConditionBlockController : MonoBehaviour
 
     private IEnumerator WaitForReadyTripleTapThenPhoneConnection(int token)
     {
-        yield return WaitForFreshPhoneQrIfNeeded(token);
+        if (!_conditionEntryPhoneQrSatisfied)
+        {
+            yield return WaitForFreshPhoneQrIfNeeded(token);
+            if (token == _conditionEntryToken && HasFreshPhoneQrLock())
+                _conditionEntryPhoneQrSatisfied = true;
+        }
 
         if (token != _conditionEntryToken)
             yield break;
@@ -733,7 +787,57 @@ public class ConditionBlockController : MonoBehaviour
         yield return WaitForPhoneConnectionIfNeeded(token);
     }
 
-    private IEnumerator WaitForFreshPhoneQrIfNeeded(int token)
+    private void PrepareFreshPhoneQrGate()
+    {
+        if (phonePoseReceiver == null)
+            phonePoseReceiver = FindFirstObjectByType<PhonePoseStreamReceiver>();
+
+        _conditionEntryPhoneQrSatisfied = false;
+
+        if (phonePoseReceiver != null)
+        {
+            _conditionEntryPhoneQrBaselineKey = phonePoseReceiver.LatestPhoneQrDetectionKey;
+            _conditionEntryPhoneQrBaselineSet = true;
+            phonePoseReceiver.ArmPhoneQrDetectedAnnouncement(requireNewDetection: true);
+        }
+        else
+        {
+            _conditionEntryPhoneQrBaselineKey = "";
+            _conditionEntryPhoneQrBaselineSet = false;
+        }
+    }
+
+    private IEnumerator ShowResearcherPhoneQrScanGate(int token, string promptText, bool requireContinueTripleTap = false)
+    {
+        if (!requireFreshPhoneQrBeforeConditionReady)
+            yield break;
+
+        ResolveInstructionHudIfNeeded();
+
+        if (instructionHUD != null)
+        {
+            instructionHUD.HideExample();
+            if (!string.IsNullOrWhiteSpace(promptText))
+                instructionHUD.Show(promptText, float.PositiveInfinity);
+        }
+
+        yield return WaitForFreshPhoneQrIfNeeded(token, showReminderOverlay: false);
+
+        if (token != _conditionEntryToken)
+            yield break;
+
+        _conditionEntryPhoneQrSatisfied = HasFreshPhoneQrLock();
+
+        if (!_conditionEntryPhoneQrSatisfied || !requireContinueTripleTap)
+            yield break;
+
+        if (instructionHUD != null && !string.IsNullOrWhiteSpace(researcherPhoneQrContinueText))
+            instructionHUD.Show(researcherPhoneQrContinueText, float.PositiveInfinity);
+
+        yield return WaitForFreshPhoneTripleTap(token, showReadyAcknowledgement: false);
+    }
+
+    private IEnumerator WaitForFreshPhoneQrIfNeeded(int token, bool showReminderOverlay = true)
     {
         if (!requireFreshPhoneQrBeforeConditionReady)
             yield break;
@@ -756,7 +860,8 @@ public class ConditionBlockController : MonoBehaviour
             if (HasFreshPhoneQrLock())
                 yield break;
 
-            if (instructionHUD != null &&
+            if (showReminderOverlay &&
+                instructionHUD != null &&
                 !string.IsNullOrWhiteSpace(waitingForPhoneQrText) &&
                 Time.unscaledTime >= nextReminderAt)
             {

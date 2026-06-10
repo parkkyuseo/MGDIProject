@@ -32,6 +32,10 @@ public class ProxyHandGrabber : MonoBehaviour
     [Header("Collision")]
     public bool disableHeldColliders = true;
 
+    [Header("Release physics")]
+    [Tooltip("Keep released tools kinematic so they stay exactly where the participant placed them.")]
+    [SerializeField] private bool keepReleasedBodyKinematic = true;
+
     [Header("Proxy hand visibility")]
     [Tooltip("If true, cached proxy-hand renderers are hidden while an object is held and restored on release.")]
     [SerializeField] private bool hideProxyHandWhileHolding = true;
@@ -96,6 +100,7 @@ public class ProxyHandGrabber : MonoBehaviour
     private Rigidbody _heldBody;
     private Transform _heldOriginalParent;
     private Collider[] _heldColliders;
+    private bool _heldOriginalIsKinematic;
 
     // initial offset captured at grab time (relative to anchor)
     private Vector3 _heldLocalPosToAnchor;
@@ -337,6 +342,7 @@ public class ProxyHandGrabber : MonoBehaviour
 
         _heldBody = body;
         _heldOriginalParent = body.transform.parent;
+        _heldOriginalIsKinematic = body.isKinematic;
 
         _heldBody.isKinematic = true;
         _heldBody.velocity = Vector3.zero;
@@ -393,11 +399,15 @@ public class ProxyHandGrabber : MonoBehaviour
         Transform t = _heldBody.transform;
         t.SetParent(_heldOriginalParent, true);
 
-        _heldBody.isKinematic = false;
+        _heldBody.velocity = Vector3.zero;
+        _heldBody.angularVelocity = Vector3.zero;
+        _heldBody.isKinematic = keepReleasedBodyKinematic ? true : _heldOriginalIsKinematic;
+        _heldBody.Sleep();
 
         _heldBody = null;
         _heldOriginalParent = null;
         _heldColliders = null;
+        _heldOriginalIsKinematic = false;
 
         _heldFollowInit = false;
         _lastReleaseTime = Time.unscaledTime;

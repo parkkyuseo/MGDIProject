@@ -1077,7 +1077,7 @@ MonoBehaviour:
   activeLayerName: Grabbable
   inactiveLayerName: ToolInactive
   toggleColliders: 1
-  toolsPerBlock: 5
+  toolsPerBlock: 3
   debugLog: 0
   autoStart: 1
 --- !u!114 &73713665
@@ -3631,7 +3631,7 @@ MonoBehaviour:
 
     then triple tap.'
   bringTargetNearActiveTool: 1
-  targetOffsetLocal: {x: 0.18, y: 0.05, z: -0.1}
+  targetOffsetLocal: {x: 0.18, y: 0.05, z: -0.2}
   offsetInCameraFrame: 1
   finishBlockAfterOneSuccessWhenForced: 1
   logDebug: 0
@@ -4427,7 +4427,7 @@ MonoBehaviour:
   slotsTargetsRoot: {fileID: 1997792891}
   showTargetGhostScale: 1
   bringTargetGhostNearActiveTool: 1
-  targetGhostOffsetLocal: {x: 0.22, y: 0.04, z: 0}
+  targetGhostOffsetLocal: {x: 0.18, y: 0.05, z: -0.2}
   targetGhostOffsetInCameraFrame: 1
   grabber: {fileID: 4217352218302390359}
   remoteHand: {fileID: 1722393066}
@@ -6841,33 +6841,41 @@ MonoBehaviour:
   fastPhoneAppReadyMessageSeconds: 1
   fastConditionBreakSeconds: 5
   showPhoneAppReadyMessageOnFirstStart: 1
+  scanPhoneQrDuringInitialWorkspaceSetup: 1
+  initialPhoneQrScanText: 'Workspace QR detected.
+
+    Experimenter scans the phone
+    QR now.
+
+    Wait for PHONE QR DETECTED.'
+  requireTripleTapAfterWorkspaceQrReady: 1
+  workspaceQrReadyText: 'Workspace and phone QR setup complete.
+
+    Triple tap on
+    the phone to continue.'
+  requireTripleTapAfterPhoneAppReadyMessage: 1
   phoneAppReadyMessage: 'Look around and check the basket and tool locations.
 
     Get
-    familiar with the workspace before starting.'
+    familiar with the workspace before starting.
+
+    When finished, triple tap on
+    the phone to continue.'
   phoneAppReadyMessageSeconds: 12
-  firstConditionEntryPostureText: 'Open the phone app.
+  firstConditionEntryPostureText: 'Match the posture shown in the image.
 
-    Scan the QR code with
-    the phone.
+    Triple
+    tap to start.'
+  repeatConditionEntryPostureText: 'Match the posture shown in the image.
 
-    Match the posture shown in the image.
-
-    Triple tap to start.'
-  repeatConditionEntryPostureText: 'Open the phone app.
-
-    Scan the QR code with
-    the phone.
-
-    Match the posture shown in the image.
-
-    Triple tap to start.'
+    Triple
+    tap to start.'
   conditionBreakText: 'Condition complete.
 
-    Please hand the phone to the researcher.
+    Please hand the phone to the experimenter.
 
-    Take a short break and complete the
-    questionnaire for this condition.'
+    Take
+    a short break and complete the questionnaire for this condition.'
   conditionBreakSeconds: 5
   conditionBreakPostReadSeconds: 2
   requireTripleTapToLeaveConditionBreak: 1
@@ -6899,9 +6907,24 @@ MonoBehaviour:
 
     {condition_name}
 
-    This condition will be explained.
+    This
+    condition will be explained.
 
-    After the explanation is finished, triple tap on the phone to continue.'
+    After the explanation is finished, triple tap
+    on the phone to continue.'
+  requireFreshPhoneQrBeforeConditionReady: 1
+  showResearcherPhoneQrScanGateBeforePosture: 1
+  researcherPhoneQrScanText: 'Phone QR calibration.
+
+    Please wait while the experimenter
+    scans the QR code with the phone.'
+  requireTripleTapAfterResearcherPhoneQrScan: 1
+  researcherPhoneQrContinueText: 'Phone QR calibration complete.
+
+    Triple tap
+    on the phone to continue.'
+  waitingForPhoneQrText: Scan the phone QR code first.
+  waitingForPhoneQrReminderSeconds: 1.5
   requirePhoneStillnessBeforeConditionBaseline: 1
   conditionEntryStableAngularSpeedDegPerSec: 12
   conditionEntryStableLinearSpeedMetersPerSec: 0.08
@@ -9150,6 +9173,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   enableLogging: 1
   participantIdFallback: TEST
+  workflow: {fileID: 0}
   flow: {fileID: 1551205281}
   placementTask: {fileID: 89833995}
   rotationTask: {fileID: 438412553}
@@ -11349,19 +11373,28 @@ MonoBehaviour:
   logGripCalibrationGate: 0
   practiceTrialsPerBlock: 1
   practiceToolId: FireExtinguisher
-  practiceIntroTextTemplate: '{task} Practice'
-  practiceIntroSeconds: 2
+  practiceIntroTextTemplate: '{task} Practice
+
+    This is a practice round.'
+  practiceIntroSeconds: 2.5
   practiceDetailTextTemplate: '{task_instruction}
 
-    Then triple tap to submit.'
-  practiceDetailSeconds: 1.5
+    Practice until the movement
+    feels familiar.
+
+    When you have practiced enough, triple tap to move to the
+    main task.'
+  practiceDetailSeconds: 4
   practiceIntroPanelGapSeconds: 0.08
   minPracticeIntroRepeatInterval: 1
   showPracticeCompleteMessage: 1
-  practiceCompleteMessage: Main task starts now
-  practiceCompleteSeconds: 3
+  practiceCompleteMessage: 'Practice complete.
+
+    Main task starts in 5 seconds.'
+  practiceCompleteSeconds: 5
   showSkippedPracticeMicroStartMessage: 1
-  skippedPracticeMicroStartSeconds: 1.5
+  skippedPracticeMicroStartSeconds: 5
+  preMainLeadInMessageSeconds: 8
   showMainTaskStartMessage: 1
   mainTaskStartMessageSeconds: 2
   mainPlacementStartMessage: Main Placement Task Starts Now
@@ -11372,8 +11405,14 @@ MonoBehaviour:
 
     This task will be explained.
 
-    After the explanation is finished, triple tap on the phone to continue.'
+    After
+    the explanation is finished, triple tap on the phone to continue.'
   taskExplanationPhoneFreshSeconds: 0.75
+  speakTrialActionOnStart: 1
+  placementTrialActionSpeechTemplate: Place the {tool}.
+  rotationTrialActionSpeechTemplate: Rotate the {tool}.
+  scalingTrialActionSpeechTemplate: Scale the {tool}.
+  trialActionSpeechDelaySeconds: 0.25
   showDebugHUD: 0
   hudUpdateHz: 10
   logTaskContextUpdates: 0
@@ -16812,6 +16851,7 @@ MonoBehaviour:
   attachDistance: 0.05
   regrabCooldownSec: 0.1
   disableHeldColliders: 1
+  keepReleasedBodyKinematic: 1
   hideProxyHandWhileHolding: 1
   proxyHandVisualRoot: {fileID: 2547293117679861373}
   filterHeldObject: 1

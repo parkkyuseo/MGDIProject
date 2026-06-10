@@ -125,7 +125,7 @@ public class ToolRotationTaskManager : MonoBehaviour
     [SerializeField] private bool bringTargetNearActiveTool = false;
 
     [Tooltip("Offset near the tool when bringing target close. X=right, Y=up, Z=forward (in chosen frame). Meters.")]
-    [SerializeField] private Vector3 targetOffsetLocal = new Vector3(0.18f, 0.05f, -0.10f);
+    [SerializeField] private Vector3 targetOffsetLocal = new Vector3(0.18f, 0.05f, -0.20f);
 
     [Tooltip("If true, offset uses Camera frame (cam.right/up/fwd). If false, uses tool frame (tool.right/up/fwd).")]
     [SerializeField] private bool offsetInCameraFrame = true;
@@ -235,7 +235,7 @@ public class ToolRotationTaskManager : MonoBehaviour
         set => preserveSolvedPoseForNextPhase = value;
     }
 
-    public void SetPracticeGhostRandomization(bool enabled)
+    public void SetPracticeGhostRandomization(bool enabled, bool restoreTargetsWhenDisabling = true)
     {
         _practiceGhostRandomizationEnabled = enabled;
         _hasLastPracticeRotationOffset = false;
@@ -252,7 +252,7 @@ public class ToolRotationTaskManager : MonoBehaviour
                     it.targetEvalBaseRot = it.targetEval.rotation;
             }
         }
-        else
+        else if (restoreTargetsWhenDisabling)
         {
             RestoreAllPracticeTargetRotations();
         }
