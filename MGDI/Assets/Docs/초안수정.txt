@@ -1,47 +1,7 @@
-\section{Experimental Design}
+\subsection{Objective Performance Measures}
 
-Study 1 used a controlled within-subjects factorial design to examine the effects of gesture scale and hand location on AR object manipulation. The study manipulated two independent variables: gesture scale and hand location. Gesture scale had two levels, Macro and Micro, and hand location had two levels, Near-Head and Side-of-Body. This produced four experimental conditions: Macro Near-Head, Macro Side-of-Body, Micro Near-Head, and Micro Side-of-Body.
+The primary objective performance measures were task completion time and final manipulation error. These measures were recorded for each completed trial. Task completion time measured the duration from the start of the trial to the participant's submission. Participants submitted a trial when they judged that the active object matched the target as closely as possible. If a participant did not submit within the trial timeout, the trial was marked as timed out.
 
-A within-subjects design was used so that each participant experienced all four interaction conditions. This design allowed performance and subjective ratings to be compared within the same participant, reducing variability due to individual differences in prior AR experience, spatial ability, gesture preference, or familiarity with phone-based input. Each participant completed the same set of object manipulation tasks in every condition.
+Final manipulation error was computed according to the task type. For the translation task, translation error was computed as the distance between the final submitted object position and the target position. This error was recorded in centimeters. For the rotation task, rotation error was computed as the angular difference between the final submitted object orientation and the target orientation. This error was recorded in degrees. For the scaling task, scaling error was computed as the difference between the final submitted object scale and the target scale. This error was recorded as a percentage error.
 
-\subsection{Design}
-
-The study followed a 2 $\times$ 2 within-subjects design. The two factors were gesture scale and hand location. The primary goal was to determine whether gesture scale, hand location, or their combination affected task performance, perceived physical demand, ease of use, and contextualized social acceptability.
-
-Task type was included as a repeated task category. Participants completed translation, rotation, and scaling tasks in each condition. These tasks were not used to create separate interaction techniques, but to evaluate whether the effects of gesture scale and hand location were consistent across different forms of object manipulation. Translation emphasized spatial positioning, rotation emphasized orientation control, and scaling emphasized size adjustment.
-
-All gesture input was performed with the right hand. The input hand was held constant across the study and was not treated as an independent variable. This choice was made to standardize the implementation, tracking configuration, posture instructions, and control mappings across gesture scale and hand location conditions.
-
-\subsection{Independent Variables and Conditions}
-
-The first independent variable was gesture scale. In the Macro condition, participants manipulated objects using larger movements of the phone and right hand. In the Micro condition, participants minimized gross arm movement and used touch input on the phone for object adjustment. The Macro and Micro conditions were designed to support the same object manipulation tasks, but they differed in the physical scale of the input movement.
-
-The second independent variable was hand location. In the Near-Head condition, participants held the phone near the head and frontal workspace. In the Side-of-Body condition, participants held the phone beside the right side of the torso, away from the frontal workspace. These locations were selected to compare a head-adjacent interaction region with an alternative side-body interaction region.
-
-The combination of these two variables resulted in the following four conditions:
-
-\begin{table}[h]
-\centering
-\caption{Experimental conditions in Study 1.}
-\label{tab:study1-conditions}
-\begin{tabular}{lll}
-\toprule
-Condition & Gesture Scale & Hand Location \\
-\midrule
-Macro Near-Head & Macro & Near-Head \\
-Macro Side-of-Body & Macro & Side-of-Body \\
-Micro Near-Head & Micro & Near-Head \\
-Micro Side-of-Body & Micro & Side-of-Body \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The task goals, target displays, submission method, and logging procedure were kept consistent across the four conditions. However, as described in the previous section, the Macro Side-of-Body condition required axis remapping to make side-body phone motion usable for the frontal AR task workspace. Therefore, the Macro hand-location comparison should be interpreted as a comparison between practical Near-Head and Side-of-Body implementations rather than as a pure comparison of physical hand position alone.
-
-\subsection{Counterbalancing and Randomization}
-
-Because all participants completed all four conditions, condition order was controlled to reduce potential order effects, learning effects, and fatigue effects. The four interaction conditions were presented in a counterbalanced order across participants using the balanced Latin square implemented in the study controller. The authored base condition order was Macro Near-Head, Macro Side-of-Body, Micro Near-Head, and Micro Side-of-Body, and the selected Latin-square sequence was derived from the numeric participant ID. If no numeric participant ID was available, the configured manual sequence number was used. This ensured that each condition appeared in different ordinal positions across the study.
-
-Within each condition, participants completed the translation, rotation, and scaling tasks. The order of task blocks was fixed across participants: translation, followed by rotation, followed by scaling. In the Unity workflow, these correspond to the Placement, Rotation, and Scaling phases. Within each task, trial targets were presented in a fixed workflow sequence defined by the ordered tool list in the WorkflowProgressionController. The scene uses phase-by-phase progression, so the workflow completes the selected tools for Placement first, then repeats the same selected tool sequence for Rotation, and then repeats it again for Scaling. This kept the task structure and trial difficulty comparable across conditions.
-
-Participants completed practice trials before the main trials for each condition. Practice trials allowed participants to become familiar with the current gesture scale, hand location, and control mapping before recorded trials began. Practice trials were not included in the main analysis. Breaks were provided between condition blocks to reduce fatigue and to allow participants to reset their posture before continuing.
+Together, task completion time and final manipulation error captured the efficiency and accuracy of each gesture condition. This was important because an interaction technique could allow participants to complete a task quickly while producing larger final error, or it could support more accurate manipulation at the cost of longer completion time. The study therefore considered both measures when evaluating performance.
