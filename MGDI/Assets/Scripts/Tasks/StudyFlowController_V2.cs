@@ -695,7 +695,10 @@ public class StudyFlowController_V2 : MonoBehaviour
             return;
         }
 
-        CaptureCarryToolPoseFromPlacement();
+        if (placementTask != null && placementTask.HasLastTrialOutcome && placementTask.LastTrialSuccess)
+            CaptureCarryToolPoseFromPlacement();
+        else
+            ClearCarryToolPoseIfMatches(placementTask != null ? placementTask.ActiveToolId : null);
 
         if (workflow != null)
             workflow.Advance();
@@ -709,11 +712,21 @@ public class StudyFlowController_V2 : MonoBehaviour
             return;
         }
 
-        CaptureCarryToolRotationFromRotation();
+        bool rotationSucceeded = rotationTask != null &&
+                                 rotationTask.HasLastTrialOutcome &&
+                                 rotationTask.LastTrialSuccess;
+
+        if (rotationSucceeded)
+            CaptureCarryToolRotationFromRotation();
+
         if (grabber != null)
             grabber.ForceRelease();
-        ApplyCarryToolPoseToTransform(rotationTask != null ? rotationTask.ActiveToolId : null,
-            rotationTask != null ? rotationTask.ActiveToolTransform : null);
+
+        if (rotationSucceeded)
+        {
+            ApplyCarryToolPoseToTransform(rotationTask != null ? rotationTask.ActiveToolId : null,
+                rotationTask != null ? rotationTask.ActiveToolTransform : null);
+        }
 
         if (rotationTask != null)
         {
@@ -738,8 +751,16 @@ public class StudyFlowController_V2 : MonoBehaviour
 
         if (grabber != null)
             grabber.ForceRelease();
-        ApplyCarryToolPoseToTransform(scalingTask != null ? scalingTask.ActiveId : null,
-            scalingTask != null ? scalingTask.ActiveToolTransform : null);
+
+        bool scalingSucceeded = scalingTask != null &&
+                                scalingTask.HasLastTrialOutcome &&
+                                scalingTask.LastTrialSuccess;
+
+        if (scalingSucceeded)
+        {
+            ApplyCarryToolPoseToTransform(scalingTask != null ? scalingTask.ActiveId : null,
+                scalingTask != null ? scalingTask.ActiveToolTransform : null);
+        }
 
         if (workflow != null)
             workflow.Advance();
@@ -2335,6 +2356,17 @@ public class StudyFlowController_V2 : MonoBehaviour
         _carryToolPoseId = null;
         _carryToolPosePosition = Vector3.zero;
         _carryToolPoseRotation = Quaternion.identity;
+    }
+
+    private void ClearCarryToolPoseIfMatches(string toolId)
+    {
+        toolId = NormalizeToolId(toolId);
+        if (!_hasCarryToolPose || string.IsNullOrEmpty(toolId))
+            return;
+        if (!string.Equals(_carryToolPoseId, toolId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        ClearCarryToolPose();
     }
 
     private void ApplyWorkflowForcedIdForPhase(WorkflowProgressionController.Phase phase)

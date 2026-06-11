@@ -540,8 +540,14 @@ public class ToolScalingTaskManager : MonoBehaviour
 
         OnTrialEnded?.Invoke(success, timedOut);
 
-        // Forced: finish after one success
-        if (success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced)
+        // In workflow-forced mode, a success or timeout is a terminal outcome for this tool.
+        // Practice retries are coordinated by StudyFlowController through OnBlockFinished.
+        bool forcedTerminalOutcome =
+            !string.IsNullOrEmpty(_forcedActiveId) &&
+            finishBlockAfterOneSuccessWhenForced &&
+            (success || timedOut);
+
+        if (forcedTerminalOutcome)
         {
             inTransition = false;
             FinishBlock();

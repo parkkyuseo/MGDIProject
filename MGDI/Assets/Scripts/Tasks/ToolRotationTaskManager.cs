@@ -626,7 +626,14 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         HideFeedbackUI();
 
-        bool finishingForcedSuccess = success && !string.IsNullOrEmpty(_forcedActiveId) && finishBlockAfterOneSuccessWhenForced;
+        bool finishingForcedSuccess =
+            success &&
+            !string.IsNullOrEmpty(_forcedActiveId) &&
+            finishBlockAfterOneSuccessWhenForced;
+        bool finishingForcedTimeout =
+            timedOut &&
+            !string.IsNullOrEmpty(_forcedActiveId) &&
+            finishBlockAfterOneSuccessWhenForced;
         bool keepSolvedPoseForScaling = finishingForcedSuccess && preserveSolvedPoseForNextPhase;
 
         if (!keepSolvedPoseForScaling)
@@ -640,7 +647,7 @@ public class ToolRotationTaskManager : MonoBehaviour
 
         OnTrialEnded?.Invoke(success, timedOut);
 
-        if (finishingForcedSuccess)
+        if (finishingForcedSuccess || finishingForcedTimeout)
         {
             FinishBlock();
             yield break;
