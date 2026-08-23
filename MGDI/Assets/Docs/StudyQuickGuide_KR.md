@@ -29,6 +29,14 @@
 - 팔과 손의 큰 움직임으로 조작합니다.
 - 손 위치는 머리 가까이 유지합니다.
 
+#### Spoken script (EN)
+
+> In this condition, keep your hand near your head.
+>
+> You will use larger phone and arm movements to control the proxy hand.
+>
+> After this explanation, triple tap to continue.
+
 ![Macro Near Head](../Image/MacroNearHead.png)
 
 ### Macro - Side Of Body
@@ -40,6 +48,16 @@
 - Phone의 위아래 움직임은 proxy hand의 앞뒤 움직임을 조정합니다.
 - Phone의 앞뒤 움직임은 proxy hand의 위아래 움직임을 조정합니다.
 
+#### Spoken script (EN)
+
+> In this condition, keep your hand at the side of your body.
+>
+> You will use larger phone and arm movements.
+>
+> The movement is changed here: left and right stay left and right, up and down move forward and back, and forward and back move up and down.
+>
+> After this explanation, triple tap to continue.
+
 ![Macro Side Of Body](../Image/MacroSideBody.png)
 
 ### Micro - Near Head
@@ -47,12 +65,28 @@
 - 손 위치는 머리 가까이 유지합니다.
 - 세밀한 조작은 휴대폰 화면을 스와이프해서 수행합니다.
 
+#### Spoken script (EN)
+
+> In this condition, keep your hand near your head.
+>
+> Try to keep your arm still, and use small phone swipes for fine control.
+>
+> After this explanation, triple tap to continue.
+
 ![Micro Near Head](../Image/MacroNearHead.png)
 
 ### Micro - Side Of Body
 
 - 손 위치는 몸 옆(side of body)에 둡니다.
 - 세밀한 조작은 휴대폰 화면을 스와이프해서 수행합니다.
+
+#### Spoken script (EN)
+
+> In this condition, keep your hand at the side of your body.
+>
+> Try to keep your arm still, and use small phone swipes for fine control.
+>
+> After this explanation, triple tap to continue.
 
 ![Micro Side Of Body](../Image/MicroSideBody.png)
 
@@ -65,6 +99,20 @@
 - 필요하면 `double tap`으로 이동 평면을 바꿔 깊이(앞/뒤) 방향도 조정할 수 있습니다.
 - 목표 위치를 맞춘 뒤 `triple tap`으로 제출합니다.
 
+#### Spoken script (EN)
+
+> In this task, move the tool to the target position.
+>
+> Try to place it as close to the target as possible.
+>
+> When you are done, triple tap to submit.
+
+Micro add-on:
+
+> In micro placement, tap once to grab and tap again to release.
+>
+> Swipe to move the tool. Double tap if you need to change the movement plane.
+
 ### Rotation
 
 - 도구의 방향을 목표 방향에 맞춥니다.
@@ -72,11 +120,37 @@
 - 필요하면 `double tap`으로 상하 스와이프 축을 `roll`과 `pitch` 사이에서 전환할 수 있습니다.
 - 목표 방향을 맞춘 뒤 `triple tap`으로 제출합니다.
 
+#### Spoken script (EN)
+
+> In this task, match the tool's angle to the target.
+>
+> You do not need to match the position exactly. Focus on the rotation.
+>
+> When you are done, triple tap to submit.
+
+Micro add-on:
+
+> In micro rotation, swipe left and right to turn the tool.
+>
+> Swipe up and down for another rotation direction. Double tap to switch that direction.
+
 ### Scaling
 
 - 도구의 크기를 목표 크기에 맞춥니다.
 - `Micro`에서는 상하 스와이프로 크기를 키우거나 줄입니다.
 - 목표 크기를 맞춘 뒤 `triple tap`으로 제출합니다.
+
+#### Spoken script (EN)
+
+> In this task, match the tool's size to the target size.
+>
+> Make the tool as close to the target size as possible.
+>
+> When you are done, triple tap to submit.
+
+Micro add-on:
+
+> In micro scaling, swipe up to make the tool smaller, and swipe down to make it bigger.
 
 ## 5. 참고
 

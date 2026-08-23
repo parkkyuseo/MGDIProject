@@ -29,6 +29,14 @@
 - Use larger arm and hand movements.
 - Keep your hand near your head.
 
+#### Spoken script (EN)
+
+> In this condition, keep your hand near your head.
+>
+> You will use larger phone and arm movements to control the proxy hand.
+>
+> After this explanation, triple tap to continue.
+
 ![Macro Near Head](../Image/MacroNearHead.png)
 
 ### Macro - Side Of Body
@@ -40,6 +48,16 @@
 - Phone up/down movement controls proxy-hand forward/back movement.
 - Phone forward/back movement controls proxy-hand up/down movement.
 
+#### Spoken script (EN)
+
+> In this condition, keep your hand at the side of your body.
+>
+> You will use larger phone and arm movements.
+>
+> The movement is changed here: left and right stay left and right, up and down move forward and back, and forward and back move up and down.
+>
+> After this explanation, triple tap to continue.
+
 ![Macro Side Of Body](../Image/MacroSideBody.png)
 
 ### Micro - Near Head
@@ -47,12 +65,28 @@
 - Keep your hand near your head.
 - Use phone screen swipes for fine control.
 
+#### Spoken script (EN)
+
+> In this condition, keep your hand near your head.
+>
+> Try to keep your arm still, and use small phone swipes for fine control.
+>
+> After this explanation, triple tap to continue.
+
 ![Micro Near Head](../Image/MacroNearHead.png)
 
 ### Micro - Side Of Body
 
 - Keep your hand at the side of your body.
 - Use phone screen swipes for fine control.
+
+#### Spoken script (EN)
+
+> In this condition, keep your hand at the side of your body.
+>
+> Try to keep your arm still, and use small phone swipes for fine control.
+>
+> After this explanation, triple tap to continue.
 
 ![Micro Side Of Body](../Image/MicroSideBody.png)
 
@@ -65,6 +99,20 @@
 - If needed, `double tap` to switch the movement plane for forward/back adjustment.
 - After matching the target position, submit with `triple tap`.
 
+#### Spoken script (EN)
+
+> In this task, move the tool to the target position.
+>
+> Try to place it as close to the target as possible.
+>
+> When you are done, triple tap to submit.
+
+Micro add-on:
+
+> In micro placement, tap once to grab and tap again to release.
+>
+> Swipe to move the tool. Double tap if you need to change the movement plane.
+
 ### Rotation
 
 - Match the target orientation.
@@ -72,11 +120,37 @@
 - If needed, `double tap` to switch the vertical swipe axis between `roll` and `pitch`.
 - After matching the target orientation, submit with `triple tap`.
 
+#### Spoken script (EN)
+
+> In this task, match the tool's angle to the target.
+>
+> You do not need to match the position exactly. Focus on the rotation.
+>
+> When you are done, triple tap to submit.
+
+Micro add-on:
+
+> In micro rotation, swipe left and right to turn the tool.
+>
+> Swipe up and down for another rotation direction. Double tap to switch that direction.
+
 ### Scaling
 
 - Match the target size.
 - In `Micro`, up/down swipes make the tool larger or smaller.
 - After matching the target size, submit with `triple tap`.
+
+#### Spoken script (EN)
+
+> In this task, match the tool's size to the target size.
+>
+> Make the tool as close to the target size as possible.
+>
+> When you are done, triple tap to submit.
+
+Micro add-on:
+
+> In micro scaling, swipe up to make the tool smaller, and swipe down to make it bigger.
 
 ## 5. Notes
 

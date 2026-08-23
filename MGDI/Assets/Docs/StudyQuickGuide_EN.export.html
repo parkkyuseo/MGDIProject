@@ -3,17 +3,27 @@
 @page { size: A4; margin: 14mm 14mm 16mm 14mm; }
 html, body { margin: 0; padding: 0; }
 body {
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif;
   color: #1b1f23;
   line-height: 1.42;
-  font-size: 11pt;
+  font-size: 10.5pt;
 }
 main { max-width: 760px; margin: 0 auto; }
-h1 { font-size: 22pt; margin: 0 0 14px; color: #12314a; }
-h2 { font-size: 16pt; margin: 22px 0 10px; color: #12314a; border-bottom: 1px solid #d6e0e8; padding-bottom: 4px; }
-h3 { font-size: 12.5pt; margin: 16px 0 8px; color: #214f73; }
-p, li { margin: 0 0 7px; }
+h1 { font-size: 21pt; margin: 0 0 14px; color: #12314a; }
+h2 { font-size: 15.5pt; margin: 20px 0 10px; color: #12314a; border-bottom: 1px solid #d6e0e8; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; margin: 15px 0 8px; color: #214f73; }
+h4 { font-size: 10.8pt; margin: 12px 0 6px; color: #375d7a; }
+p, li { margin: 0 0 6px; }
 ul, ol { margin: 0 0 10px 22px; padding: 0; }
+blockquote {
+  margin: 7px 0 12px 0;
+  padding: 8px 12px;
+  border-left: 4px solid #8ab4d6;
+  background: #f6f9fb;
+  page-break-inside: avoid;
+}
+blockquote p { margin: 0 0 6px; }
+blockquote p:last-child { margin-bottom: 0; }
 code {
   font-family: Consolas, "Courier New", monospace;
   background: #f3f6f8;
@@ -35,100 +45,55 @@ code {
   border-radius: 6px;
 }
 .section-keep { page-break-inside: avoid; }
+
 </style></head><body><main>
 <h1>Study Quick Guide</h1>
 <h2>1. Overview</h2>
-<ul>
-<li>This study includes 4 conditions and 3 tasks.</li>
-<li>Conditions: <code>Macro - Near Head</code>, <code>Macro - Side Of Body</code>, <code>Micro - Near Head</code>, <code>Micro - Side Of Body</code></li>
-<li>Tasks: <code>Placement</code>, <code>Rotation</code>, <code>Scaling</code></li>
-<li>The condition order may vary depending on the <code>Participant ID</code>.</li>
-<li>In both <code>Macro</code> and <code>Micro</code>, submission is always <code>triple tap</code> for every task.</li>
-</ul>
+<ul><li>This study includes 4 conditions and 3 tasks.</li><li>Conditions: <code>Macro - Near Head</code>, <code>Macro - Side Of Body</code>, <code>Micro - Near Head</code>, <code>Micro - Side Of Body</code></li><li>Tasks: <code>Placement</code>, <code>Rotation</code>, <code>Scaling</code></li><li>The condition order may vary depending on the <code>Participant ID</code>.</li><li>In both <code>Macro</code> and <code>Micro</code>, submission is always <code>triple tap</code> for every task.</li></ul>
 <h2>2. Procedure</h2>
-<ol>
-<li>On the start screen, enter your assigned <code>Participant ID</code>.</li>
-<li>If needed, use <code>Edit</code> to change it, then press <code>Continue</code>.</li>
-<li>In the runtime scene, when you see <code>Scan the QR code to begin.</code>, scan the HoloLens workspace QR code.</li>
-<li>At the start of each condition, the condition name appears. Listen to the explanation, then <code>triple tap</code> on the phone to continue.</li>
-<li>Open or restart the phone app, scan the QR code with the phone, and wait for the HoloLens to say <code>Phone QR detected.</code></li>
-<li>Follow the posture instruction and example image, then <code>triple tap</code> to start. When the HoloLens says <code>Triple tap detected. Hold still.</code>, hold still briefly.</li>
-<li>Before each task, the task name appears. Listen to the explanation, then <code>triple tap</code> on the phone to continue.</li>
-<li>A short <code>practice</code> may appear before each task. <code>Practice</code> is not logged.</li>
-<li>Before the first main trial of each task, the HoloLens announces <code>Main Placement Task Starts Now</code>, <code>Main Rotation Task Starts Now</code>, or <code>Main Scaling Task Starts Now</code>.</li>
-<li>Match the target, then <code>triple tap</code> to submit.</li>
-<li>After one condition ends, complete the break/questionnaire step, then <code>triple tap</code> to continue to the next condition.</li>
-</ol>
+<ol><li>On the start screen, enter your assigned <code>Participant ID</code>.</li><li>If needed, use <code>Edit</code> to change it, then press <code>Continue</code>.</li><li>In the runtime scene, when you see <code>Scan the QR code to begin.</code>, scan the HoloLens workspace QR code.</li><li>At the start of each condition, the condition name appears. Listen to the explanation, then <code>triple tap</code> on the phone to continue.</li><li>Open or restart the phone app, scan the QR code with the phone, and wait for the HoloLens to say <code>Phone QR detected.</code></li><li>Follow the posture instruction and example image, then <code>triple tap</code> to start. When the HoloLens says <code>Triple tap detected. Hold still.</code>, hold still briefly.</li><li>Before each task, the task name appears. Listen to the explanation, then <code>triple tap</code> on the phone to continue.</li><li>A short <code>practice</code> may appear before each task. <code>Practice</code> is not logged.</li><li>Before the first main trial of each task, the HoloLens announces <code>Main Placement Task Starts Now</code>, <code>Main Rotation Task Starts Now</code>, or <code>Main Scaling Task Starts Now</code>.</li><li>Match the target, then <code>triple tap</code> to submit.</li><li>After one condition ends, complete the break/questionnaire step, then <code>triple tap</code> to continue to the next condition.</li></ol>
 <h2>3. Condition Summary</h2>
 <h3>Macro - Near Head</h3>
-<ul>
-<li>Use larger arm and hand movements.</li>
-<li>Keep your hand near your head.</li>
-</ul>
+<ul><li>Use larger arm and hand movements.</li><li>Keep your hand near your head.</li></ul>
+<h4>Spoken script (EN)</h4>
+<blockquote><p>In this condition, keep your hand near your head.</p><p>You will use larger phone and arm movements to control the proxy hand.</p><p>After this explanation, triple tap to continue.</p></blockquote>
 <div class="figure"><img src="file:///C:/Users/jykan/Project/MGDIProject/MGDI/Assets/Image/MacroNearHead.png" alt="Macro Near Head"></div>
 <h3>Macro - Side Of Body</h3>
-<ul>
-<li>Use larger arm and hand movements.</li>
-<li>Keep your hand at the side of your body.</li>
-<li>In this condition, the input is remapped.</li>
-<li>Phone left/right movement stays mapped to proxy-hand left/right movement.</li>
-<li>Phone up/down movement controls proxy-hand forward/back movement.</li>
-<li>Phone forward/back movement controls proxy-hand up/down movement.</li>
-</ul>
+<ul><li>Use larger arm and hand movements.</li><li>Keep your hand at the side of your body.</li><li>In this condition, the input is remapped.</li><li>Phone left/right movement stays mapped to proxy-hand left/right movement.</li><li>Phone up/down movement controls proxy-hand forward/back movement.</li><li>Phone forward/back movement controls proxy-hand up/down movement.</li></ul>
+<h4>Spoken script (EN)</h4>
+<blockquote><p>In this condition, keep your hand at the side of your body.</p><p>You will use larger phone and arm movements.</p><p>The movement is changed here: left and right stay left and right, up and down move forward and back, and forward and back move up and down.</p><p>After this explanation, triple tap to continue.</p></blockquote>
 <div class="figure"><img src="file:///C:/Users/jykan/Project/MGDIProject/MGDI/Assets/Image/MacroSideBody.png" alt="Macro Side Of Body"></div>
 <h3>Micro - Near Head</h3>
-<ul>
-<li>Keep your hand near your head.</li>
-<li>Use phone screen swipes for fine control.</li>
-</ul>
+<ul><li>Keep your hand near your head.</li><li>Use phone screen swipes for fine control.</li></ul>
+<h4>Spoken script (EN)</h4>
+<blockquote><p>In this condition, keep your hand near your head.</p><p>Try to keep your arm still, and use small phone swipes for fine control.</p><p>After this explanation, triple tap to continue.</p></blockquote>
 <div class="figure"><img src="file:///C:/Users/jykan/Project/MGDIProject/MGDI/Assets/Image/MacroNearHead.png" alt="Micro Near Head"></div>
 <h3>Micro - Side Of Body</h3>
-<ul>
-<li>Keep your hand at the side of your body.</li>
-<li>Use phone screen swipes for fine control.</li>
-</ul>
+<ul><li>Keep your hand at the side of your body.</li><li>Use phone screen swipes for fine control.</li></ul>
+<h4>Spoken script (EN)</h4>
+<blockquote><p>In this condition, keep your hand at the side of your body.</p><p>Try to keep your arm still, and use small phone swipes for fine control.</p><p>After this explanation, triple tap to continue.</p></blockquote>
 <div class="figure"><img src="file:///C:/Users/jykan/Project/MGDIProject/MGDI/Assets/Image/MicroSideBody.png" alt="Micro Side Of Body"></div>
 <h2>4. Task Summary</h2>
 <h3>Placement</h3>
-<ul>
-<li>Move the tool to the target position.</li>
-<li>In <code>Micro</code>, swipe on the phone to move the tool left/right and up/down.</li>
-<li>If needed, <code>double tap</code> to switch the movement plane for forward/back adjustment.</li>
-<li>After matching the target position, submit with <code>triple tap</code>.</li>
-</ul>
+<ul><li>Move the tool to the target position.</li><li>In <code>Micro</code>, swipe on the phone to move the tool left/right and up/down.</li><li>If needed, <code>double tap</code> to switch the movement plane for forward/back adjustment.</li><li>After matching the target position, submit with <code>triple tap</code>.</li></ul>
+<h4>Spoken script (EN)</h4>
+<blockquote><p>In this task, move the tool to the target position.</p><p>Try to place it as close to the target as possible.</p><p>When you are done, triple tap to submit.</p></blockquote>
+<p>Micro add-on:</p>
+<blockquote><p>In micro placement, tap once to grab and tap again to release.</p><p>Swipe to move the tool. Double tap if you need to change the movement plane.</p></blockquote>
 <h3>Rotation</h3>
-<ul>
-<li>Match the target orientation.</li>
-<li>In <code>Micro</code>, left/right swipes control yaw, and up/down swipes control roll.</li>
-<li>If needed, <code>double tap</code> to switch the vertical swipe axis between <code>roll</code> and <code>pitch</code>.</li>
-<li>After matching the target orientation, submit with <code>triple tap</code>.</li>
-</ul>
+<ul><li>Match the target orientation.</li><li>In <code>Micro</code>, left/right swipes control yaw, and up/down swipes control roll.</li><li>If needed, <code>double tap</code> to switch the vertical swipe axis between <code>roll</code> and <code>pitch</code>.</li><li>After matching the target orientation, submit with <code>triple tap</code>.</li></ul>
+<h4>Spoken script (EN)</h4>
+<blockquote><p>In this task, match the tool's angle to the target.</p><p>You do not need to match the position exactly. Focus on the rotation.</p><p>When you are done, triple tap to submit.</p></blockquote>
+<p>Micro add-on:</p>
+<blockquote><p>In micro rotation, swipe left and right to turn the tool.</p><p>Swipe up and down for another rotation direction. Double tap to switch that direction.</p></blockquote>
 <h3>Scaling</h3>
-<ul>
-<li>Match the target size.</li>
-<li>In <code>Micro</code>, up/down swipes make the tool larger or smaller.</li>
-<li>After matching the target size, submit with <code>triple tap</code>.</li>
-</ul>
+<ul><li>Match the target size.</li><li>In <code>Micro</code>, up/down swipes make the tool larger or smaller.</li><li>After matching the target size, submit with <code>triple tap</code>.</li></ul>
+<h4>Spoken script (EN)</h4>
+<blockquote><p>In this task, match the tool's size to the target size.</p><p>Make the tool as close to the target size as possible.</p><p>When you are done, triple tap to submit.</p></blockquote>
+<p>Micro add-on:</p>
+<blockquote><p>In micro scaling, swipe up to make the tool smaller, and swipe down to make it bigger.</p></blockquote>
 <h2>5. Notes</h2>
-<ul>
-<li>In <code>Macro</code>, you control the task mainly with arm and hand movement.</li>
-<li>In <code>Micro</code>, you keep the instructed hand posture and use phone swipes for fine adjustments.</li>
-<li>If the proxy hand is close enough to an object, it can grab the object.</li>
-<li>In <code>Macro</code>, the object is held while you keep touching the screen, and it is released when you let go.</li>
-<li>In <code>Micro</code>, a single tap grabs the object, and another tap releases it.</li>
-<li>If the phone app is restarted for a new condition, scan the QR code with the phone again before matching the posture.</li>
-<li>Try not to change posture too much while the posture instruction image is shown and while the HoloLens asks you to hold still.</li>
-<li>If QR scanning fails, <code>Phone QR detected.</code> is not announced, or the display/input seems wrong, tell the facilitator immediately.</li>
-</ul>
+<ul><li>In <code>Macro</code>, you control the task mainly with arm and hand movement.</li><li>In <code>Micro</code>, you keep the instructed hand posture and use phone swipes for fine adjustments.</li><li>If the proxy hand is close enough to an object, it can grab the object.</li><li>In <code>Macro</code>, the object is held while you keep touching the screen, and it is released when you let go.</li><li>In <code>Micro</code>, a single tap grabs the object, and another tap releases it.</li><li>If the phone app is restarted for a new condition, scan the QR code with the phone again before matching the posture.</li><li>Try not to change posture too much while the posture instruction image is shown and while the HoloLens asks you to hold still.</li><li>If QR scanning fails, <code>Phone QR detected.</code> is not announced, or the display/input seems wrong, tell the facilitator immediately.</li></ul>
 <h2>6. Most Important</h2>
-<ul>
-<li>Before starting, enter your <code>Participant ID</code> and scan the HoloLens workspace <code>QR</code> code.</li>
-<li>For every condition, listen to the condition explanation, <code>triple tap</code> to continue, scan the QR code with the phone, and wait for <code>Phone QR detected.</code> before posture matching and <code>triple tap</code>.</li>
-<li>Keep your hand in the correct condition posture: <code>Near Head</code> or <code>Side Of Body</code>.</li>
-<li>When the HoloLens says <code>Triple tap detected. Hold still.</code>, keep still briefly.</li>
-<li>In <code>Macro</code>, you hold an object while touching the screen. In <code>Micro</code>, you tap to grab and tap again to release.</li>
-<li>In <code>Micro</code>, use phone swipes to control the task.</li>
-<li>In <code>Macro - Side Of Body</code>, phone left/right stays left/right, phone up/down drives forward/back, and phone forward/back drives up/down.</li>
-<li>Submission is always <code>triple tap</code> for every task.</li>
-</ul>
+<ul><li>Before starting, enter your <code>Participant ID</code> and scan the HoloLens workspace <code>QR</code> code.</li><li>For every condition, listen to the condition explanation, <code>triple tap</code> to continue, scan the QR code with the phone, and wait for <code>Phone QR detected.</code> before posture matching and <code>triple tap</code>.</li><li>Keep your hand in the correct condition posture: <code>Near Head</code> or <code>Side Of Body</code>.</li><li>When the HoloLens says <code>Triple tap detected. Hold still.</code>, keep still briefly.</li><li>In <code>Macro</code>, you hold an object while touching the screen. In <code>Micro</code>, you tap to grab and tap again to release.</li><li>In <code>Micro</code>, use phone swipes to control the task.</li><li>In <code>Macro - Side Of Body</code>, phone left/right stays left/right, phone up/down drives forward/back, and phone forward/back drives up/down.</li><li>Submission is always <code>triple tap</code> for every task.</li></ul>
 </main></body></html>
